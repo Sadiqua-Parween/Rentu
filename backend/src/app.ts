@@ -7,6 +7,11 @@ import bookingsRoutes from './modules/bookings/bookings.routes';
 import analyticsRoutes from './modules/analytics/analytics.routes';
 import usersRoutes from './modules/users/users.routes';
 import messagesRoutes from './modules/messages/messages.routes';
+import notificationsRoutes from './modules/notifications/notifications.routes';
+import uploadRoutes from './modules/upload/upload.routes';
+import pushRoutes from './modules/push/push.routes';
+import realtimeRoutes from './modules/realtime/realtime.routes';
+import aiRoutes from './modules/ai/ai.routes';
 import { errorHandler } from './middleware/error';
 import { sendError, sendSuccess } from './middleware/response';
 import { query } from './config/db';
@@ -15,10 +20,31 @@ import { ENV } from './config/env';
 export const createApp = () => {
   const app = express();
 
-  // Middleware
-  app.use(cors({ origin: true, credentials: true }));
+  // Middleware - Safe CORS origins
+  const allowedOrigins = [
+    ENV.FRONTEND_URL,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+  ].filter(Boolean);
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, server-to-server)
+        if (!origin) return callback(null, true);
+        if (ENV.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error(`Origin ${origin} not allowed by CORS policy`));
+      },
+      credentials: true,
+    })
+  );
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
+
 
   // Health Check (Matches both /api/health and /health)
   app.get(['/api/health', '/health'], async (req, res) => {
@@ -55,6 +81,12 @@ export const createApp = () => {
   app.use(['/api/analytics', '/analytics'], analyticsRoutes);
   app.use(['/api/users', '/users'], usersRoutes);
   app.use(['/api/messages', '/messages'], messagesRoutes);
+  app.use(['/api/notifications', '/notifications'], notificationsRoutes);
+  app.use(['/api/upload', '/upload'], uploadRoutes);
+  app.use(['/api/push', '/push'], pushRoutes);
+  app.use(['/api/realtime', '/realtime'], realtimeRoutes);
+  app.use(['/api/ai', '/ai'], aiRoutes);
+
 
   // 404 handler
   app.use((req, res) => {

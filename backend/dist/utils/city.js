@@ -2,10 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CITIES = void 0;
 exports.extractCity = extractCity;
-exports.CITIES = ['Delhi', 'Bangalore', 'Mumbai'];
+exports.CITIES = ['Bangalore', 'Delhi', 'Mumbai'];
 function extractCity(locality) {
     if (!locality)
-        return 'Delhi';
+        return 'Bangalore';
     const loc = locality.toLowerCase();
     if (loc.includes('bangalore') ||
         loc.includes('bengaluru') ||
@@ -24,5 +24,12 @@ function extractCity(locality) {
         loc.includes('colaba')) {
         return 'Mumbai';
     }
-    return 'Delhi';
+    if (loc.includes('delhi') ||
+        loc.includes('saket') ||
+        loc.includes('hauz') ||
+        loc.includes('noida') ||
+        loc.includes('gurgaon')) {
+        return 'Delhi';
+    }
+    return 'Bangalore';
 }

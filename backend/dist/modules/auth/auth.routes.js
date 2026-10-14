@@ -7,10 +7,12 @@ const express_1 = require("express");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const zod_1 = require("zod");
+const app_1 = require("firebase-admin/app");
+const auth_1 = require("firebase-admin/auth");
 const db_1 = require("../../config/db");
 const env_1 = require("../../config/env");
 const response_1 = require("../../middleware/response");
-const auth_1 = require("../../middleware/auth");
+const auth_2 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
 const registerSchema = zod_1.z.object({
     email: zod_1.z.string().email('Invalid email address format'),
@@ -112,28 +114,60 @@ router.post('/demo-login', async (req, res, next) => {
     }
 });
 const firebaseSyncSchema = zod_1.z.object({
-    firebaseUid: zod_1.z.string().optional(),
-    clerkId: zod_1.z.string().optional(),
+    firebaseUid: zod_1.z.string().min(1, 'Firebase UID is required'),
     email: zod_1.z.string().email(),
     name: zod_1.z.string().min(1),
+    idToken: zod_1.z.string().optional(),
     avatarUrl: zod_1.z.string().optional(),
     locality: zod_1.z.string().optional(),
     phone: zod_1.z.string().optional(),
 });
-// Sync Firebase / SSO user with Rentu⁺ database
+// Sync Firebase authenticated user with Rentu⁺ database
 const handleSyncUser = async (req, res, next) => {
     try {
         const validated = firebaseSyncSchema.parse(req.body);
-        const uid = validated.firebaseUid || validated.clerkId || `fb_${Date.now()}`;
-        const email = validated.email.toLowerCase();
+        // Extract Bearer token from header or body
+        const authHeader = req.headers.authorization;
+        const token = (authHeader && authHeader.startsWith('Bearer '))
+            ? authHeader.split(' ')[1]
+            : validated.idToken;
+        if (!token) {
+            return (0, response_1.sendError)(res, 'UNAUTHORIZED', 'Valid Firebase ID token required in Authorization header or body', 401);
+        }
+        let verifiedUid = validated.firebaseUid;
+        let verifiedEmail = validated.email.toLowerCase();
+        // Verify token cryptographically if Firebase Admin is configured
+        if ((0, app_1.getApps)().length > 0) {
+            try {
+                const decoded = await (0, auth_1.getAuth)().verifyIdToken(token);
+                if (!decoded || !decoded.uid) {
+                    return (0, response_1.sendError)(res, 'UNAUTHORIZED', 'Invalid or unverified Firebase ID token', 401);
+                }
+                if (decoded.uid !== validated.firebaseUid) {
+                    return (0, response_1.sendError)(res, 'FORBIDDEN', 'Submitted Firebase UID does not match verified token identity', 403);
+                }
+                verifiedUid = decoded.uid;
+                if (decoded.email) {
+                    verifiedEmail = decoded.email.toLowerCase();
+                }
+            }
+            catch (err) {
+                return (0, response_1.sendError)(res, 'UNAUTHORIZED', `Firebase token verification failed: ${err.message || 'invalid token'}`, 401);
+            }
+        }
+        else if (env_1.ENV.NODE_ENV === 'production') {
+            return (0, response_1.sendError)(res, 'SERVICE_UNAVAILABLE', 'Authentication service is not properly configured', 503);
+        }
+        const uid = verifiedUid;
+        const email = verifiedEmail;
         const avatar = validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(validated.name)}`;
-        const locality = validated.locality || 'Saket, New Delhi';
-        // 1. Look for existing user by firebase_uid, clerk_id or email
+        const locality = validated.locality || 'Bangalore';
+        // Look for existing user by firebase_uid or email
         const existing = await (0, db_1.query)(`SELECT id, email, name, phone, locality, address_text, pincode, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, created_at
-       FROM users WHERE firebase_uid = $1 OR clerk_id = $2 OR email = $3`, [uid, uid, email]);
+       FROM users WHERE firebase_uid = $1 OR id = $1 OR email = $2`, [uid, email]);
         let user;
         if (existing.rows.length > 0) {
-            // Update existing user with firebase_uid and keep custom avatar if set
+            // Update existing user with firebase_uid and profile info
             const updated = await (0, db_1.query)(`UPDATE users
          SET firebase_uid = $1,
              name = COALESCE(NULLIF($2, ''), name),
@@ -144,7 +178,7 @@ const handleSyncUser = async (req, res, next) => {
             user = updated.rows[0];
         }
         else {
-            // Create new user for this Firebase account
+            // Create new user for this verified Firebase account
             const created = await (0, db_1.query)(`INSERT INTO users (id, firebase_uid, email, name, phone, locality, avatar_url, bio, trust_score, role)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 85, 'USER')
          RETURNING id, email, name, phone, locality, address_text, pincode, rating, avatar_url, banner_url, bio, trust_score, role, created_at`, [
@@ -159,17 +193,16 @@ const handleSyncUser = async (req, res, next) => {
             ]);
             user = created.rows[0];
         }
-        const token = generateToken(user);
-        return (0, response_1.sendSuccess)(res, { user, token }, 'Firebase session synchronized with Rentu⁺! 🚀');
+        const tokenPayload = generateToken(user);
+        return (0, response_1.sendSuccess)(res, { user, token: tokenPayload }, 'Firebase session synchronized with Rentu⁺! 🚀');
     }
     catch (error) {
         next(error);
     }
 };
 router.post('/firebase-sync', handleSyncUser);
-router.post('/clerk-sync', handleSyncUser);
 // Get Current Profile
-router.get('/me', auth_1.authMiddleware, async (req, res, next) => {
+router.get('/me', auth_2.authMiddleware, async (req, res, next) => {
     try {
         const result = await (0, db_1.query)(`SELECT id, email, name, phone, locality, address_text, pincode, rating, avatar_url, banner_url, bio, trust_score, role, created_at
        FROM users WHERE id = $1`, [req.user.id]);

@@ -11,8 +11,8 @@ const startServer = async () => {
         await (0, migrate_1.runMigrations)().catch((err) => {
             console.warn('Migrations notice on startup:', err.message);
         });
-        const server = exports.app.listen(env_1.ENV.PORT, () => {
-            console.log(`⚡ Rentu⁺ API Service listening on http://localhost:${env_1.ENV.PORT}`);
+        const server = exports.app.listen(env_1.ENV.PORT, '0.0.0.0', () => {
+            console.log(`⚡ Rentu⁺ API Service listening on http://localhost:${env_1.ENV.PORT} (0.0.0.0)`);
             console.log(`🌱 Environment: ${env_1.ENV.NODE_ENV}`);
             console.log(`📡 Ready for rental requests!`);
         });

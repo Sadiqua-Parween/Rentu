@@ -126,19 +126,24 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next
       params.push(ownerId);
       sql += ` AND i.owner_id = $${params.length}`;
     } else if (!radar || radar === 'false') {
-      // City isolation when not on hyper-local 100m radar mode
+      // City isolation only when specific locality is requested
       let userCity: string | null = null;
       const authUser = (req as AuthenticatedRequest).user;
       if (authUser?.id) {
         const userRes = await query('SELECT locality FROM users WHERE id = $1', [authUser.id]);
-        if (userRes.rows.length > 0) {
+        if (userRes.rows.length > 0 && userRes.rows[0].locality) {
           userCity = extractCity(userRes.rows[0].locality);
         }
       }
 
-      const activeCity = userCity || (locality ? extractCity(String(locality)) : 'Delhi');
-      params.push(`%${activeCity}%`);
-      sql += ` AND (i.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      if (locality && locality !== 'All' && locality !== 'all') {
+        const activeCity = extractCity(String(locality));
+        params.push(`%${activeCity}%`);
+        sql += ` AND (i.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      } else if (userCity) {
+        params.push(`%${userCity}%`);
+        sql += ` AND (i.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      }
     }
 
     if (search) {

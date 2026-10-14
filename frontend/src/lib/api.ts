@@ -6,8 +6,10 @@ import {
   Message, 
   Conversation, 
   CommunityPulse, 
-  CategoryStat 
+  CategoryStat,
+  AppNotification
 } from './types';
+
 
 const API_BASE = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api` 
@@ -94,17 +96,19 @@ export const api = {
     firebaseUid: string;
     email: string;
     name: string;
+    idToken?: string;
     avatarUrl?: string;
     locality?: string;
     phone?: string;
   }): Promise<{ user: User; token: string }> {
     const res = await fetch(`${API_BASE}/auth/firebase-sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify(data),
     });
     return handleResponse(res);
   },
+
 
 
   async getMe(): Promise<User & { stats: any }> {
@@ -283,14 +287,23 @@ export const api = {
     return handleResponse(res);
   },
 
-  async sendMessage(booking_id: string, receiver_id: string, content: string): Promise<Message> {
+  async sendMessage(booking_id: string, content: string, receiver_id?: string): Promise<Message> {
     const res = await fetch(`${API_BASE}/messages`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ booking_id, receiver_id, content }),
+      body: JSON.stringify({ booking_id, content, receiver_id }),
     });
     return handleResponse(res);
   },
+
+  async markMessagesAsRead(bookingId: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/messages/${bookingId}/read`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
 
   // Users
   async getUser(id: string): Promise<User & { items: Item[]; stats: any }> {
@@ -308,4 +321,103 @@ export const api = {
     });
     return handleResponse(res);
   },
+
+  // In-App Notifications
+  async getNotifications(params?: { unreadOnly?: boolean; limit?: number; offset?: number }): Promise<{
+    notifications: AppNotification[];
+    total: number;
+    unread_count: number;
+    limit: number;
+    offset: number;
+  }> {
+    const query = new URLSearchParams();
+    if (params?.unreadOnly) query.append('unreadOnly', 'true');
+    if (params?.limit) query.append('limit', params.limit.toString());
+    if (params?.offset) query.append('offset', params.offset.toString());
+
+    const res = await fetch(`${API_BASE}/notifications?${query.toString()}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async getUnreadNotificationCount(): Promise<{ unread_count: number }> {
+    const res = await fetch(`${API_BASE}/notifications/unread-count`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async markNotificationAsRead(id: string): Promise<AppNotification> {
+    const res = await fetch(`${API_BASE}/notifications/${id}/read`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async markAllNotificationsAsRead(): Promise<{ success: boolean; count: number }> {
+    const res = await fetch(`${API_BASE}/notifications/read-all`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  // Rentu AI Assistant
+  async getAiStatus(): Promise<{
+    configured: boolean;
+    provider: string;
+    model: string;
+    instructions: string;
+  }> {
+    const res = await fetch(`${API_BASE}/ai/status`);
+    return handleResponse(res);
+  },
+
+  async getAiSuggestions(): Promise<Array<{ label: string; prompt: string }>> {
+    const res = await fetch(`${API_BASE}/ai/suggestions`);
+    return handleResponse(res);
+  },
+
+  async sendAiChat(
+    messages: Array<{ role: string; content: string }>,
+    contextItemId?: string
+  ): Promise<{
+    message: string;
+    listings?: Item[];
+    comparison?: any;
+    availability?: any;
+    toolsUsed?: string[];
+    isGenerative: boolean;
+    setupNotice?: string;
+  }> {
+    const res = await fetch(`${API_BASE}/ai/chat`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        messages,
+        contextItemId: contextItemId || undefined,
+      }),
+    });
+    return handleResponse(res);
+  },
+
+  async checkItemAvailability(
+    itemId: string,
+    startDate?: string,
+    durationDays?: number
+  ): Promise<any> {
+    const res = await fetch(`${API_BASE}/ai/tools/availability`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        itemId,
+        startDate,
+        durationDays,
+      }),
+    });
+    return handleResponse(res);
+  },
 };
+

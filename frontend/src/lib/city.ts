@@ -1,8 +1,8 @@
-export const CITIES = ['Delhi', 'Bangalore', 'Mumbai'] as const;
+export const CITIES = ['Bangalore', 'Delhi', 'Mumbai'] as const;
 export type CityName = typeof CITIES[number];
 
 export function extractCity(locality?: string): CityName {
-  if (!locality) return 'Delhi';
+  if (!locality) return 'Bangalore';
   const loc = locality.toLowerCase();
   if (
     loc.includes('bangalore') || 
@@ -25,5 +25,14 @@ export function extractCity(locality?: string): CityName {
   ) {
     return 'Mumbai';
   }
-  return 'Delhi';
+  if (
+    loc.includes('delhi') ||
+    loc.includes('saket') ||
+    loc.includes('hauz') ||
+    loc.includes('noida') ||
+    loc.includes('gurgaon')
+  ) {
+    return 'Delhi';
+  }
+  return 'Bangalore';
 }

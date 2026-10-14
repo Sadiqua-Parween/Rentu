@@ -35,9 +35,12 @@ export interface Item {
   owner_avatar?: string;
   owner_locality?: string;
   owner_trust_score?: number;
+  owner_rating?: number | string;
   owner_bio?: string;
   owner_phone?: string;
   owner_email?: string;
+  total_price?: number;
+  duration_days?: number;
   related_items?: Item[];
 }
 
@@ -79,6 +82,7 @@ export interface Booking {
   item_category?: string;
   item_locality?: string;
   item_rate?: number | string;
+  price_per_day?: number | string;
   borrower_name?: string;
   borrower_avatar?: string;
   borrower_phone?: string;
@@ -98,6 +102,9 @@ export interface Message {
   created_at: string;
   sender_name?: string;
   sender_avatar?: string;
+  status?: 'sending' | 'sent' | 'failed';
+  is_read?: boolean;
+  read_at?: string;
 }
 
 export interface Conversation {
@@ -107,15 +114,18 @@ export interface Conversation {
   duration_days: number;
   total_price: number | string;
   item_title: string;
-  item_images: string[];
-  item_locality: string;
+  item_images?: string[];
+  item_locality?: string;
   partner_id: string;
   partner_name: string;
   partner_avatar?: string;
   partner_phone?: string;
+  partner_role?: string;
   last_message?: string;
   last_message_at?: string;
+  unread_count?: number;
 }
+
 
 export interface CommunityPulse {
   total_users: number;
@@ -135,3 +145,40 @@ export interface CategoryStat {
   count: number;
   avg_rate: number;
 }
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, any>;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface AiMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  listings?: Item[];
+  comparison?: any;
+  availability?: any;
+  toolsUsed?: string[];
+  setupNotice?: string;
+  timestamp: string;
+}
+
+export interface AiStatusResponse {
+  configured: boolean;
+  provider: string;
+  model: string;
+  instructions: string;
+}
+
+export interface AiSuggestion {
+  label: string;
+  prompt: string;
+}
+
+

@@ -13,6 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { CuteBotAvatar } from './CuteBotAvatar';
 import { Item } from '../lib/types';
 import { useAuth } from '../lib/authContext';
 import { api } from '../lib/api';
@@ -23,6 +24,7 @@ interface ItemDetailModalProps {
   onBookingSuccess: () => void;
   onOpenAuth: () => void;
   onOpenChatWithBooking?: (bookingId: string) => void;
+  onOpenAiWithItem?: (item: Item) => void;
 }
 
 export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
@@ -31,6 +33,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onBookingSuccess,
   onOpenAuth,
   onOpenChatWithBooking,
+  onOpenAiWithItem,
 }) => {
   const { user, isAuthenticated } = useAuth();
 
@@ -63,13 +66,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     ? item.image_urls
     : ['https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=80'];
 
-  // Add dummy secondary angles if only 1 photo exists to match Screen 3 vertical gallery
-  const images = rawImages.length >= 3 ? rawImages : [
-    rawImages[0],
-    'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1512790182412-b19e6d62bc39?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1508873696983-2df5293cb395?auto=format&fit=crop&w=600&q=80',
-  ];
+  const images = rawImages;
 
   const pricePerDay = rentType === 'Borrow' ? 0 : Number(item.price_per_day);
   const totalCost = pricePerDay * durationDays;
@@ -182,18 +179,42 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   </div>
 
                   <div className="mt-2.5 flex items-center gap-3 text-xs font-semibold text-ink-secondary">
-                    <div className="flex items-center gap-1 text-ink">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span>4.8 (24 reviews)</span>
-                    </div>
-                    <span>•</span>
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-brand" />
-                      <span>{item.locality || 'Delhi (0.8 km)'}</span>
-                    </div>
-                    <span>•</span>
+                    {item.owner_rating && Number(item.owner_rating) > 0 ? (
+                      <>
+                        <div className="flex items-center gap-1 text-ink">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          <span>{Number(item.owner_rating).toFixed(1)}</span>
+                        </div>
+                        <span>•</span>
+                      </>
+                    ) : null}
+                    {item.locality && (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-brand" />
+                          <span>{item.locality.split(',')[0]}</span>
+                        </div>
+                        <span>•</span>
+                      </>
+                    )}
                     <span>{item.category}</span>
                   </div>
+
+                  {onOpenAiWithItem && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenAiWithItem(item)}
+                      className="mt-3.5 w-full py-2 px-3.5 rounded-2xl bg-gradient-to-r from-pink-50 to-pink-100/60 dark:from-pink-950/40 dark:to-pink-900/20 hover:from-pink-100 hover:to-pink-200/50 dark:hover:bg-pink-950/60 border border-pink-200/90 dark:border-pink-900/50 text-brand text-xs font-bold transition-all flex items-center justify-between shadow-2xs group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CuteBotAvatar size={20} className="group-hover:rotate-12 transition-transform" />
+                        <span>Ask Rentu AI about this {item.title}</span>
+                      </div>
+                      <span className="text-[11px] text-ink-secondary group-hover:text-brand font-medium flex items-center">
+                        Dates & Price check →
+                      </span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -224,7 +245,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                     className="w-12 h-12 rounded-full object-cover border border-zinc-200"
                   />
                   <div>
-                    <h4 className="text-sm font-extrabold text-ink">{item.owner_name || 'Verified Owner'}</h4>
+                    <h4 className="text-sm font-extrabold text-ink">{item.owner_name || 'Community Member'}</h4>
                     <p className="text-xs text-ink-secondary font-medium">Verified Lender</p>
                   </div>
                 </div>
@@ -240,16 +261,16 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               <div>
                 <h3 className="text-sm font-extrabold text-ink uppercase tracking-wider mb-2">About this item</h3>
                 <p className="text-xs sm:text-sm text-ink-secondary leading-relaxed font-medium">
-                  {item.description || "Perfect for beginners and hobbyists. Comes with 18-55mm lens, charger, 32GB SD card and camera bag. Great for travel, events or college projects."}
+                  {item.description || "Available for rent from a verified neighbor."}
                 </p>
               </div>
 
-              {/* Tags Pills matching Screen 3 */}
+              {/* Item Tags derived from real item attributes */}
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                {['Camera', 'DSLR', '18-55mm', 'With accessories', 'Good condition'].map((tag) => (
+                {[item.category, item.sticker_badge, item.locality ? item.locality.split(',')[0] : null, 'Verified Gear'].filter(Boolean).map((tag) => (
                   <span
                     key={tag}
-                    className="px-3 py-1 bg-zinc-100 text-ink-secondary text-xs font-semibold rounded-full border border-zinc-200"
+                    className="px-3 py-1 bg-zinc-100 dark:bg-zinc-800 text-ink-secondary text-xs font-semibold rounded-full border border-divider"
                   >
                     {tag}
                   </span>

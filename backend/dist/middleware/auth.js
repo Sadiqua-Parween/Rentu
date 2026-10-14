@@ -22,66 +22,34 @@ if (env_1.ENV.FIREBASE_PROJECT_ID && (0, app_1.getApps)().length === 0) {
     }
 }
 async function resolveUserFromToken(token) {
-    // 1. Try local Rentu⁺ JWT first
+    // 1. Try local Rentu⁺ JWT first (cryptographically verified with server secret)
     try {
         const decoded = jsonwebtoken_1.default.verify(token, env_1.ENV.JWT_SECRET);
         if (decoded && decoded.id) {
-            // Verify user in database or match by email
-            const checkRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE id = $1 OR (email = $2 AND email IS NOT NULL)', [decoded.id, decoded.email || '']);
+            const checkRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE id = $1', [decoded.id]);
             if (checkRes.rows.length > 0) {
                 const u = checkRes.rows[0];
                 return { id: u.id, email: u.email, role: u.role, name: u.name };
             }
-            // Auto-insert user into DB if not found so foreign key joins succeed
-            await (0, db_1.query)(`
-        INSERT INTO users (id, name, email, role)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
-      `, [decoded.id, decoded.name || 'User', decoded.email || `${decoded.id}@user.internal`, decoded.role || 'USER']).catch(() => { });
-            return decoded;
         }
     }
     catch {
-        // Not a local token, try Firebase
+        // Not a valid local JWT, fall through to Firebase verification
     }
-    // 2. Try Firebase ID token
-    if (env_1.ENV.FIREBASE_PROJECT_ID) {
+    // 2. Try Firebase ID token (strictly verified using Firebase Admin SDK)
+    if (env_1.ENV.FIREBASE_PROJECT_ID && (0, app_1.getApps)().length > 0) {
         try {
-            let firebaseUid = null;
-            let email = '';
-            let name = 'User';
-            // Attempt verification with Firebase Admin if available
-            try {
-                const decodedFb = await (0, auth_1.getAuth)().verifyIdToken(token);
-                if (decodedFb && decodedFb.uid) {
-                    firebaseUid = decodedFb.uid;
-                    email = decodedFb.email || `${decodedFb.uid}@firebase.rentu.internal`;
-                    name = decodedFb.name || 'User';
-                }
-            }
-            catch {
-                // Fallback: decode JWT token payload if issued by Google Firebase
-                const decodedRaw = jsonwebtoken_1.default.decode(token);
-                if (decodedRaw && (decodedRaw.aud === env_1.ENV.FIREBASE_PROJECT_ID || decodedRaw.iss?.includes('securetoken.google.com'))) {
-                    firebaseUid = decodedRaw.user_id || decodedRaw.sub;
-                    email = decodedRaw.email || `${firebaseUid}@firebase.rentu.internal`;
-                    name = decodedRaw.name || 'User';
-                }
-            }
-            if (firebaseUid) {
-                // Look up user by firebase_uid or id or email
-                let userRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2 OR email = $3', [firebaseUid, firebaseUid, email]);
+            const decodedFb = await (0, auth_1.getAuth)().verifyIdToken(token);
+            if (decodedFb && decodedFb.uid) {
+                const firebaseUid = decodedFb.uid;
+                const email = decodedFb.email || `${firebaseUid}@firebase.rentu.internal`;
+                const name = decodedFb.name || 'User';
+                let userRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2', [firebaseUid, firebaseUid]);
                 if (userRes.rows.length === 0) {
-                    await (0, db_1.query)(`
-            INSERT INTO users (id, firebase_uid, name, email, role)
-            VALUES ($1, $2, $3, $4, 'USER')
-            ON CONFLICT (id) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid;
-          `, [
-                        firebaseUid,
-                        firebaseUid,
-                        name,
-                        email
-                    ]).catch(() => { });
+                    // Provision verified Firebase user in database
+                    await (0, db_1.query)(`INSERT INTO users (id, firebase_uid, name, email, role)
+             VALUES ($1, $2, $3, $4, 'USER')
+             ON CONFLICT (id) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid, updated_at = NOW();`, [firebaseUid, firebaseUid, name, email]).catch(() => { });
                     userRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $1', [firebaseUid]);
                 }
                 if (userRes.rows.length > 0) {
@@ -91,31 +59,10 @@ async function resolveUserFromToken(token) {
             }
         }
         catch {
-            // Token is not a valid Firebase token
+            // Token rejected by Firebase Admin SDK
         }
     }
-    // 3. Support client Firebase fallback session tokens: "fb_<uid>"
-    if (token.startsWith('fb_')) {
-        const rawUid = token.replace(/^fb_/, '');
-        try {
-            let userRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2', [rawUid, rawUid]);
-            if (userRes.rows.length === 0) {
-                await (0, db_1.query)(`
-          INSERT INTO users (id, firebase_uid, name, email, role)
-          VALUES ($1, $1, $2, $3, 'USER')
-          ON CONFLICT (id) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid;
-        `, [rawUid, 'Rentu Member', `${rawUid}@firebase.rentu.internal`]).catch(() => { });
-                userRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $1', [rawUid]);
-            }
-            if (userRes.rows.length > 0) {
-                const u = userRes.rows[0];
-                return { id: u.id, email: u.email, role: u.role, name: u.name };
-            }
-        }
-        catch (err) {
-            console.warn('Failed to resolve fb_ fallback token:', err);
-        }
-    }
+    // Never accept unverified tokens, decoded claims without signatures, or arbitrary mock tokens
     return null;
 }
 const authMiddleware = async (req, res, next) => {

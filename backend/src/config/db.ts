@@ -1,10 +1,13 @@
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import { ENV } from './env';
 
-const isRemote = ENV.DATABASE_URL.includes('supabase.co') || ENV.DATABASE_URL.includes('pooler') || ENV.NODE_ENV === 'production';
+const isRemote = Boolean(
+  ENV.DATABASE_URL && 
+  (ENV.DATABASE_URL.includes('supabase.co') || ENV.DATABASE_URL.includes('pooler') || ENV.NODE_ENV === 'production')
+);
 
 export const pool = new Pool({
-  connectionString: ENV.DATABASE_URL,
+  connectionString: ENV.DATABASE_URL || undefined,
   ssl: isRemote ? { rejectUnauthorized: false } : undefined,
   max: 10,
   idleTimeoutMillis: 30000,

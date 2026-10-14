@@ -36,7 +36,7 @@ __export(server_exports, {
 module.exports = __toCommonJS(server_exports);
 
 // src/app.ts
-var import_express8 = __toESM(require("express"));
+var import_express12 = __toESM(require("express"));
 var import_cors = __toESM(require("cors"));
 
 // src/modules/auth/auth.routes.ts
@@ -44,6 +44,8 @@ var import_express = require("express");
 var import_bcryptjs = __toESM(require("bcryptjs"));
 var import_jsonwebtoken2 = __toESM(require("jsonwebtoken"));
 var import_zod = require("zod");
+var import_app2 = require("firebase-admin/app");
+var import_auth2 = require("firebase-admin/auth");
 
 // src/config/db.ts
 var import_pg = require("pg");
@@ -51,21 +53,36 @@ var import_pg = require("pg");
 // src/config/env.ts
 var import_dotenv = __toESM(require("dotenv"));
 import_dotenv.default.config();
+var nodeEnv = process.env.NODE_ENV || "development";
+if (nodeEnv === "production") {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("FATAL: DATABASE_URL environment variable is required in production.");
+  }
+  if (!process.env.JWT_SECRET) {
+    throw new Error("FATAL: JWT_SECRET environment variable is required in production.");
+  }
+}
 var ENV = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 5001,
-  DATABASE_URL: process.env.DATABASE_URL || "postgresql://postgres.mkvpscrnqvkaddpmqtbm:dimty9-botgeF-gisfej@aws-0-ap-south-1.pooler.supabase.com:6543/postgres",
-  JWT_SECRET: process.env.JWT_SECRET || "super-secret-borrowflex-key-2026-v1",
-  NODE_ENV: process.env.NODE_ENV || "production",
+  DATABASE_URL: process.env.DATABASE_URL || "",
+  JWT_SECRET: process.env.JWT_SECRET || "dev-rentu-fallback-jwt-secret-do-not-use-in-prod",
+  NODE_ENV: nodeEnv,
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || "rentu-732b7",
-  SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://mkvpscrnqvkaddpmqtbm.supabase.co",
-  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_4vho7OeDJupwXGGZn7TDFQ_Uryz7NwR",
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+  SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || "BDJrNfooBDHVn9HE49Gq-omM8ml0zxaTNhbbqQC3viLcLy0Ug4qWg25yLHMiOeoGM9sYqSZ-bR6xadyWSo7J1Lo",
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || "RJVgTmQ1qhx1oCXZmh9OENXNyuVev2aX0zd-uUeWJEQ",
+  VAPID_SUBJECT: process.env.VAPID_SUBJECT || "mailto:notifications@rentu.internal"
 };
 
 // src/config/db.ts
-var isRemote = ENV.DATABASE_URL.includes("supabase.co") || ENV.DATABASE_URL.includes("pooler") || ENV.NODE_ENV === "production";
+var isRemote = Boolean(
+  ENV.DATABASE_URL && (ENV.DATABASE_URL.includes("supabase.co") || ENV.DATABASE_URL.includes("pooler") || ENV.NODE_ENV === "production")
+);
 var pool = new import_pg.Pool({
-  connectionString: ENV.DATABASE_URL,
+  connectionString: ENV.DATABASE_URL || void 0,
   ssl: isRemote ? { rejectUnauthorized: false } : void 0,
   max: 10,
   idleTimeoutMillis: 3e4,
@@ -121,59 +138,34 @@ async function resolveUserFromToken(token) {
     const decoded = import_jsonwebtoken.default.verify(token, ENV.JWT_SECRET);
     if (decoded && decoded.id) {
       const checkRes = await query(
-        "SELECT id, email, role, name FROM users WHERE id = $1 OR (email = $2 AND email IS NOT NULL)",
-        [decoded.id, decoded.email || ""]
+        "SELECT id, email, role, name FROM users WHERE id = $1",
+        [decoded.id]
       );
       if (checkRes.rows.length > 0) {
         const u = checkRes.rows[0];
         return { id: u.id, email: u.email, role: u.role, name: u.name };
       }
-      await query(`
-        INSERT INTO users (id, name, email, role)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
-      `, [decoded.id, decoded.name || "User", decoded.email || `${decoded.id}@user.internal`, decoded.role || "USER"]).catch(() => {
-      });
-      return decoded;
     }
   } catch {
   }
-  if (ENV.FIREBASE_PROJECT_ID) {
+  if (ENV.FIREBASE_PROJECT_ID && (0, import_app.getApps)().length > 0) {
     try {
-      let firebaseUid = null;
-      let email = "";
-      let name = "User";
-      try {
-        const decodedFb = await (0, import_auth.getAuth)().verifyIdToken(token);
-        if (decodedFb && decodedFb.uid) {
-          firebaseUid = decodedFb.uid;
-          email = decodedFb.email || `${decodedFb.uid}@firebase.rentu.internal`;
-          name = decodedFb.name || "User";
-        }
-      } catch {
-        const decodedRaw = import_jsonwebtoken.default.decode(token);
-        if (decodedRaw && (decodedRaw.aud === ENV.FIREBASE_PROJECT_ID || decodedRaw.iss?.includes("securetoken.google.com"))) {
-          firebaseUid = decodedRaw.user_id || decodedRaw.sub;
-          email = decodedRaw.email || `${firebaseUid}@firebase.rentu.internal`;
-          name = decodedRaw.name || "User";
-        }
-      }
-      if (firebaseUid) {
+      const decodedFb = await (0, import_auth.getAuth)().verifyIdToken(token);
+      if (decodedFb && decodedFb.uid) {
+        const firebaseUid = decodedFb.uid;
+        const email = decodedFb.email || `${firebaseUid}@firebase.rentu.internal`;
+        const name = decodedFb.name || "User";
         let userRes = await query(
-          "SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2 OR email = $3",
-          [firebaseUid, firebaseUid, email]
+          "SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2",
+          [firebaseUid, firebaseUid]
         );
         if (userRes.rows.length === 0) {
-          await query(`
-            INSERT INTO users (id, firebase_uid, name, email, role)
-            VALUES ($1, $2, $3, $4, 'USER')
-            ON CONFLICT (id) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid;
-          `, [
-            firebaseUid,
-            firebaseUid,
-            name,
-            email
-          ]).catch(() => {
+          await query(
+            `INSERT INTO users (id, firebase_uid, name, email, role)
+             VALUES ($1, $2, $3, $4, 'USER')
+             ON CONFLICT (id) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid, updated_at = NOW();`,
+            [firebaseUid, firebaseUid, name, email]
+          ).catch(() => {
           });
           userRes = await query(
             "SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $1",
@@ -186,33 +178,6 @@ async function resolveUserFromToken(token) {
         }
       }
     } catch {
-    }
-  }
-  if (token.startsWith("fb_")) {
-    const rawUid = token.replace(/^fb_/, "");
-    try {
-      let userRes = await query(
-        "SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2",
-        [rawUid, rawUid]
-      );
-      if (userRes.rows.length === 0) {
-        await query(`
-          INSERT INTO users (id, firebase_uid, name, email, role)
-          VALUES ($1, $1, $2, $3, 'USER')
-          ON CONFLICT (id) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid;
-        `, [rawUid, "Rentu Member", `${rawUid}@firebase.rentu.internal`]).catch(() => {
-        });
-        userRes = await query(
-          "SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $1",
-          [rawUid]
-        );
-      }
-      if (userRes.rows.length > 0) {
-        const u = userRes.rows[0];
-        return { id: u.id, email: u.email, role: u.role, name: u.name };
-      }
-    } catch (err) {
-      console.warn("Failed to resolve fb_ fallback token:", err);
     }
   }
   return null;
@@ -355,10 +320,10 @@ router.post("/demo-login", async (req, res, next) => {
   }
 });
 var firebaseSyncSchema = import_zod.z.object({
-  firebaseUid: import_zod.z.string().optional(),
-  clerkId: import_zod.z.string().optional(),
+  firebaseUid: import_zod.z.string().min(1, "Firebase UID is required"),
   email: import_zod.z.string().email(),
   name: import_zod.z.string().min(1),
+  idToken: import_zod.z.string().optional(),
   avatarUrl: import_zod.z.string().optional(),
   locality: import_zod.z.string().optional(),
   phone: import_zod.z.string().optional()
@@ -366,14 +331,40 @@ var firebaseSyncSchema = import_zod.z.object({
 var handleSyncUser = async (req, res, next) => {
   try {
     const validated = firebaseSyncSchema.parse(req.body);
-    const uid = validated.firebaseUid || validated.clerkId || `fb_${Date.now()}`;
-    const email = validated.email.toLowerCase();
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : validated.idToken;
+    if (!token) {
+      return sendError(res, "UNAUTHORIZED", "Valid Firebase ID token required in Authorization header or body", 401);
+    }
+    let verifiedUid = validated.firebaseUid;
+    let verifiedEmail = validated.email.toLowerCase();
+    if ((0, import_app2.getApps)().length > 0) {
+      try {
+        const decoded = await (0, import_auth2.getAuth)().verifyIdToken(token);
+        if (!decoded || !decoded.uid) {
+          return sendError(res, "UNAUTHORIZED", "Invalid or unverified Firebase ID token", 401);
+        }
+        if (decoded.uid !== validated.firebaseUid) {
+          return sendError(res, "FORBIDDEN", "Submitted Firebase UID does not match verified token identity", 403);
+        }
+        verifiedUid = decoded.uid;
+        if (decoded.email) {
+          verifiedEmail = decoded.email.toLowerCase();
+        }
+      } catch (err) {
+        return sendError(res, "UNAUTHORIZED", `Firebase token verification failed: ${err.message || "invalid token"}`, 401);
+      }
+    } else if (ENV.NODE_ENV === "production") {
+      return sendError(res, "SERVICE_UNAVAILABLE", "Authentication service is not properly configured", 503);
+    }
+    const uid = verifiedUid;
+    const email = verifiedEmail;
     const avatar = validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(validated.name)}`;
-    const locality = validated.locality || "Saket, New Delhi";
+    const locality = validated.locality || "Bangalore";
     const existing = await query(
       `SELECT id, email, name, phone, locality, address_text, pincode, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, created_at
-       FROM users WHERE firebase_uid = $1 OR clerk_id = $2 OR email = $3`,
-      [uid, uid, email]
+       FROM users WHERE firebase_uid = $1 OR id = $1 OR email = $2`,
+      [uid, email]
     );
     let user;
     if (existing.rows.length > 0) {
@@ -406,14 +397,13 @@ var handleSyncUser = async (req, res, next) => {
       );
       user = created.rows[0];
     }
-    const token = generateToken(user);
-    return sendSuccess(res, { user, token }, "Firebase session synchronized with Rentu\u207A! \u{1F680}");
+    const tokenPayload = generateToken(user);
+    return sendSuccess(res, { user, token: tokenPayload }, "Firebase session synchronized with Rentu\u207A! \u{1F680}");
   } catch (error) {
     next(error);
   }
 };
 router.post("/firebase-sync", handleSyncUser);
-router.post("/clerk-sync", handleSyncUser);
 router.get("/me", authMiddleware, async (req, res, next) => {
   try {
     const result = await query(
@@ -450,7 +440,7 @@ var import_zod2 = require("zod");
 
 // src/utils/city.ts
 function extractCity(locality) {
-  if (!locality) return "Delhi";
+  if (!locality) return "Bangalore";
   const loc = locality.toLowerCase();
   if (loc.includes("bangalore") || loc.includes("bengaluru") || loc.includes("koramangala") || loc.includes("kengeri") || loc.includes("indiranagar") || loc.includes("whitefield") || loc.includes("hsr")) {
     return "Bangalore";
@@ -458,7 +448,10 @@ function extractCity(locality) {
   if (loc.includes("mumbai") || loc.includes("bandra") || loc.includes("powai") || loc.includes("andheri") || loc.includes("juhu") || loc.includes("colaba")) {
     return "Mumbai";
   }
-  return "Delhi";
+  if (loc.includes("delhi") || loc.includes("saket") || loc.includes("hauz") || loc.includes("noida") || loc.includes("gurgaon")) {
+    return "Delhi";
+  }
+  return "Bangalore";
 }
 
 // src/modules/items/items.routes.ts
@@ -574,13 +567,18 @@ router2.get("/", optionalAuthMiddleware, async (req, res, next) => {
       const authUser = req.user;
       if (authUser?.id) {
         const userRes = await query("SELECT locality FROM users WHERE id = $1", [authUser.id]);
-        if (userRes.rows.length > 0) {
+        if (userRes.rows.length > 0 && userRes.rows[0].locality) {
           userCity = extractCity(userRes.rows[0].locality);
         }
       }
-      const activeCity = userCity || (locality ? extractCity(String(locality)) : "Delhi");
-      params.push(`%${activeCity}%`);
-      sql += ` AND (i.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      if (locality && locality !== "All" && locality !== "all") {
+        const activeCity = extractCity(String(locality));
+        params.push(`%${activeCity}%`);
+        sql += ` AND (i.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      } else if (userCity) {
+        params.push(`%${userCity}%`);
+        sql += ` AND (i.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      }
     }
     if (search) {
       params.push(`%${search}%`);
@@ -807,13 +805,18 @@ router3.get("/", optionalAuthMiddleware, async (req, res, next) => {
       const authUser = req.user;
       if (authUser?.id) {
         const userRes = await query("SELECT locality FROM users WHERE id = $1", [authUser.id]);
-        if (userRes.rows.length > 0) {
+        if (userRes.rows.length > 0 && userRes.rows[0].locality) {
           userCity = extractCity(userRes.rows[0].locality);
         }
       }
-      const activeCity = userCity || (locality ? extractCity(String(locality)) : "Delhi");
-      params.push(`%${activeCity}%`);
-      sql += ` AND (r.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      if (locality && locality !== "All" && locality !== "all") {
+        const activeCity = extractCity(String(locality));
+        params.push(`%${activeCity}%`);
+        sql += ` AND (r.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      } else if (userCity) {
+        params.push(`%${userCity}%`);
+        sql += ` AND (r.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+      }
     }
     sql += ` ORDER BY r.created_at DESC`;
     const result = await query(sql, params);
@@ -935,13 +938,278 @@ var requests_routes_default = router3;
 // src/modules/bookings/bookings.routes.ts
 var import_express4 = require("express");
 var import_zod4 = require("zod");
+
+// src/modules/realtime/realtime.service.ts
+var RealtimeService = class {
+  static clients = /* @__PURE__ */ new Map();
+  static heartbeatInterval = null;
+  static init() {
+    if (!this.heartbeatInterval) {
+      this.heartbeatInterval = setInterval(() => {
+        this.broadcastPing();
+      }, 25e3);
+      if (this.heartbeatInterval.unref) {
+        this.heartbeatInterval.unref();
+      }
+    }
+  }
+  static addClient(userId, res) {
+    this.init();
+    if (!this.clients.has(userId)) {
+      this.clients.set(userId, /* @__PURE__ */ new Set());
+    }
+    const userClients = this.clients.get(userId);
+    userClients.add(res);
+    res.write(`event: connected
+data: ${JSON.stringify({ userId, connectedAt: (/* @__PURE__ */ new Date()).toISOString() })}
+
+`);
+    res.on("close", () => {
+      userClients.delete(res);
+      if (userClients.size === 0) {
+        this.clients.delete(userId);
+      }
+    });
+  }
+  static sendToUser(userId, event, data) {
+    const userClients = this.clients.get(userId);
+    if (!userClients || userClients.size === 0) return;
+    const payload = `event: ${event}
+data: ${JSON.stringify(data)}
+
+`;
+    for (const res of userClients) {
+      try {
+        res.write(payload);
+      } catch (err) {
+        console.warn(`Failed to write to SSE client for user ${userId}:`, err);
+        userClients.delete(res);
+      }
+    }
+  }
+  static broadcastPing() {
+    for (const [userId, clientSet] of this.clients.entries()) {
+      for (const res of clientSet) {
+        try {
+          res.write(":ping\n\n");
+        } catch {
+          clientSet.delete(res);
+        }
+      }
+      if (clientSet.size === 0) {
+        this.clients.delete(userId);
+      }
+    }
+  }
+  static getConnectedCount(userId) {
+    if (userId) {
+      return this.clients.get(userId)?.size || 0;
+    }
+    let total = 0;
+    for (const set of this.clients.values()) {
+      total += set.size;
+    }
+    return total;
+  }
+};
+
+// src/modules/push/push.service.ts
+var import_web_push = __toESM(require("web-push"));
+if (ENV.VAPID_PUBLIC_KEY && ENV.VAPID_PRIVATE_KEY) {
+  try {
+    import_web_push.default.setVapidDetails(
+      ENV.VAPID_SUBJECT,
+      ENV.VAPID_PUBLIC_KEY,
+      ENV.VAPID_PRIVATE_KEY
+    );
+  } catch (err) {
+    console.warn("Failed to initialize web-push VAPID details:", err);
+  }
+}
+var PushService = class {
+  /**
+   * Save or update a user's browser push subscription
+   */
+  static async saveSubscription(userId, subscription) {
+    if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+      throw new Error("Invalid push subscription object");
+    }
+    await query(
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (endpoint) DO UPDATE 
+         SET user_id = EXCLUDED.user_id,
+             p256dh = EXCLUDED.p256dh,
+             auth = EXCLUDED.auth,
+             created_at = CURRENT_TIMESTAMP;`,
+      [userId, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth]
+    );
+  }
+  /**
+   * Remove a user's browser push subscription (when disabling notifications)
+   */
+  static async removeSubscription(userId, endpoint) {
+    await query(
+      `DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2;`,
+      [userId, endpoint]
+    );
+  }
+  /**
+   * Send a Web Push notification to all active devices registered by the user
+   */
+  static async sendPushToUser(userId, payload) {
+    try {
+      const subsRes = await query(
+        `SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1;`,
+        [userId]
+      );
+      if (subsRes.rows.length === 0) return;
+      const notificationData = JSON.stringify({
+        title: payload.title,
+        body: payload.body,
+        icon: payload.icon || "/favicon.ico",
+        badge: payload.badge || "/favicon.ico",
+        url: payload.url || "/",
+        tag: payload.tag || "rentu-notification",
+        data: payload.data || {}
+      });
+      const sendPromises = subsRes.rows.map(async (sub) => {
+        const pushSubscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.p256dh,
+            auth: sub.auth
+          }
+        };
+        try {
+          await import_web_push.default.sendNotification(pushSubscription, notificationData);
+        } catch (err) {
+          if (err.statusCode === 404 || err.statusCode === 410) {
+            await query("DELETE FROM push_subscriptions WHERE id = $1;", [sub.id]).catch(() => {
+            });
+          } else {
+            console.warn(`Web push delivery failed for endpoint ${sub.endpoint.substring(0, 30)}...:`, err.message);
+          }
+        }
+      });
+      await Promise.all(sendPromises);
+    } catch (err) {
+      console.warn("Error in PushService.sendPushToUser:", err);
+    }
+  }
+};
+
+// src/modules/notifications/notification.service.ts
+var NotificationService = {
+  /**
+   * Safely create an in-app notification.
+   * Dispatches real-time SSE stream events and Web Push notifications.
+   * If notification delivery fails, it logs without interrupting parent workflows.
+   */
+  async create(params) {
+    try {
+      const { userId, type, title, body, data = {} } = params;
+      if (!userId || !title || !body) {
+        console.warn("NotificationService.create: missing required parameters", { userId, title });
+        return null;
+      }
+      const res = await query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, $2, $3, $4, $5::jsonb)
+         RETURNING *`,
+        [userId, type, title, body, JSON.stringify(data)]
+      );
+      const notif = res.rows[0] || null;
+      if (notif) {
+        RealtimeService.sendToUser(userId, "notification", notif);
+        PushService.sendPushToUser(userId, {
+          title,
+          body,
+          url: data?.booking_id ? `/bookings` : "/",
+          tag: `notif-${type}-${data?.booking_id || notif.id}`,
+          data: {
+            notification_id: notif.id,
+            type,
+            ...data
+          }
+        }).catch((pushErr) => {
+          console.warn("Web push dispatch error:", pushErr);
+        });
+      }
+      return notif;
+    } catch (err) {
+      console.error("Failed to create in-app notification:", err);
+      return null;
+    }
+  },
+  /**
+   * Fetch notifications belonging exclusively to the authenticated user.
+   */
+  async getUserNotifications(userId, options = {}) {
+    const limit = Math.min(Math.max(options.limit || 20, 1), 50);
+    const offset = Math.max(options.offset || 0, 0);
+    let sql = `
+      SELECT id, user_id, type, title, body, data, read_at, created_at
+      FROM notifications
+      WHERE user_id = $1
+    `;
+    const params = [userId];
+    if (options.unreadOnly) {
+      sql += ` AND read_at IS NULL`;
+    }
+    sql += ` ORDER BY created_at DESC LIMIT $2 OFFSET $3`;
+    params.push(limit, offset);
+    const res = await query(sql, params);
+    return res.rows;
+  },
+  /**
+   * Get unread notification count for authenticated user.
+   */
+  async getUnreadCount(userId) {
+    const res = await query(
+      `SELECT COUNT(*) AS count
+       FROM notifications
+       WHERE user_id = $1 AND read_at IS NULL`,
+      [userId]
+    );
+    return parseInt(res.rows[0]?.count || "0", 10);
+  },
+  /**
+   * Mark an individual notification as read.
+   * Strictly verifies that the notification belongs to the authenticated user.
+   */
+  async markAsRead(notificationId, userId) {
+    const res = await query(
+      `UPDATE notifications
+       SET read_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND user_id = $2 AND read_at IS NULL
+       RETURNING *`,
+      [notificationId, userId]
+    );
+    return res.rows[0] || null;
+  },
+  /**
+   * Mark all unread notifications belonging to the authenticated user as read.
+   */
+  async markAllAsRead(userId) {
+    const res = await query(
+      `UPDATE notifications
+       SET read_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1 AND read_at IS NULL`,
+      [userId]
+    );
+    return res.rowCount || 0;
+  }
+};
+
+// src/modules/bookings/bookings.routes.ts
 var router4 = (0, import_express4.Router)();
 var createBookingSchema = import_zod4.z.object({
-  item_id: import_zod4.z.string().uuid("Invalid item ID"),
-  start_date: import_zod4.z.string().min(1, "Start date is required"),
+  item_id: import_zod4.z.string().uuid("Invalid item ID format"),
+  start_date: import_zod4.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be in YYYY-MM-DD format"),
   start_time: import_zod4.z.string().optional(),
-  duration_days: import_zod4.z.number().int().positive("Duration must be at least 1 day"),
-  message: import_zod4.z.string().optional()
+  duration_days: import_zod4.z.number().int().positive("Duration must be at least 1 day").max(90, "Duration cannot exceed 90 days"),
+  message: import_zod4.z.string().max(2e3, "Message cannot exceed 2000 characters").optional()
 });
 var updateStatusSchema = import_zod4.z.object({
   status: import_zod4.z.enum(["PENDING", "ACCEPTED", "REJECTED", "COMPLETED", "CANCELLED"])
@@ -950,13 +1218,39 @@ router4.post("/", authMiddleware, async (req, res, next) => {
   try {
     const validated = createBookingSchema.parse(req.body);
     const borrowerId = req.user.id;
-    const itemRes = await query("SELECT id, owner_id, price_per_day, title, status FROM items WHERE id = $1", [validated.item_id]);
+    const startDateObj = /* @__PURE__ */ new Date(`${validated.start_date}T00:00:00`);
+    const today = /* @__PURE__ */ new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isNaN(startDateObj.getTime()) || startDateObj < today) {
+      return sendError(res, "BAD_REQUEST", "Start date cannot be in the past", 400);
+    }
+    const itemRes = await query(
+      "SELECT id, owner_id, price_per_day, title, status, max_duration_days FROM items WHERE id = $1",
+      [validated.item_id]
+    );
     if (itemRes.rows.length === 0) {
       return sendError(res, "NOT_FOUND", "Item not found", 404);
     }
     const item = itemRes.rows[0];
+    if (item.status === "UNAVAILABLE") {
+      return sendError(res, "BAD_REQUEST", "This gear is currently marked unavailable", 400);
+    }
     if (item.owner_id === borrowerId) {
       return sendError(res, "BAD_REQUEST", "You cannot borrow your own gear \u{1F609}", 400);
+    }
+    if (item.max_duration_days && validated.duration_days > item.max_duration_days) {
+      return sendError(res, "BAD_REQUEST", `Maximum rental duration for this item is ${item.max_duration_days} days`, 400);
+    }
+    const overlapRes = await query(
+      `SELECT id FROM bookings
+       WHERE item_id = $1
+         AND status = 'ACCEPTED'
+         AND start_date <= ($2::date + ($3::integer - 1) * INTERVAL '1 day')
+         AND ($2::date <= start_date + (duration_days - 1) * INTERVAL '1 day')`,
+      [item.id, validated.start_date, validated.duration_days]
+    );
+    if (overlapRes.rows.length > 0) {
+      return sendError(res, "CONFLICT", "This item already has a confirmed booking for the selected dates", 409);
     }
     const totalPrice = Number(item.price_per_day) * validated.duration_days;
     const bookingRes = await query(
@@ -984,6 +1278,21 @@ router4.post("/", authMiddleware, async (req, res, next) => {
         [booking.id, borrowerId, item.owner_id, validated.message]
       );
     }
+    await NotificationService.create({
+      userId: item.owner_id,
+      type: "BOOKING_REQUEST",
+      title: `New Rental Proposal for ${item.title}`,
+      body: `${req.user.name} requested to rent your ${item.title} for ${validated.duration_days} day(s).`,
+      data: {
+        booking_id: booking.id,
+        item_id: item.id,
+        borrower_id: borrowerId,
+        borrower_name: req.user.name,
+        start_date: validated.start_date,
+        duration_days: validated.duration_days,
+        total_price: totalPrice
+      }
+    });
     return sendSuccess(res, booking, "Proposal sent to lender! You will be notified when they accept.", 201);
   } catch (error) {
     next(error);
@@ -1024,20 +1333,24 @@ router4.get("/", authMiddleware, async (req, res, next) => {
   }
 });
 router4.patch("/:id/status", authMiddleware, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { status } = updateStatusSchema.parse(req.body);
+    const { status: targetStatus } = updateStatusSchema.parse(req.body);
     const userId = req.user.id;
-    const bookingRes = await query(
+    await client.query("BEGIN");
+    const bookingRes = await client.query(
       `SELECT b.*, i.title AS item_title, lender.name AS lender_name, borrower.name AS borrower_name
        FROM bookings b
        JOIN items i ON b.item_id = i.id
        JOIN users lender ON b.lender_id = lender.id
        JOIN users borrower ON b.borrower_id = borrower.id
-       WHERE b.id = $1`,
+       WHERE b.id = $1
+       FOR UPDATE OF b`,
       [id]
     );
     if (bookingRes.rows.length === 0) {
+      await client.query("ROLLBACK");
       return sendError(res, "NOT_FOUND", "Booking not found", 404);
     }
     const booking = bookingRes.rows[0];
@@ -1045,33 +1358,123 @@ router4.patch("/:id/status", authMiddleware, async (req, res, next) => {
     const isBorrower = booking.borrower_id === userId;
     const isAdmin = req.user.role === "ADMIN";
     if (!isLender && !isBorrower && !isAdmin) {
-      return sendError(res, "FORBIDDEN", "Permission denied", 403);
+      await client.query("ROLLBACK");
+      return sendError(res, "FORBIDDEN", "Permission denied for this booking", 403);
     }
-    if (status === "ACCEPTED" || status === "REJECTED") {
+    const terminalStates = ["REJECTED", "COMPLETED", "CANCELLED"];
+    if (terminalStates.includes(booking.status)) {
+      await client.query("ROLLBACK");
+      return sendError(
+        res,
+        "BAD_REQUEST",
+        `Booking is already in terminal state '${booking.status}' and cannot be updated`,
+        400
+      );
+    }
+    if (targetStatus === "ACCEPTED" || targetStatus === "REJECTED") {
       if (!isLender && !isAdmin) {
+        await client.query("ROLLBACK");
         return sendError(res, "FORBIDDEN", "Only the gear owner can accept or reject proposals", 403);
       }
+      if (booking.status !== "PENDING") {
+        await client.query("ROLLBACK");
+        return sendError(res, "BAD_REQUEST", `Only PENDING proposals can be ${targetStatus.toLowerCase()}`, 400);
+      }
     }
-    const updateRes = await query(
+    if (targetStatus === "COMPLETED") {
+      if (booking.status !== "ACCEPTED") {
+        await client.query("ROLLBACK");
+        return sendError(res, "BAD_REQUEST", "Only ACCEPTED bookings can be marked as COMPLETED", 400);
+      }
+    }
+    if (targetStatus === "CANCELLED") {
+      if (booking.status !== "PENDING" && booking.status !== "ACCEPTED") {
+        await client.query("ROLLBACK");
+        return sendError(res, "BAD_REQUEST", "Only PENDING or ACCEPTED bookings can be cancelled", 400);
+      }
+    }
+    if (targetStatus === "ACCEPTED") {
+      const overlapRes = await client.query(
+        `SELECT id FROM bookings
+         WHERE item_id = $1
+           AND id != $2
+           AND status = 'ACCEPTED'
+           AND start_date <= ($3::date + ($4::integer - 1) * INTERVAL '1 day')
+           AND ($3::date <= start_date + (duration_days - 1) * INTERVAL '1 day')`,
+        [booking.item_id, booking.id, booking.start_date, booking.duration_days]
+      );
+      if (overlapRes.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return sendError(res, "CONFLICT", "Cannot accept: another booking is already confirmed for these dates", 409);
+      }
+    }
+    const updateRes = await client.query(
       `UPDATE bookings 
        SET status = $1, updated_at = CURRENT_TIMESTAMP
        WHERE id = $2
        RETURNING *`,
-      [status, id]
+      [targetStatus, id]
     );
-    if (status === "ACCEPTED") {
-      await query(`UPDATE items SET status = 'RENTED' WHERE id = $1`, [booking.item_id]);
-      await query(
+    if (targetStatus === "ACCEPTED") {
+      await client.query(`UPDATE items SET status = 'RENTED' WHERE id = $1`, [booking.item_id]);
+      await client.query(
         `INSERT INTO messages (booking_id, sender_id, receiver_id, content)
-         VALUES ($1, $2, $3, '\u{1F389} Proposal accepted! You can now coordinate pickup/dropoff here.')`,
+         VALUES ($1, $2, $3, '\u{1F389} Proposal accepted! You can coordinate pickup/dropoff here.')`,
         [id, booking.lender_id, booking.borrower_id]
       );
-    } else if (status === "COMPLETED" || status === "CANCELLED" || status === "REJECTED") {
-      await query(`UPDATE items SET status = 'AVAILABLE' WHERE id = $1`, [booking.item_id]);
+    } else if (targetStatus === "COMPLETED" || targetStatus === "CANCELLED" || targetStatus === "REJECTED") {
+      const activeAccepted = await client.query(
+        `SELECT id FROM bookings WHERE item_id = $1 AND status = 'ACCEPTED' AND id != $2`,
+        [booking.item_id, booking.id]
+      );
+      if (activeAccepted.rows.length === 0) {
+        await client.query(`UPDATE items SET status = 'AVAILABLE' WHERE id = $1`, [booking.item_id]);
+      }
     }
-    return sendSuccess(res, updateRes.rows[0], `Proposal updated to ${status}`);
+    await client.query("COMMIT");
+    const updatedBooking = updateRes.rows[0];
+    if (targetStatus === "ACCEPTED") {
+      await NotificationService.create({
+        userId: booking.borrower_id,
+        type: "BOOKING_ACCEPTED",
+        title: "Proposal Accepted! \u{1F389}",
+        body: `${booking.lender_name || "The owner"} accepted your rental request for ${booking.item_title}. Coordinate pickup now!`,
+        data: { booking_id: booking.id, item_id: booking.item_id }
+      });
+    } else if (targetStatus === "REJECTED") {
+      await NotificationService.create({
+        userId: booking.borrower_id,
+        type: "BOOKING_REJECTED",
+        title: "Rental Request Declined",
+        body: `${booking.lender_name || "The owner"} was unable to accept your request for ${booking.item_title}.`,
+        data: { booking_id: booking.id, item_id: booking.item_id }
+      });
+    } else if (targetStatus === "CANCELLED") {
+      const recipientId = userId === booking.lender_id ? booking.borrower_id : booking.lender_id;
+      await NotificationService.create({
+        userId: recipientId,
+        type: "BOOKING_CANCELLED",
+        title: "Booking Cancelled",
+        body: `The booking for ${booking.item_title} was cancelled by ${req.user.name}.`,
+        data: { booking_id: booking.id, item_id: booking.item_id }
+      });
+    } else if (targetStatus === "COMPLETED") {
+      const recipientId = userId === booking.lender_id ? booking.borrower_id : booking.lender_id;
+      await NotificationService.create({
+        userId: recipientId,
+        type: "BOOKING_COMPLETED",
+        title: "Rental Completed! \u{1F31F}",
+        body: `The rental for ${booking.item_title} has been marked complete. Don't forget to leave a review!`,
+        data: { booking_id: booking.id, item_id: booking.item_id }
+      });
+    }
+    return sendSuccess(res, updatedBooking, `Proposal updated to ${targetStatus}`);
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {
+    });
     next(error);
+  } finally {
+    client.release();
   }
 });
 var bookings_routes_default = router4;
@@ -1263,40 +1666,47 @@ var import_express7 = require("express");
 var import_zod6 = require("zod");
 var router7 = (0, import_express7.Router)();
 var sendMessageSchema = import_zod6.z.object({
-  booking_id: import_zod6.z.string().uuid(),
-  receiver_id: import_zod6.z.string().uuid(),
-  content: import_zod6.z.string().min(1, "Message cannot be empty")
+  booking_id: import_zod6.z.string().uuid("Invalid booking ID format"),
+  receiver_id: import_zod6.z.string().optional(),
+  content: import_zod6.z.string().trim().min(1, "Message cannot be empty").max(2e3, "Message cannot exceed 2000 characters")
 });
 router7.get("/conversations", authMiddleware, async (req, res, next) => {
   try {
     const userId = req.user.id;
     const result = await query(
-      `SELECT DISTINCT ON (b.id)
-        b.id AS booking_id,
-        b.status AS booking_status,
-        b.start_date,
-        b.duration_days,
-        b.total_price,
-        i.title AS item_title,
-        i.image_urls AS item_images,
-        i.locality AS item_locality,
-        CASE WHEN b.borrower_id = $1 THEN lender.id ELSE borrower.id END AS partner_id,
-        CASE WHEN b.borrower_id = $1 THEN lender.name ELSE borrower.name END AS partner_name,
-        CASE WHEN b.borrower_id = $1 THEN lender.avatar_url ELSE borrower.avatar_url END AS partner_avatar,
-        CASE WHEN b.borrower_id = $1 THEN lender.phone ELSE borrower.phone END AS partner_phone,
-        m.content AS last_message,
-        m.created_at AS last_message_at
-      FROM bookings b
-      JOIN items i ON b.item_id = i.id
-      JOIN users borrower ON b.borrower_id = borrower.id
-      JOIN users lender ON b.lender_id = lender.id
-      LEFT JOIN LATERAL (
-        SELECT content, created_at FROM messages 
-        WHERE booking_id = b.id 
-        ORDER BY created_at DESC LIMIT 1
-      ) m ON true
-      WHERE (b.borrower_id = $1 OR b.lender_id = $1)
-      ORDER BY b.id, m.created_at DESC NULLS LAST`,
+      `SELECT * FROM (
+        SELECT DISTINCT ON (b.id)
+          b.id AS booking_id,
+          b.status AS booking_status,
+          b.start_date,
+          b.duration_days,
+          b.total_price,
+          b.created_at AS booking_created_at,
+          i.id AS item_id,
+          i.title AS item_title,
+          i.image_urls AS item_images,
+          i.locality AS item_locality,
+          i.price_per_day,
+          CASE WHEN b.borrower_id = $1 THEN lender.id ELSE borrower.id END AS partner_id,
+          CASE WHEN b.borrower_id = $1 THEN lender.name ELSE borrower.name END AS partner_name,
+          CASE WHEN b.borrower_id = $1 THEN lender.avatar_url ELSE borrower.avatar_url END AS partner_avatar,
+          CASE WHEN b.borrower_id = $1 THEN lender.phone ELSE borrower.phone END AS partner_phone,
+          CASE WHEN b.borrower_id = $1 THEN 'Lender' ELSE 'Renter' END AS partner_role,
+          m.content AS last_message,
+          m.created_at AS last_message_at
+        FROM bookings b
+        JOIN items i ON b.item_id = i.id
+        JOIN users borrower ON b.borrower_id = borrower.id
+        JOIN users lender ON b.lender_id = lender.id
+        LEFT JOIN LATERAL (
+          SELECT content, created_at FROM messages 
+          WHERE booking_id = b.id 
+          ORDER BY created_at DESC LIMIT 1
+        ) m ON true
+        WHERE (b.borrower_id = $1 OR b.lender_id = $1)
+        ORDER BY b.id, m.created_at DESC NULLS LAST
+      ) convos
+      ORDER BY COALESCE(last_message_at, booking_created_at) DESC`,
       [userId]
     );
     return sendSuccess(res, result.rows);
@@ -1308,16 +1718,40 @@ router7.get("/:bookingId", authMiddleware, async (req, res, next) => {
   try {
     const { bookingId } = req.params;
     const userId = req.user.id;
+    const uuidValidation = import_zod6.z.string().uuid().safeParse(bookingId);
+    if (!uuidValidation.success) {
+      return sendError(res, "INVALID_BOOKING_ID", "Invalid booking ID format", 400);
+    }
+    const bookingCheck = await query(
+      `SELECT id, borrower_id, lender_id FROM bookings WHERE id = $1`,
+      [bookingId]
+    );
+    if (bookingCheck.rows.length === 0) {
+      return sendError(res, "NOT_FOUND", "Conversation not found", 404);
+    }
+    const booking = bookingCheck.rows[0];
+    if (booking.borrower_id !== userId && booking.lender_id !== userId) {
+      return sendError(res, "FORBIDDEN", "Access denied to this conversation", 403);
+    }
     const bookingRes = await query(
-      `SELECT b.*, i.title AS item_title, i.image_urls AS item_images, i.price_per_day
+      `SELECT 
+        b.*, 
+        i.title AS item_title, 
+        i.image_urls AS item_images, 
+        i.price_per_day,
+        i.locality AS item_locality,
+        CASE WHEN b.borrower_id = $2 THEN lender.id ELSE borrower.id END AS partner_id,
+        CASE WHEN b.borrower_id = $2 THEN lender.name ELSE borrower.name END AS partner_name,
+        CASE WHEN b.borrower_id = $2 THEN lender.avatar_url ELSE borrower.avatar_url END AS partner_avatar,
+        CASE WHEN b.borrower_id = $2 THEN lender.phone ELSE borrower.phone END AS partner_phone,
+        CASE WHEN b.borrower_id = $2 THEN 'Lender' ELSE 'Renter' END AS partner_role
        FROM bookings b
        JOIN items i ON b.item_id = i.id
-       WHERE b.id = $1 AND (b.borrower_id = $2 OR b.lender_id = $2)`,
+       JOIN users borrower ON b.borrower_id = borrower.id
+       JOIN users lender ON b.lender_id = lender.id
+       WHERE b.id = $1`,
       [bookingId, userId]
     );
-    if (bookingRes.rows.length === 0) {
-      return sendError(res, "NOT_FOUND", "Conversation not found or access denied", 404);
-    }
     const messagesRes = await query(
       `SELECT 
         m.id, m.booking_id, m.sender_id, m.receiver_id, m.content, m.created_at,
@@ -1351,23 +1785,303 @@ router7.post("/", authMiddleware, async (req, res, next) => {
     if (booking.borrower_id !== senderId && booking.lender_id !== senderId) {
       return sendError(res, "FORBIDDEN", "Cannot send message to this booking", 403);
     }
+    const legitimateReceiverId = booking.borrower_id === senderId ? booking.lender_id : booking.borrower_id;
     const result = await query(
       `INSERT INTO messages (booking_id, sender_id, receiver_id, content)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [validated.booking_id, senderId, validated.receiver_id, validated.content]
+      [validated.booking_id, senderId, legitimateReceiverId, validated.content]
     );
-    return sendSuccess(res, result.rows[0], "Message sent");
+    const message = result.rows[0];
+    const messageWithSender = {
+      ...message,
+      sender_name: req.user.name
+    };
+    RealtimeService.sendToUser(legitimateReceiverId, "message", messageWithSender);
+    RealtimeService.sendToUser(senderId, "message", messageWithSender);
+    await NotificationService.create({
+      userId: legitimateReceiverId,
+      type: "NEW_MESSAGE",
+      title: `Message from ${req.user.name}`,
+      body: validated.content.length > 80 ? `${validated.content.substring(0, 80)}...` : validated.content,
+      data: {
+        booking_id: booking.id,
+        message_id: message.id,
+        sender_id: senderId,
+        sender_name: req.user.name
+      }
+    });
+    return sendSuccess(res, messageWithSender, "Message sent");
   } catch (error) {
     next(error);
   }
 });
 var messages_routes_default = router7;
 
-// src/middleware/error.ts
+// src/modules/notifications/notifications.routes.ts
+var import_express8 = require("express");
 var import_zod7 = require("zod");
+var router8 = (0, import_express8.Router)();
+router8.use(authMiddleware);
+var getNotificationsQuerySchema = import_zod7.z.object({
+  limit: import_zod7.z.coerce.number().int().min(1).max(50).default(20),
+  offset: import_zod7.z.coerce.number().int().min(0).default(0),
+  unread_only: import_zod7.z.enum(["true", "false"]).optional()
+});
+router8.get("/", async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const query2 = getNotificationsQuerySchema.parse(req.query);
+    const unreadOnly = query2.unread_only === "true";
+    const [notifications, unreadCount] = await Promise.all([
+      NotificationService.getUserNotifications(userId, {
+        limit: query2.limit,
+        offset: query2.offset,
+        unreadOnly
+      }),
+      NotificationService.getUnreadCount(userId)
+    ]);
+    return sendSuccess(res, {
+      notifications,
+      unread_count: unreadCount,
+      limit: query2.limit,
+      offset: query2.offset
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+router8.get("/unread-count", async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const count = await NotificationService.getUnreadCount(userId);
+    return sendSuccess(res, { unread_count: count });
+  } catch (error) {
+    next(error);
+  }
+});
+router8.patch("/:id/read", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const uuidValidation = import_zod7.z.string().uuid().safeParse(id);
+    if (!uuidValidation.success) {
+      return sendError(res, "INVALID_ID", "Notification ID must be a valid UUID", 400);
+    }
+    const checkRes = await query("SELECT user_id, read_at FROM notifications WHERE id = $1", [id]);
+    if (checkRes.rows.length === 0) {
+      return sendError(res, "NOT_FOUND", "Notification not found", 404);
+    }
+    if (checkRes.rows[0].user_id !== userId) {
+      return sendError(res, "FORBIDDEN", "Access denied: notification belongs to another user", 403);
+    }
+    const updated = await NotificationService.markAsRead(id, userId);
+    return sendSuccess(res, updated || { id, read: true }, "Notification marked as read");
+  } catch (error) {
+    next(error);
+  }
+});
+router8.patch("/read-all", async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const count = await NotificationService.markAllAsRead(userId);
+    return sendSuccess(res, { marked_count: count, count }, "All notifications marked as read");
+  } catch (error) {
+    next(error);
+  }
+});
+var notifications_routes_default = router8;
+
+// src/modules/upload/upload.routes.ts
+var import_express9 = require("express");
+var import_crypto = __toESM(require("crypto"));
+var import_zod8 = require("zod");
+
+// src/config/supabase.ts
+var import_supabase_js = require("@supabase/supabase-js");
+var supabase = (0, import_supabase_js.createClient)(
+  ENV.SUPABASE_URL || "https://placeholder.supabase.co",
+  ENV.SUPABASE_SERVICE_ROLE_KEY || ENV.SUPABASE_ANON_KEY || "placeholder-key",
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  }
+);
+var BUCKET_NAME = "item-photos";
+var ALLOWED_MIME_TYPES = /* @__PURE__ */ new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+var MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+function isValidImageBuffer(buffer) {
+  if (!buffer || buffer.length < 12) return false;
+  if (buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255) return true;
+  if (buffer[0] === 137 && buffer[1] === 80 && buffer[2] === 78 && buffer[3] === 71 && buffer[4] === 13 && buffer[5] === 10 && buffer[6] === 26 && buffer[7] === 10) return true;
+  if (buffer.subarray(0, 3).toString("ascii") === "GIF") return true;
+  if (buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") return true;
+  return false;
+}
+async function uploadItemPhoto(filePath, fileBuffer, contentType = "image/jpeg") {
+  if (!ALLOWED_MIME_TYPES.has(contentType.toLowerCase())) {
+    throw new Error(`Unsupported image type: ${contentType}. Allowed: JPEG, PNG, WEBP, GIF.`);
+  }
+  if (fileBuffer.length > MAX_FILE_SIZE_BYTES) {
+    throw new Error(`File size (${(fileBuffer.length / (1024 * 1024)).toFixed(1)}MB) exceeds 5MB limit.`);
+  }
+  if (!isValidImageBuffer(fileBuffer)) {
+    throw new Error("Invalid image binary content.");
+  }
+  const sanitizedPath = filePath.replace(/\.\./g, "").replace(/^\/+/, "");
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(sanitizedPath, fileBuffer, {
+    contentType,
+    upsert: true
+  });
+  if (error) {
+    console.error("Supabase upload error:", error);
+    throw error;
+  }
+  const { data: publicData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path);
+  return publicData.publicUrl;
+}
+
+// src/modules/upload/upload.routes.ts
+var router9 = (0, import_express9.Router)();
+var uploadPayloadSchema = import_zod8.z.object({
+  base64Data: import_zod8.z.string().min(1, "Base64 image data is required"),
+  contentType: import_zod8.z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]).default("image/jpeg"),
+  folder: import_zod8.z.enum(["items", "avatars", "banners"]).default("items")
+});
+router9.post("/", authMiddleware, async (req, res, next) => {
+  try {
+    const { base64Data, contentType, folder } = uploadPayloadSchema.parse(req.body);
+    const cleanBase64 = base64Data.replace(/^data:image\/[a-zA-Z0-9-+.]+;base64,/, "");
+    const buffer = Buffer.from(cleanBase64, "base64");
+    if (buffer.length > 5 * 1024 * 1024) {
+      return sendError(res, "PAYLOAD_TOO_LARGE", "Uploaded image cannot exceed 5MB", 413);
+    }
+    const extMap = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif"
+    };
+    const ext = extMap[contentType] || "jpg";
+    const uniqueName = `${import_crypto.default.randomUUID()}.${ext}`;
+    const filePath = `${folder}/${uniqueName}`;
+    const publicUrl = await uploadItemPhoto(filePath, buffer, contentType);
+    return sendSuccess(res, { url: publicUrl, path: filePath }, "Image uploaded successfully", 201);
+  } catch (err) {
+    if (err.message?.includes("Invalid image binary content") || err.message?.includes("Unsupported image type")) {
+      return sendError(res, "INVALID_FILE", err.message, 400);
+    }
+    next(err);
+  }
+});
+var upload_routes_default = router9;
+
+// src/modules/push/push.routes.ts
+var import_express10 = require("express");
+var import_zod9 = require("zod");
+var router10 = (0, import_express10.Router)();
+var subscribeSchema = import_zod9.z.object({
+  subscription: import_zod9.z.object({
+    endpoint: import_zod9.z.string().url("Invalid push endpoint URL"),
+    keys: import_zod9.z.object({
+      p256dh: import_zod9.z.string().min(1, "p256dh key is required"),
+      auth: import_zod9.z.string().min(1, "auth secret is required")
+    })
+  })
+});
+var unsubscribeSchema = import_zod9.z.object({
+  endpoint: import_zod9.z.string().url("Invalid push endpoint URL")
+});
+router10.get("/vapid-public-key", (req, res) => {
+  return sendSuccess(res, { publicKey: ENV.VAPID_PUBLIC_KEY });
+});
+router10.post("/subscribe", authMiddleware, async (req, res, next) => {
+  try {
+    const { subscription } = subscribeSchema.parse(req.body);
+    const userId = req.user.id;
+    await PushService.saveSubscription(userId, subscription);
+    return sendSuccess(res, { subscribed: true }, "Push notifications registered successfully");
+  } catch (error) {
+    next(error);
+  }
+});
+router10.post("/unsubscribe", authMiddleware, async (req, res, next) => {
+  try {
+    const { endpoint } = unsubscribeSchema.parse(req.body);
+    const userId = req.user.id;
+    await PushService.removeSubscription(userId, endpoint);
+    return sendSuccess(res, { subscribed: false }, "Push notifications unregistered successfully");
+  } catch (error) {
+    next(error);
+  }
+});
+var push_routes_default = router10;
+
+// src/modules/realtime/realtime.routes.ts
+var import_express11 = require("express");
+var import_jsonwebtoken3 = __toESM(require("jsonwebtoken"));
+var import_app3 = require("firebase-admin/app");
+var import_auth13 = require("firebase-admin/auth");
+var router11 = (0, import_express11.Router)();
+async function authenticateSseRequest(req) {
+  let token = "";
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (req.query.token && typeof req.query.token === "string") {
+    token = req.query.token;
+  }
+  if (!token) return null;
+  try {
+    const decoded = import_jsonwebtoken3.default.verify(token, ENV.JWT_SECRET);
+    if (decoded && decoded.id) {
+      const userRes = await query("SELECT id, name FROM users WHERE id = $1", [decoded.id]);
+      if (userRes.rows.length > 0) {
+        return { id: userRes.rows[0].id, name: userRes.rows[0].name };
+      }
+    }
+  } catch {
+  }
+  if (ENV.FIREBASE_PROJECT_ID && (0, import_app3.getApps)().length > 0) {
+    try {
+      const decodedFb = await (0, import_auth13.getAuth)().verifyIdToken(token);
+      if (decodedFb && decodedFb.uid) {
+        const userRes = await query(
+          "SELECT id, name FROM users WHERE firebase_uid = $1 OR id = $1",
+          [decodedFb.uid]
+        );
+        if (userRes.rows.length > 0) {
+          return { id: userRes.rows[0].id, name: userRes.rows[0].name };
+        }
+      }
+    } catch {
+    }
+  }
+  return null;
+}
+router11.get("/stream", async (req, res) => {
+  const user = await authenticateSseRequest(req);
+  if (!user) {
+    res.status(401).json({ success: false, error: "Unauthorized: Valid token required for real-time stream" });
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no"
+  });
+  res.flushHeaders?.();
+  RealtimeService.addClient(user.id, res);
+});
+var realtime_routes_default = router11;
+
+// src/middleware/error.ts
+var import_zod10 = require("zod");
 var errorHandler = (err, req, res, next) => {
-  if (err instanceof import_zod7.ZodError) {
+  if (err instanceof import_zod10.ZodError) {
     const details = err.errors.map((e) => ({
       field: e.path.join("."),
       message: e.message
@@ -1385,10 +2099,28 @@ var errorHandler = (err, req, res, next) => {
 
 // src/app.ts
 var createApp = () => {
-  const app2 = (0, import_express8.default)();
-  app2.use((0, import_cors.default)({ origin: true, credentials: true }));
-  app2.use(import_express8.default.json({ limit: "10mb" }));
-  app2.use(import_express8.default.urlencoded({ extended: true }));
+  const app2 = (0, import_express12.default)();
+  const allowedOrigins = [
+    ENV.FRONTEND_URL,
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+  ].filter(Boolean);
+  app2.use(
+    (0, import_cors.default)({
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (ENV.NODE_ENV !== "production" || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error(`Origin ${origin} not allowed by CORS policy`));
+      },
+      credentials: true
+    })
+  );
+  app2.use(import_express12.default.json({ limit: "10mb" }));
+  app2.use(import_express12.default.urlencoded({ extended: true }));
   app2.get(["/api/health", "/health"], async (req, res) => {
     let dbStatus = "disconnected";
     try {
@@ -1420,6 +2152,10 @@ var createApp = () => {
   app2.use(["/api/analytics", "/analytics"], analytics_routes_default);
   app2.use(["/api/users", "/users"], users_routes_default);
   app2.use(["/api/messages", "/messages"], messages_routes_default);
+  app2.use(["/api/notifications", "/notifications"], notifications_routes_default);
+  app2.use(["/api/upload", "/upload"], upload_routes_default);
+  app2.use(["/api/push", "/push"], push_routes_default);
+  app2.use(["/api/realtime", "/realtime"], realtime_routes_default);
   app2.use((req, res) => {
     return sendError(res, "ROUTE_NOT_FOUND", `Cannot ${req.method} ${req.originalUrl}`, 404);
   });
@@ -1599,6 +2335,33 @@ var runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
       CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id);
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(60) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        body TEXT NOT NULL,
+        data JSONB DEFAULT '{}'::jsonb,
+        read_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read_at) WHERE read_at IS NULL;
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+    `);
     await client.query("COMMIT");
     console.log("Database migrations completed successfully!");
   } catch (error) {
@@ -1620,8 +2383,8 @@ var startServer = async () => {
     await runMigrations().catch((err) => {
       console.warn("Migrations notice on startup:", err.message);
     });
-    const server = app.listen(ENV.PORT, () => {
-      console.log(`\u26A1 Rentu\u207A API Service listening on http://localhost:${ENV.PORT}`);
+    const server = app.listen(ENV.PORT, "0.0.0.0", () => {
+      console.log(`\u26A1 Rentu\u207A API Service listening on http://localhost:${ENV.PORT} (0.0.0.0)`);
       console.log(`\u{1F331} Environment: ${ENV.NODE_ENV}`);
       console.log(`\u{1F4E1} Ready for rental requests!`);
     });

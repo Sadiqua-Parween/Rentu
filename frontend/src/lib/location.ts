@@ -80,7 +80,7 @@ export const reverseGeocode = async (
         const addr = data.address;
         const road = addr.road || addr.pedestrian || addr.suburb || '';
         const neighbourhood = addr.neighbourhood || addr.suburb || addr.residential || '';
-        const city = addr.city || addr.town || addr.village || addr.city_district || addr.state_district || 'Delhi';
+        const city = addr.city || addr.town || addr.village || addr.city_district || addr.state_district || 'Bangalore';
         const state = addr.state || '';
         const pincode = addr.postcode || '';
 
@@ -125,7 +125,7 @@ export const reverseGeocode = async (
     );
     if (res.ok) {
       const data = await res.json();
-      const city = data.city || data.principalSubdivision || 'Delhi';
+      const city = data.city || data.principalSubdivision || 'Bangalore';
       const rawLocality = data.locality || city;
       const locality = rawLocality && !rawLocality.toLowerCase().includes(city.toLowerCase())
         ? `${rawLocality}, ${city}`
@@ -152,7 +152,7 @@ export const reverseGeocode = async (
   // Fallback with coordinates
   return {
     locality: `Near (${latitude.toFixed(3)}, ${longitude.toFixed(3)})`,
-    city: 'Delhi',
+    city: 'Bangalore',
     address_text: `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
     pincode: '',
     latitude,

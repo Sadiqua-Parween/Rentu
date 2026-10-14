@@ -1,176 +1,183 @@
 import React from 'react';
-import { Search, MapPin, ArrowRight, Heart } from 'lucide-react';
+import { 
+  Search, 
+  ShieldCheck, 
+  Sparkles, 
+  Zap, 
+  Plus, 
+  CheckCircle2, 
+  X,
+  Compass,
+  ArrowRight 
+} from 'lucide-react';
+import { Item, CommunityPulse } from '../lib/types';
 
 interface HeroSectionProps {
+  items: Item[];
+  isLoading: boolean;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  selectedLocality: string;
-  onSearch: () => void;
+  onSearch: (customQuery?: string) => void;
   onGetStarted: () => void;
   onOpenDropGear: () => void;
+  onSelectItem: (item: Item) => void;
+  communityStats?: CommunityPulse | null;
 }
 
+const TRENDING_SEARCHES = [
+  { label: '📷 Cameras', query: 'Canon' },
+  { label: '⛺ Tents', query: 'Tent' },
+  { label: '📽️ Projector', query: 'Projector' },
+  { label: '🎧 Audio', query: 'Headphones' },
+  { label: '🎮 Gaming', query: 'PlayStation' },
+  { label: '🎸 Guitar', query: 'Guitar' },
+];
+
 export const HeroSection: React.FC<HeroSectionProps> = ({
+  items: _items,
+  isLoading: _isLoading,
   searchQuery,
   setSearchQuery,
-  selectedLocality,
   onSearch,
   onGetStarted,
   onOpenDropGear,
+  onSelectItem: _onSelectItem,
+  communityStats: _communityStats,
 }) => {
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch(searchQuery);
+  };
+
+  const handleTrendingClick = (query: string) => {
+    setSearchQuery(query);
+    onSearch(query);
+  };
+
   return (
-    <section className="relative overflow-hidden pt-6 pb-8 bg-gradient-to-b from-[#FFF5F7] via-[#FFF8F9] to-canvas dark:from-[#22101A] dark:via-[#16121A] dark:to-canvas transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="relative overflow-hidden pt-8 sm:pt-14 pb-8 sm:pb-12 bg-gradient-to-b from-[#FFF5F7] via-[#FFF9FA] to-canvas dark:from-[#1A1218] dark:via-[#14121A] dark:to-canvas transition-colors">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Main 2-Column Hero */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center pt-4 pb-8">
+        {/* Centered Hero Section */}
+        <div className="flex flex-col items-center text-center w-full max-w-3xl mx-auto">
           
-          {/* Left Column: Headlines & Search */}
-          <div className="lg:col-span-7 text-center lg:text-left">
-            {/* Top Pill Sticker */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide bg-white/80 dark:bg-zinc-800/80 border border-pink-200 dark:border-pink-900/50 text-brand shadow-xs mb-4">
-              <span className="text-xs">✨</span> A COMMUNITY FOR SHARED THINGS
-            </div>
+          {/* 1. Eyebrow Label */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-white/95 dark:bg-zinc-800/95 border border-pink-200/80 dark:border-pink-900/40 text-brand shadow-xs mb-4 backdrop-blur-xs">
+            <Sparkles className="w-3.5 h-3.5 text-brand" />
+            <span>Verified Peer-to-Peer Rental Network</span>
+          </div>
 
-            {/* Main Headline from Mockup */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-ink tracking-tight font-display leading-[1.1]">
-              Borrow. Rent. <br />
-              Lend. <span className="text-brand relative inline-block">
-                Everything.
-                <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 250 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 9C50 3 150 2 247 8" stroke="#E11D74" strokeWidth="4" strokeLinecap="round"/>
-                </svg>
-              </span>
-            </h1>
+          {/* 2. Main Headline */}
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-ink font-display leading-[1.18] sm:leading-[1.2] tracking-tight text-center max-w-2xl mx-auto">
+            Borrow, Rent and Lend. <br className="hidden sm:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand via-pink-500 to-rose-500 inline-block mt-1 sm:mt-1.5">
+              Save money. Live flexible.
+            </span>
+          </h1>
 
-            {/* Subtitle */}
-            <p className="mt-5 text-base sm:text-lg font-medium text-ink-secondary max-w-xl mx-auto lg:mx-0 leading-relaxed">
-              From cameras to camping gear, books to party fits — get what you need, give what you don't.
-            </p>
+          {/* 3. Primary Working Search Bar */}
+          <div className="mt-7 sm:mt-8 max-w-2xl w-full mx-auto">
+            <form 
+              onSubmit={handleSearchSubmit}
+              className="bg-white dark:bg-[#181922] border border-gray-200 dark:border-white/10 rounded-2xl p-2 pl-4 sm:pl-5 shadow-sm hover:shadow-md transition-all flex items-center gap-2.5 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20 w-full"
+            >
+              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-ink-muted shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="What gear do you need? Search cameras, tents, projectors…"
+                className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm md:text-base font-medium text-ink placeholder:text-ink-muted px-1"
+              />
 
-            {/* Pill Search Bar matching Screen 1 */}
-            <div className="mt-8 max-w-xl mx-auto lg:mx-0">
-              <form 
-                onSubmit={(e) => { e.preventDefault(); onSearch(); }}
-                className="bg-white dark:bg-[#181922] border border-divider rounded-full p-2 pl-4 shadow-sm hover:shadow-md transition-all flex items-center gap-2"
-              >
-                <Search className="w-5 h-5 text-ink-muted shrink-0" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="What are you looking for?"
-                  className="flex-1 bg-transparent border-none outline-none text-sm font-semibold text-ink placeholder:text-ink-muted placeholder:font-normal px-2"
-                />
-
-                <div className="h-6 w-[1px] bg-divider hidden sm:block" />
-
-                {/* City indicator */}
-                <div className="hidden sm:flex items-center gap-1.5 px-3 text-xs font-bold text-ink shrink-0">
-                  <MapPin className="w-3.5 h-3.5 text-brand" />
-                  <span>{selectedLocality}</span>
-                </div>
-
-                {/* Circular Pink Search Button */}
+              {searchQuery && (
                 <button
-                  type="submit"
-                  className="w-11 h-11 bg-brand hover:bg-brand-hover text-white rounded-full flex items-center justify-center shrink-0 shadow-pink transition-transform hover:scale-105 cursor-pointer"
-                  title="Search Rentals"
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    onSearch('');
+                  }}
+                  className="p-1 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-muted hover:text-ink transition-colors cursor-pointer"
+                  title="Clear search"
                 >
-                  <Search className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              </form>
+              )}
+
+              {/* Instant Search Button */}
+              <button
+                type="submit"
+                className="bg-brand hover:bg-brand-hover text-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 shrink-0 shadow-xs hover:shadow-pink transition-all cursor-pointer"
+              >
+                <span>Search</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+
+            {/* 4. Compact Row of Popular Category Shortcuts */}
+            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-xs">
+              <span className="text-ink-secondary font-semibold text-[11px] mr-1">Popular:</span>
+              {TRENDING_SEARCHES.map((chip) => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => handleTrendingClick(chip.query)}
+                  className="px-2.5 sm:px-3 py-1 rounded-full bg-white dark:bg-[#1C1D26] border border-gray-200/90 dark:border-white/10 hover:border-brand hover:text-brand text-ink-secondary text-[11px] font-medium transition-all hover:scale-105 cursor-pointer shadow-2xs"
+                >
+                  {chip.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Right Column: Visual Scrapbook Collage from Screen 1 */}
-          <div className="lg:col-span-5 relative flex justify-center">
-            <div className="relative w-full max-w-md">
-              
-              {/* Main Photo Card (Young woman with camera) */}
-              <div className="relative bg-white dark:bg-[#181922] p-2.5 rounded-3xl shadow-md border border-divider overflow-hidden rotate-1 hover:rotate-0 transition-transform duration-300">
-                <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80"
-                  alt="Community creator taking photos"
-                  className="w-full aspect-[4/4.2] object-cover rounded-2xl"
-                />
-              </div>
-
-              {/* Inset Photo 1: Canon DSLR Camera */}
-              <div className="absolute -top-3 -left-2 sm:-top-4 sm:-left-6 w-28 sm:w-36 bg-white dark:bg-[#181922] p-1.5 sm:p-2 rounded-2xl shadow-lg border border-divider -rotate-6 hover:rotate-0 transition-transform">
-                <img
-                  src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=400&q=80"
-                  alt="Canon DSLR camera"
-                  className="w-full aspect-square object-cover rounded-xl"
-                />
-              </div>
-
-              {/* Inset Photo 2: Cute Puppy / Lifestyle */}
-              <div className="absolute -bottom-3 -left-2 sm:-bottom-4 sm:-left-4 w-24 sm:w-32 bg-white dark:bg-[#181922] p-1.5 sm:p-2 rounded-2xl shadow-lg border border-divider rotate-6 hover:rotate-0 transition-transform">
-                <img
-                  src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=400&q=80"
-                  alt="Puppy friendly community"
-                  className="w-full aspect-square object-cover rounded-xl"
-                />
-              </div>
-
-              {/* Doodle Sticker 1: Top Yellow Tilted Badge */}
-              <div className="absolute -top-3 right-4 bg-[#FEF08A] text-zinc-900 text-[10px] sm:text-[11px] font-black uppercase px-3 py-1.5 rounded-full border border-yellow-300 shadow-sm -rotate-6">
-                <span>✨ SAME STUFF. MORE PEOPLE. HAPPIER PLANET.</span>
-              </div>
-
-              {/* Doodle Sticker 2: Round Pink Sticker */}
-              <div className="absolute -bottom-3 right-6 w-20 h-20 rounded-full bg-[#FCE7F3] dark:bg-pink-950/70 border-2 border-dashed border-brand text-brand flex items-center justify-center text-center p-2 text-[9px] font-black uppercase leading-tight shadow-sm rotate-12">
-                GOOD THINGS CIRCULATE
-              </div>
-
-              {/* Doodle Sticker 3: Purple Pill */}
-              <div className="absolute top-1/2 -right-6 bg-[#EDE9FE] dark:bg-purple-950/70 text-purple-900 dark:text-purple-300 text-[10px] font-extrabold uppercase px-3 py-1 rounded-full border border-purple-200 dark:border-purple-800 shadow-sm rotate-90 hidden sm:block">
-                PEOPLE OVER THINGS
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-
-        {/* Stats & Community Impact Banner matching Screen 1 bottom */}
-        <div className="mt-6 bg-white dark:bg-[#181922] border border-divider rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8 divide-x-0 sm:divide-x divide-divider w-full md:w-auto">
-            <div className="text-center sm:text-left sm:pr-6">
-              <div className="text-2xl font-black text-ink font-display">10K+</div>
-              <div className="text-xs font-semibold text-ink-secondary">Members</div>
-            </div>
-            <div className="text-center sm:text-left sm:px-6">
-              <div className="text-2xl font-black text-ink font-display">4K+</div>
-              <div className="text-xs font-semibold text-ink-secondary">Items Listed</div>
-            </div>
-            <div className="text-center sm:text-left sm:px-6">
-              <div className="text-2xl font-black text-ink font-display">2.5K+</div>
-              <div className="text-xs font-semibold text-ink-secondary">Requests Fulfilled</div>
-            </div>
-            <div className="text-center sm:text-left sm:pl-6">
-              <div className="text-2xl font-black text-ink font-display">12+</div>
-              <div className="text-xs font-semibold text-ink-secondary">Localities</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-divider">
-            <div className="flex items-center gap-2 text-xs font-semibold text-ink-secondary">
-              <div className="w-7 h-7 rounded-full bg-[#FCE7F3] text-brand flex items-center justify-center shrink-0">
-                <Heart className="w-3.5 h-3.5 fill-brand" />
-              </div>
-              <span className="hidden lg:inline">Join a community that shares, saves and makes a difference.</span>
-            </div>
-
+          {/* 5. Two Clear Call-to-Action Buttons */}
+          <div className="mt-7 sm:mt-8 flex flex-wrap items-center justify-center gap-3.5 w-full max-w-xl mx-auto">
             <button
               onClick={onGetStarted}
-              className="btn-primary text-xs px-5 py-2.5 shrink-0 cursor-pointer"
+              className="btn-primary text-xs sm:text-sm px-6 py-3 cursor-pointer shadow-pink flex items-center gap-2 hover:scale-[1.02] transition-transform"
             >
-              <span>Get Started</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <Compass className="w-4 h-4" />
+              <span>Explore All Gear</span>
+            </button>
+            <button
+              onClick={onOpenDropGear}
+              className="btn-secondary text-xs sm:text-sm px-6 py-3 cursor-pointer flex items-center gap-2 hover:border-brand hover:text-brand hover:scale-[1.02] transition-all"
+            >
+              <Plus className="w-4 h-4 text-brand" />
+              <span>List Gear & Earn ₹</span>
             </button>
           </div>
+
+          {/* 6. Styled Trust & Community Guarantee Strip */}
+          <div className="mt-8 sm:mt-10 w-full max-w-xl mx-auto">
+            <div className="p-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white/85 dark:bg-[#181922]/85 backdrop-blur-xs border border-gray-200/80 dark:border-white/10 shadow-2xs flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-xs font-medium text-ink-secondary">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-500 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-[11px] sm:text-xs font-semibold text-ink">Verified Member IDs</span>
+              </div>
+
+              <span className="text-gray-300 dark:text-zinc-700 hidden sm:inline">•</span>
+
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-500 flex items-center justify-center shrink-0">
+                  <Zap className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-[11px] sm:text-xs font-semibold text-ink">Direct Neighbor Handover</span>
+              </div>
+
+              <span className="text-gray-300 dark:text-zinc-700 hidden sm:inline">•</span>
+
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-500 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-[11px] sm:text-xs font-semibold text-ink">Safe Community Bookings</span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
       </div>

@@ -72,7 +72,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             Explore
           </h1>
           <p className="text-xs sm:text-sm text-ink-secondary font-medium mt-0.5">
-            Everyday items. Real people. Your community in <span className="font-bold text-ink">{selectedLocality}</span>.
+            Everyday items. Real people. Shared by your local community.
           </p>
         </div>
 
@@ -135,22 +135,9 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         <aside className={`lg:col-span-3 space-y-6 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
           <div className="bg-surface border border-divider rounded-2xl p-5 shadow-xs space-y-5">
             
-            {/* Location matching Screen 2 (City dropdown + Distance dropdown) */}
+            {/* Distance Filter */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-ink">Location</label>
-              
-              <div className="relative">
-                <select
-                  disabled
-                  value={selectedLocality}
-                  className="w-full appearance-none bg-canvas border border-divider rounded-xl px-3 py-2 text-xs font-bold text-ink cursor-default"
-                >
-                  <option value={selectedLocality}>{selectedLocality}</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[10px] uppercase font-black text-brand bg-brand-soft px-1.5 py-0.5 rounded">
-                  Your City
-                </div>
-              </div>
+              <label className="block text-xs font-bold text-ink">Distance Radius</label>
 
               <div className="relative">
                 <select
@@ -158,11 +145,12 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                   onChange={(e) => setRadiusKm(Number(e.target.value))}
                   className="w-full appearance-none bg-surface border border-divider hover:border-zinc-300 dark:hover:border-zinc-600 rounded-xl px-3 py-2 text-xs font-bold text-ink outline-none cursor-pointer transition-colors"
                 >
-                  <option value={2}>2 km</option>
-                  <option value={5}>5 km</option>
-                  <option value={10}>10 km</option>
-                  <option value={15}>15 km</option>
-                  <option value={25}>25 km</option>
+                  <option value={2}>Within 2 km</option>
+                  <option value={5}>Within 5 km</option>
+                  <option value={10}>Within 10 km</option>
+                  <option value={15}>Within 15 km</option>
+                  <option value={25}>Within 25 km</option>
+                  <option value={50}>All distances</option>
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>

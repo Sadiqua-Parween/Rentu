@@ -33,9 +33,9 @@ export const SetLocationModal: React.FC<SetLocationModalProps> = ({
 }) => {
   const { user, refreshUser } = useAuth();
 
-  const [locality, setLocality] = useState(user?.locality || 'Saket, New Delhi');
+  const [locality, setLocality] = useState(user?.locality || 'Koramangala, Bangalore');
   const [addressText, setAddressText] = useState(user?.address_text || '');
-  const [city, setCity] = useState<string>(user?.locality ? extractCity(user.locality) : 'Delhi');
+  const [city, setCity] = useState<string>(user?.locality ? extractCity(user.locality) : 'Bangalore');
   const [pincode, setPincode] = useState(user?.pincode || '');
   const [latitude, setLatitude] = useState<number | undefined>(user?.latitude);
   const [longitude, setLongitude] = useState<number | undefined>(user?.longitude);
@@ -49,9 +49,9 @@ export const SetLocationModal: React.FC<SetLocationModalProps> = ({
   // Prefill state from user profile whenever modal opens
   useEffect(() => {
     if (user) {
-      setLocality(user.locality || 'Saket, New Delhi');
+      setLocality(user.locality || 'Koramangala, Bangalore');
       setAddressText(user.address_text || '');
-      setCity(user.locality ? extractCity(user.locality) : 'Delhi');
+      setCity(user.locality ? extractCity(user.locality) : 'Bangalore');
       setPincode(user.pincode || '');
       setLatitude(user.latitude);
       setLongitude(user.longitude);
@@ -272,7 +272,7 @@ export const SetLocationModal: React.FC<SetLocationModalProps> = ({
                     type="text"
                     value={locality}
                     onChange={(e) => setLocality(e.target.value)}
-                    placeholder="e.g. Saket, South Delhi"
+                    placeholder="e.g. Koramangala, Indiranagar"
                     className="w-full bg-canvas border border-divider rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold text-ink outline-none focus:border-brand transition-colors"
                     required
                   />

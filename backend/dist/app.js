@@ -13,14 +13,36 @@ const bookings_routes_1 = __importDefault(require("./modules/bookings/bookings.r
 const analytics_routes_1 = __importDefault(require("./modules/analytics/analytics.routes"));
 const users_routes_1 = __importDefault(require("./modules/users/users.routes"));
 const messages_routes_1 = __importDefault(require("./modules/messages/messages.routes"));
+const notifications_routes_1 = __importDefault(require("./modules/notifications/notifications.routes"));
+const upload_routes_1 = __importDefault(require("./modules/upload/upload.routes"));
+const push_routes_1 = __importDefault(require("./modules/push/push.routes"));
+const realtime_routes_1 = __importDefault(require("./modules/realtime/realtime.routes"));
 const error_1 = require("./middleware/error");
 const response_1 = require("./middleware/response");
 const db_1 = require("./config/db");
 const env_1 = require("./config/env");
 const createApp = () => {
     const app = (0, express_1.default)();
-    // Middleware
-    app.use((0, cors_1.default)({ origin: true, credentials: true }));
+    // Middleware - Safe CORS origins
+    const allowedOrigins = [
+        env_1.ENV.FRONTEND_URL,
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+    ].filter(Boolean);
+    app.use((0, cors_1.default)({
+        origin: (origin, callback) => {
+            // Allow requests with no origin (like mobile apps, curl, server-to-server)
+            if (!origin)
+                return callback(null, true);
+            if (env_1.ENV.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error(`Origin ${origin} not allowed by CORS policy`));
+        },
+        credentials: true,
+    }));
     app.use(express_1.default.json({ limit: '10mb' }));
     app.use(express_1.default.urlencoded({ extended: true }));
     // Health Check (Matches both /api/health and /health)
@@ -57,6 +79,10 @@ const createApp = () => {
     app.use(['/api/analytics', '/analytics'], analytics_routes_1.default);
     app.use(['/api/users', '/users'], users_routes_1.default);
     app.use(['/api/messages', '/messages'], messages_routes_1.default);
+    app.use(['/api/notifications', '/notifications'], notifications_routes_1.default);
+    app.use(['/api/upload', '/upload'], upload_routes_1.default);
+    app.use(['/api/push', '/push'], push_routes_1.default);
+    app.use(['/api/realtime', '/realtime'], realtime_routes_1.default);
     // 404 handler
     app.use((req, res) => {
         return (0, response_1.sendError)(res, 'ROUTE_NOT_FOUND', `Cannot ${req.method} ${req.originalUrl}`, 404);

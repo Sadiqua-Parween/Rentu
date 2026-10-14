@@ -55,18 +55,24 @@ router.get('/', auth_1.optionalAuthMiddleware, async (req, res, next) => {
             sql += ` AND r.seeker_id = $${params.length}`;
         }
         else {
-            // A user can ONLY see wishes/bounties from its own city
+            // City isolation only when specific locality is requested
             let userCity = null;
             const authUser = req.user;
             if (authUser?.id) {
                 const userRes = await (0, db_1.query)('SELECT locality FROM users WHERE id = $1', [authUser.id]);
-                if (userRes.rows.length > 0) {
+                if (userRes.rows.length > 0 && userRes.rows[0].locality) {
                     userCity = (0, city_1.extractCity)(userRes.rows[0].locality);
                 }
             }
-            const activeCity = userCity || (locality ? (0, city_1.extractCity)(String(locality)) : 'Delhi');
-            params.push(`%${activeCity}%`);
-            sql += ` AND (r.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+            if (locality && locality !== 'All' && locality !== 'all') {
+                const activeCity = (0, city_1.extractCity)(String(locality));
+                params.push(`%${activeCity}%`);
+                sql += ` AND (r.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+            }
+            else if (userCity) {
+                params.push(`%${userCity}%`);
+                sql += ` AND (r.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
+            }
         }
         sql += ` ORDER BY r.created_at DESC`;
         const result = await (0, db_1.query)(sql, params);

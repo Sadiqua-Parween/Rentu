@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../lib/authContext';
 import { useTheme } from '../lib/themeContext';
 import { CITIES } from '../lib/city';
+import { NotificationDropdown } from './NotificationDropdown';
 
 interface NavbarProps {
   activeTab: 'home' | 'explore' | 'requests' | 'bookings' | 'hustle' | 'profile';
@@ -34,7 +35,7 @@ interface NavbarProps {
   onOpenDropGear: () => void;
   onOpenDropWish: () => void;
   onOpenAuth: () => void;
-  onOpenChat: () => void;
+  onOpenChat: (bookingId?: string) => void;
   onOpenHowItWorks: () => void;
   onOpenSetLocation?: () => void;
 }
@@ -145,79 +146,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                 placeholder="Search rentals, cameras, tents..."
                 className="bg-transparent border-none outline-none text-xs font-semibold text-ink placeholder:text-ink-muted placeholder:font-normal w-full"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    onSearch();
+                  }}
+                  className="p-0.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 text-ink-muted hover:text-ink mr-1 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </form>
           </div>
 
           {/* Right: Controls & Actions (Carefully sized to NEVER overflow) */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             
-            {/* City Location Indicator / Selector (Visible on md+) */}
-            <div className="hidden md:flex items-center">
-              {isAuthenticated ? (
-                <div 
-                  id="user-city-indicator"
-                  className="flex items-center gap-1.5 bg-canvas border border-divider rounded-full px-3 py-1.5 text-xs font-bold text-ink shadow-xs select-none"
-                  title={`Showing rentals in ${selectedLocality} (your registered city)`}
-                >
-                  <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-                  <span className="font-extrabold">{selectedLocality}</span>
-                  <span className="text-[10px] font-black uppercase text-brand bg-brand-soft px-1.5 py-0.5 rounded-full border border-brand/20">
-                    Your City
-                  </span>
-                </div>
-              ) : (
-                <div className="relative" ref={localityMenuRef}>
-                  <button
-                    id="locality-menu-btn"
-                    onClick={() => setShowLocalityMenu(!showLocalityMenu)}
-                    className="flex items-center gap-1.5 bg-canvas hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-divider rounded-full px-3 py-1.5 text-xs font-bold text-ink transition-colors cursor-pointer"
-                  >
-                    <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-                    <span className="font-extrabold">{selectedLocality}</span>
-                    <ChevronDown className="w-3 h-3 text-ink-secondary" />
-                  </button>
-
-                  {showLocalityMenu && (
-                    <div className="absolute right-0 mt-2 w-52 bg-surface border border-divider rounded-2xl shadow-xl p-2 z-50 text-xs font-semibold animate-in fade-in zoom-in-95 duration-100">
-                      {onOpenSetLocation && (
-                        <button
-                          onClick={() => {
-                            setShowLocalityMenu(false);
-                            onOpenSetLocation();
-                          }}
-                          className="w-full text-left px-2.5 py-2 mb-1.5 rounded-xl bg-brand-soft hover:bg-brand/20 text-brand font-extrabold flex items-center gap-2 cursor-pointer transition-colors"
-                        >
-                          <Navigation className="w-3.5 h-3.5 shrink-0" />
-                          <span>Set Exact Location 📍</span>
-                        </button>
-                      )}
-                      <div className="px-2.5 py-1 text-[10px] font-black uppercase text-ink-secondary">
-                        Select Your City
-                      </div>
-                      {CITIES.map((city) => {
-                        const isSelected = selectedLocality === city;
-                        return (
-                          <button
-                            key={city}
-                            id={`city-option-${city.toLowerCase()}`}
-                            onClick={() => {
-                              setSelectedLocality(city);
-                              setShowLocalityMenu(false);
-                            }}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-xl transition-colors flex items-center justify-between cursor-pointer ${
-                              isSelected ? 'bg-brand-soft font-extrabold text-brand' : 'hover:bg-canvas text-ink'
-                            }`}
-                          >
-                            <span>{city}</span>
-                            {isSelected && <span className="text-brand font-black">✓</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
 
             {/* Dark / Light Mode Toggle Button */}
             <button
@@ -247,19 +194,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* AUTHENTICATED: Notifications, Chat, Post CTA, User Profile */}
             {isAuthenticated ? (
               <>
-                {/* Notification Bell (Hidden on small screens, accessible via hamburger) */}
-                <button
-                  onClick={() => setActiveTab('bookings')}
-                  className="relative p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-secondary hover:text-ink transition-colors cursor-pointer hidden md:flex"
-                  title="Notifications & Bookings"
-                >
-                  <Bell className="w-4 h-4" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand" />
-                </button>
+                {/* In-App Notifications Dropdown */}
+                <NotificationDropdown 
+                  setActiveTab={setActiveTab}
+                  onOpenChat={onOpenChat}
+                />
 
                 {/* Messages Icon (Hidden on small screens, accessible via hamburger) */}
+
                 <button
-                  onClick={onOpenChat}
+                  onClick={() => onOpenChat()}
                   className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-secondary hover:text-ink transition-colors cursor-pointer hidden md:flex"
                   title="Messages"
                 >
@@ -426,35 +370,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Responsive Mobile Navigation Drawer / Dropdown */}
         {showMobileMenu && (
           <div className="md:hidden border-t border-divider/60 bg-surface/95 dark:bg-[#111218]/95 backdrop-blur-md px-3 py-4 space-y-4 animate-in slide-in-from-top-2 duration-150 shadow-xl">
-            {/* City Selector in Mobile Menu */}
-            <div className="bg-canvas border border-divider rounded-2xl p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-black uppercase text-ink-secondary tracking-wider flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-brand" />
-                  Your Location
-                </span>
-                <span className="text-[10px] font-bold text-brand bg-brand-soft px-2 py-0.5 rounded-full">
-                  {selectedLocality}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {CITIES.map((city) => (
-                  <button
-                    key={city}
-                    onClick={() => {
-                      setSelectedLocality(city);
-                    }}
-                    className={`text-center py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      selectedLocality === city
-                        ? 'bg-brand text-white shadow-xs'
-                        : 'bg-surface border border-divider text-ink hover:border-zinc-400'
-                    }`}
-                  >
-                    {city}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Navigation Links */}
             <div className="space-y-1">
@@ -500,10 +415,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Authenticated or Unauthenticated actions in Mobile Menu */}
             {isAuthenticated ? (
               <div className="pt-2 border-t border-divider space-y-1">
+                {/* Mobile In-App Notifications */}
+                <NotificationDropdown
+                  setActiveTab={(tab) => { setActiveTab(tab); setShowMobileMenu(false); }}
+                  onOpenChat={() => { onOpenChat(); setShowMobileMenu(false); }}
+                  isMobileDrawer={true}
+                />
+
                 <button
                   onClick={() => { setActiveTab('profile'); setShowMobileMenu(false); }}
                   className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-ink hover:bg-canvas transition-colors cursor-pointer"
                 >
+
                   <UserIcon className="w-4 h-4 text-ink-secondary" />
                   <span>My Profile & Listings</span>
                 </button>

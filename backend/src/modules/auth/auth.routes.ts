@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import { getApps } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { query } from '../../config/db';
 import { ENV } from '../../config/env';
 import { sendError, sendSuccess } from '../../middleware/response';
@@ -135,34 +137,69 @@ router.post('/demo-login', async (req: Request, res: Response, next) => {
 });
 
 const firebaseSyncSchema = z.object({
-  firebaseUid: z.string().optional(),
-  clerkId: z.string().optional(),
+  firebaseUid: z.string().min(1, 'Firebase UID is required'),
   email: z.string().email(),
   name: z.string().min(1),
+  idToken: z.string().optional(),
   avatarUrl: z.string().optional(),
   locality: z.string().optional(),
   phone: z.string().optional(),
 });
 
-// Sync Firebase / SSO user with Rentu⁺ database
+// Sync Firebase authenticated user with Rentu⁺ database
 const handleSyncUser = async (req: Request, res: Response, next: any) => {
   try {
     const validated = firebaseSyncSchema.parse(req.body);
-    const uid = validated.firebaseUid || validated.clerkId || `fb_${Date.now()}`;
-    const email = validated.email.toLowerCase();
-    const avatar = validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(validated.name)}`;
-    const locality = validated.locality || 'Saket, New Delhi';
 
-    // 1. Look for existing user by firebase_uid, clerk_id or email
+    // Extract Bearer token from header or body
+    const authHeader = req.headers.authorization;
+    const token = (authHeader && authHeader.startsWith('Bearer '))
+      ? authHeader.split(' ')[1]
+      : validated.idToken;
+
+    if (!token) {
+      return sendError(res, 'UNAUTHORIZED', 'Valid Firebase ID token required in Authorization header or body', 401);
+    }
+
+    let verifiedUid = validated.firebaseUid;
+    let verifiedEmail = validated.email.toLowerCase();
+
+    // Verify token cryptographically if Firebase Admin is configured
+    if (getApps().length > 0) {
+      try {
+        const decoded = await getAuth().verifyIdToken(token);
+        if (!decoded || !decoded.uid) {
+          return sendError(res, 'UNAUTHORIZED', 'Invalid or unverified Firebase ID token', 401);
+        }
+        if (decoded.uid !== validated.firebaseUid) {
+          return sendError(res, 'FORBIDDEN', 'Submitted Firebase UID does not match verified token identity', 403);
+        }
+        verifiedUid = decoded.uid;
+        if (decoded.email) {
+          verifiedEmail = decoded.email.toLowerCase();
+        }
+      } catch (err: any) {
+        return sendError(res, 'UNAUTHORIZED', `Firebase token verification failed: ${err.message || 'invalid token'}`, 401);
+      }
+    } else if (ENV.NODE_ENV === 'production') {
+      return sendError(res, 'SERVICE_UNAVAILABLE', 'Authentication service is not properly configured', 503);
+    }
+
+    const uid = verifiedUid;
+    const email = verifiedEmail;
+    const avatar = validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(validated.name)}`;
+    const locality = validated.locality || 'Bangalore';
+
+    // Look for existing user by firebase_uid or email
     const existing = await query(
       `SELECT id, email, name, phone, locality, address_text, pincode, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, created_at
-       FROM users WHERE firebase_uid = $1 OR clerk_id = $2 OR email = $3`,
-      [uid, uid, email]
+       FROM users WHERE firebase_uid = $1 OR id = $1 OR email = $2`,
+      [uid, email]
     );
 
     let user;
     if (existing.rows.length > 0) {
-      // Update existing user with firebase_uid and keep custom avatar if set
+      // Update existing user with firebase_uid and profile info
       const updated = await query(
         `UPDATE users
          SET firebase_uid = $1,
@@ -175,7 +212,7 @@ const handleSyncUser = async (req: Request, res: Response, next: any) => {
       );
       user = updated.rows[0];
     } else {
-      // Create new user for this Firebase account
+      // Create new user for this verified Firebase account
       const created = await query(
         `INSERT INTO users (id, firebase_uid, email, name, phone, locality, avatar_url, bio, trust_score, role)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 85, 'USER')
@@ -194,15 +231,15 @@ const handleSyncUser = async (req: Request, res: Response, next: any) => {
       user = created.rows[0];
     }
 
-    const token = generateToken(user);
-    return sendSuccess(res, { user, token }, 'Firebase session synchronized with Rentu⁺! 🚀');
+    const tokenPayload = generateToken(user);
+    return sendSuccess(res, { user, token: tokenPayload }, 'Firebase session synchronized with Rentu⁺! 🚀');
   } catch (error) {
     next(error);
   }
 };
 
 router.post('/firebase-sync', handleSyncUser);
-router.post('/clerk-sync', handleSyncUser);
+
 
 
 // Get Current Profile

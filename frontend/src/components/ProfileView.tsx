@@ -162,7 +162,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10">
             <div className="backdrop-blur-md bg-black/50 text-white border border-white/20 px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 shadow-md">
               <MapPin className="w-3.5 h-3.5 text-brand" />
-              <span>{user?.locality || 'Delhi'}</span>
+              <span>{user?.locality || 'Bangalore'}</span>
             </div>
           </div>
 
@@ -290,7 +290,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
               <span className="inline-flex items-center gap-1.5 bg-canvas px-3 py-1 rounded-full border border-divider text-brand font-bold">
                 <MapPin className="w-3.5 h-3.5" />
-                <span>{user?.locality || 'Delhi'}</span>
+                <span>{user?.locality || 'Bangalore'}</span>
               </span>
             </div>
 

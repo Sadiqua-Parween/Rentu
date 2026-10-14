@@ -12,6 +12,8 @@ import {
   onAuthStateChanged,
   FirebaseUser
 } from './firebase';
+import { RealtimeClient } from './realtime';
+
 
 interface AuthContextType {
   user: (User & { stats?: any }) | null;
@@ -73,35 +75,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name,
       avatar_url: avatarUrl,
       phone,
-      locality: 'Delhi',
+      locality: 'Bangalore',
       role: 'USER',
       rating: 5.0,
       created_at: new Date().toISOString(),
     };
     setUser(localUser);
 
-    // Immediately establish local session and token so user is authenticated for API calls
+    // Immediately establish session with genuine Firebase ID token
     const idToken = await fbUser.getIdToken().catch(() => null);
-    const initialToken = idToken || `fb_${fbUser.uid}`;
-    localStorage.setItem('borrowflex_token', initialToken);
-    setToken(initialToken);
+    if (idToken) {
+      localStorage.setItem('borrowflex_token', idToken);
+      setToken(idToken);
+    }
 
     try {
-      const res = await api.firebaseSync({
-        firebaseUid: fbUser.uid,
-        email,
-        name,
-        avatarUrl,
-        phone,
-      });
+      if (idToken) {
+        const res = await api.firebaseSync({
+          firebaseUid: fbUser.uid,
+          email,
+          name,
+          avatarUrl,
+          phone,
+          idToken,
+        });
 
-      if (res && res.token && res.user) {
-        localStorage.setItem('borrowflex_token', res.token);
-        setToken(res.token);
-        setUser(res.user);
+        if (res && res.token && res.user) {
+          localStorage.setItem('borrowflex_token', res.token);
+          setToken(res.token);
+          setUser(res.user);
+        }
       }
     } catch (err) {
-      console.warn('Backend sync failed, continuing with Firebase verified profile:', err);
+      console.warn('Backend sync failed, continuing with Firebase profile:', err);
     } finally {
       setIsLoading(false);
     }
@@ -114,11 +120,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (fbUser) {
         await syncFirebaseUser(fbUser);
       } else {
-        // If not logged into Firebase, check if local demo token is active
+        // If not logged into Firebase, check if local authenticated session is active
         const localToken = localStorage.getItem('borrowflex_token');
         if (localToken && !localToken.startsWith('fb_')) {
           fetchProfile();
         } else {
+          localStorage.removeItem('borrowflex_token');
           setUser(null);
           setIsLoading(false);
         }
@@ -127,6 +134,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
+  // Manage Real-Time stream lifecycle with user token
+  useEffect(() => {
+    if (token) {
+      RealtimeClient.init(token);
+    } else {
+      RealtimeClient.disconnect();
+    }
+    return () => {
+      RealtimeClient.disconnect();
+    };
+  }, [token]);
+
+
 
   // Google Sign-In with popup
   const loginWithGoogle = async () => {

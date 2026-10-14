@@ -62,7 +62,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [phone, setPhone] = useState(user?.phone || '');
-  const [locality, setLocality] = useState(user?.locality || 'Saket, New Delhi');
+  const [locality, setLocality] = useState(user?.locality || 'Koramangala, Bangalore');
   const [addressText, setAddressText] = useState(user?.address_text || '');
   const [pincode, setPincode] = useState(user?.pincode || '');
   const [latitude, setLatitude] = useState<number | undefined>(user?.latitude);
@@ -90,7 +90,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setName(user.name || '');
       setBio(user.bio || '');
       setPhone(user.phone || '');
-      setLocality(user.locality || 'Saket, New Delhi');
+      setLocality(user.locality || 'Koramangala, Bangalore');
       setAddressText(user.address_text || '');
       setPincode(user.pincode || '');
       setAvatarUrl(user.avatar_url || '');

@@ -81,7 +81,7 @@ export const RequestsBoard: React.FC<RequestsBoardProps> = ({
             Requests
           </h1>
           <p className="text-xs sm:text-sm text-ink-secondary font-medium mt-0.5">
-            Community Wanted Board in <span className="font-bold text-ink">{selectedLocality}</span>
+            Community wishlist: See what neighbors are looking to borrow or rent
           </p>
         </div>
 
@@ -219,7 +219,7 @@ export const RequestsBoard: React.FC<RequestsBoardProps> = ({
                   {/* Right Action + Badge matching Screen 6 */}
                   <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 shrink-0">
                     <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#EDE9FE] text-[#6D28D9] border border-[#DDD6FE]">
-                      {Math.floor(2 + (req.id.charCodeAt(0) % 4))} offers
+                      {isFulfilled ? 'Fulfilled' : 'Open Request'}
                     </span>
 
                     {isFulfilled ? (
@@ -288,23 +288,35 @@ export const RequestsBoard: React.FC<RequestsBoardProps> = ({
                 </button>
               </div>
 
-              <div className="space-y-2.5">
-                {[
-                  { title: 'Projector', dates: '12-14 Oct', status: 'Open • 3 offers', color: 'bg-emerald-100 text-emerald-800' },
-                  { title: 'Camping Tent', dates: '20-22 Oct', status: 'Open • 1 offer', color: 'bg-emerald-100 text-emerald-800' },
-                  { title: 'Lehenga', dates: '23 Oct', status: 'Open • 4 offers', color: 'bg-emerald-100 text-emerald-800' },
-                ].map((rec) => (
-                  <div key={rec.title} className="p-2.5 rounded-xl bg-canvas border border-divider flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-bold text-ink">{rec.title}</div>
-                      <div className="text-[11px] text-ink-secondary">{rec.dates}</div>
+              {requests.filter((r) => r.seeker_id === user?.id).length === 0 ? (
+                <div className="py-4 text-center">
+                  <p className="text-xs text-ink-secondary">You haven't posted any requests yet.</p>
+                  <button
+                    onClick={onOpenDropWish}
+                    className="mt-2 text-xs font-bold text-brand hover:underline cursor-pointer"
+                  >
+                    + Post your first request
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {requests.filter((r) => r.seeker_id === user?.id).slice(0, 3).map((rec) => (
+                    <div key={rec.id} className="p-2.5 rounded-xl bg-canvas border border-divider flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold text-ink">{rec.item_name}</div>
+                        <div className="text-[11px] text-ink-secondary">
+                          {new Date(rec.start_date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} • ₹{Number(rec.offered_amount)}
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        rec.status === 'FULFILLED' ? 'bg-emerald-100 text-emerald-800' : 'bg-brand/10 text-brand'
+                      }`}>
+                        {rec.status === 'FULFILLED' ? 'Fulfilled' : 'Open'}
+                      </span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${rec.color}`}>
-                      {rec.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
