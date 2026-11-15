@@ -87085,6 +87085,141 @@ var refreshToken = import_app.default.refreshToken;
 
 // src/middleware/auth.ts
 init_auth();
+
+// src/utils/blacklist.ts
+var ensureBlacklistTable = async () => {
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS email_blacklist (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        email VARCHAR(255) NOT NULL,
+        reason TEXT DEFAULT 'Violation of community terms',
+        blacklisted_by TEXT,
+        expires_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_email_blacklist_email_lower ON email_blacklist (LOWER(email));
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blacklisted BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS blacklist_expires_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS blacklist_reason TEXT;
+    `);
+  } catch (err) {
+    console.warn("ensureBlacklistTable notice:", err.message);
+  }
+};
+var checkEmailBlacklist = async (email) => {
+  if (!email) return { isBlacklisted: false };
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    const res = await query(
+      `SELECT id, email, reason, expires_at, created_at 
+       FROM email_blacklist 
+       WHERE LOWER(email) = LOWER($1) 
+       LIMIT 1`,
+      [cleanEmail]
+    );
+    if (res.rows.length === 0) {
+      return { isBlacklisted: false };
+    }
+    const row = res.rows[0];
+    const now = /* @__PURE__ */ new Date();
+    if (row.expires_at) {
+      const expiresAt = new Date(row.expires_at);
+      if (expiresAt <= now) {
+        await query(`DELETE FROM email_blacklist WHERE id = $1`, [row.id]).catch(() => {
+        });
+        await query(
+          `UPDATE users 
+           SET is_blacklisted = FALSE, blacklist_expires_at = NULL, blacklist_reason = NULL 
+           WHERE LOWER(email) = LOWER($1)`,
+          [cleanEmail]
+        ).catch(() => {
+        });
+        return { isBlacklisted: false };
+      }
+      const formattedDate = expiresAt.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+      return {
+        isBlacklisted: true,
+        isPermanent: false,
+        expiresAt: row.expires_at,
+        reason: row.reason,
+        message: `Your account (${cleanEmail}) has been suspended until ${formattedDate}. Reason: ${row.reason || "Violation of community rules"}. Contact support if you believe this is an error.`
+      };
+    }
+    return {
+      isBlacklisted: true,
+      isPermanent: true,
+      expiresAt: null,
+      reason: row.reason,
+      message: `Your account (${cleanEmail}) has been permanently blacklisted from Rentu. Reason: ${row.reason || "Violation of community rules"}. Contact support for review.`
+    };
+  } catch (err) {
+    if (err?.message?.includes("does not exist") || err?.message?.includes('relation "email_blacklist"')) {
+      await ensureBlacklistTable();
+    }
+    return { isBlacklisted: false };
+  }
+};
+var blacklistEmail = async (params) => {
+  const cleanEmail = params.email.trim().toLowerCase();
+  if (isAdminEmail(cleanEmail)) {
+    throw new Error("Authorized administrator accounts cannot be blacklisted.");
+  }
+  await ensureBlacklistTable();
+  let expiresAt = null;
+  if (params.days && params.days > 0) {
+    expiresAt = /* @__PURE__ */ new Date();
+    expiresAt.setDate(expiresAt.getDate() + params.days);
+  }
+  const reason = params.reason?.trim() || "Violation of community terms";
+  const res = await query(
+    `INSERT INTO email_blacklist (email, reason, blacklisted_by, expires_at, updated_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT ((LOWER(email))) DO UPDATE SET
+       reason = EXCLUDED.reason,
+       blacklisted_by = EXCLUDED.blacklisted_by,
+       expires_at = EXCLUDED.expires_at,
+       updated_at = NOW()
+     RETURNING id, email, reason, blacklisted_by, expires_at, created_at, updated_at`,
+    [cleanEmail, reason, params.blacklistedBy || "Admin", expiresAt]
+  );
+  await query(
+    `UPDATE users 
+     SET is_blacklisted = TRUE, 
+         blacklist_expires_at = $1, 
+         blacklist_reason = $2,
+         updated_at = NOW()
+     WHERE LOWER(email) = LOWER($3)`,
+    [expiresAt, reason, cleanEmail]
+  ).catch(() => {
+  });
+  return res.rows[0];
+};
+var removeEmailBlacklist = async (email) => {
+  const cleanEmail = email.trim().toLowerCase();
+  await ensureBlacklistTable();
+  await query(`DELETE FROM email_blacklist WHERE LOWER(email) = LOWER($1)`, [cleanEmail]);
+  await query(
+    `UPDATE users 
+     SET is_blacklisted = FALSE, 
+         blacklist_expires_at = NULL, 
+         blacklist_reason = NULL,
+         updated_at = NOW()
+     WHERE LOWER(email) = LOWER($1)`,
+    [cleanEmail]
+  ).catch(() => {
+  });
+  return true;
+};
+
+// src/middleware/auth.ts
 try {
   const existingApps = getApps();
   if (!existingApps.length) {
@@ -87210,6 +87345,12 @@ var authMiddleware = async (req, res, next) => {
     if (!user) {
       return sendError(res, "INVALID_TOKEN", "Session expired or token invalid", 401);
     }
+    if (user.email && !isAdminEmail(user.email)) {
+      const blacklist = await checkEmailBlacklist(user.email);
+      if (blacklist.isBlacklisted) {
+        return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "Your account has been blacklisted.", 403);
+      }
+    }
     req.user = user;
     next();
   } catch (err) {
@@ -87303,6 +87444,10 @@ router.post("/register", async (req, res, next) => {
   try {
     const validated = registerSchema.parse(req.body);
     const email = validated.email.toLowerCase();
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "This email address has been blacklisted.", 403);
+    }
     const displayName = validated.name || email.split("@")[0];
     const locality = validated.locality || "";
     let cleanUsername = validated.username ? validated.username.trim().toLowerCase() : null;
@@ -87357,10 +87502,15 @@ router.post("/register", async (req, res, next) => {
 router.post("/login", async (req, res, next) => {
   try {
     const validated = loginSchema.parse(req.body);
+    const email = validated.email.toLowerCase();
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "This email address has been blacklisted.", 403);
+    }
     const result = await query(
       `SELECT id, email, password_hash, name, username, phone, locality, address_text, pincode, avatar_url, bio, trust_score, role, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
        FROM users WHERE email = $1`,
-      [validated.email.toLowerCase()]
+      [email]
     );
     if (result.rows.length === 0) {
       return sendError(res, "USER_NOT_FOUND", "No account found with this email", 404);
@@ -87454,6 +87604,10 @@ var handleSyncUser = async (req, res, next) => {
     }
     const uid = decodedToken.uid;
     const email = (decodedToken.email || validated.email).toLowerCase();
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "This email address has been blacklisted.", 403);
+    }
     const name = decodedToken.name || validated.name || email.split("@")[0];
     const avatar = decodedToken.picture || validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(name)}`;
     const locality = validated.locality || "";
@@ -103035,6 +103189,7 @@ var router12 = (0, import_express12.Router)();
 router12.use(adminMiddleware);
 router12.get("/users", async (req, res, next) => {
   try {
+    await ensureBlacklistTable();
     const result = await query(`
       SELECT 
         u.id, 
@@ -103047,6 +103202,9 @@ router12.get("/users", async (req, res, next) => {
         u.trust_score, 
         u.rating, 
         COALESCE(u.is_verified, FALSE) AS is_verified,
+        COALESCE(u.is_blacklisted, FALSE) AS is_blacklisted,
+        u.blacklist_expires_at,
+        u.blacklist_reason,
         u.created_at,
         (SELECT COUNT(*) FROM items i WHERE i.owner_id = u.id)::int AS items_count,
         (SELECT COUNT(*) FROM requests r WHERE r.seeker_id = u.id)::int AS requests_count,
@@ -103120,6 +103278,53 @@ router12.delete("/users/:id", async (req, res, next) => {
       }
     }
     return sendSuccess(res, { id, email: user.email }, "User deleted successfully from database and authentication");
+  } catch (error) {
+    next(error);
+  }
+});
+var blacklistSchema = external_exports.object({
+  email: external_exports.string().email(),
+  days: external_exports.number().nullable().optional(),
+  reason: external_exports.string().optional()
+});
+router12.get("/blacklist", async (req, res, next) => {
+  try {
+    await ensureBlacklistTable();
+    const result = await query(
+      `SELECT id, email, reason, blacklisted_by, expires_at, created_at, updated_at
+       FROM email_blacklist
+       ORDER BY created_at DESC`
+    );
+    return sendSuccess(res, result.rows);
+  } catch (error) {
+    next(error);
+  }
+});
+router12.post("/blacklist", async (req, res, next) => {
+  try {
+    const validated = blacklistSchema.parse(req.body);
+    const result = await blacklistEmail({
+      email: validated.email,
+      days: validated.days,
+      reason: validated.reason,
+      blacklistedBy: req.user?.email || req.user?.name || "Admin"
+    });
+    return sendSuccess(res, result, "User email has been successfully blacklisted");
+  } catch (error) {
+    if (error.message?.includes("cannot be blacklisted")) {
+      return sendError(res, "FORBIDDEN", error.message, 403);
+    }
+    next(error);
+  }
+});
+router12.delete("/blacklist/:email", async (req, res, next) => {
+  try {
+    const { email } = req.params;
+    if (!email) {
+      return sendError(res, "BAD_REQUEST", "Email parameter is required", 400);
+    }
+    await removeEmailBlacklist(decodeURIComponent(email));
+    return sendSuccess(res, { email }, "Email removed from blacklist successfully");
   } catch (error) {
     next(error);
   }

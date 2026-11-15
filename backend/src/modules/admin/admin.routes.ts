@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { query } from '../../config/db';
 import { sendError, sendSuccess } from '../../middleware/response';
 import { adminMiddleware, AuthenticatedRequest, isAdminEmail } from '../../middleware/auth';
+import {
+  ensureBlacklistTable,
+  blacklistEmail,
+  removeEmailBlacklist,
+} from '../../utils/blacklist';
 
 const router = Router();
 
@@ -12,6 +17,7 @@ router.use(adminMiddleware);
 // 1. GET ALL USERS (with gear, request, and booking counts)
 router.get('/users', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
+    await ensureBlacklistTable();
     const result = await query(`
       SELECT 
         u.id, 
@@ -24,6 +30,9 @@ router.get('/users', async (req: AuthenticatedRequest, res: Response, next) => {
         u.trust_score, 
         u.rating, 
         COALESCE(u.is_verified, FALSE) AS is_verified,
+        COALESCE(u.is_blacklisted, FALSE) AS is_blacklisted,
+        u.blacklist_expires_at,
+        u.blacklist_reason,
         u.created_at,
         (SELECT COUNT(*) FROM items i WHERE i.owner_id = u.id)::int AS items_count,
         (SELECT COUNT(*) FROM requests r WHERE r.seeker_id = u.id)::int AS requests_count,
@@ -115,6 +124,61 @@ router.delete('/users/:id', async (req: AuthenticatedRequest, res: Response, nex
     }
 
     return sendSuccess(res, { id, email: user.email }, 'User deleted successfully from database and authentication');
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 2.2 BLACKLIST MANAGEMENT
+const blacklistSchema = z.object({
+  email: z.string().email(),
+  days: z.number().nullable().optional(),
+  reason: z.string().optional(),
+});
+
+// GET /blacklist - List all blacklisted emails
+router.get('/blacklist', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    await ensureBlacklistTable();
+    const result = await query(
+      `SELECT id, email, reason, blacklisted_by, expires_at, created_at, updated_at
+       FROM email_blacklist
+       ORDER BY created_at DESC`
+    );
+    return sendSuccess(res, result.rows);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /blacklist - Blacklist an email permanently or for X days
+router.post('/blacklist', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const validated = blacklistSchema.parse(req.body);
+    const result = await blacklistEmail({
+      email: validated.email,
+      days: validated.days,
+      reason: validated.reason,
+      blacklistedBy: req.user?.email || req.user?.name || 'Admin',
+    });
+    return sendSuccess(res, result, 'User email has been successfully blacklisted');
+  } catch (error: any) {
+    if (error.message?.includes('cannot be blacklisted')) {
+      return sendError(res, 'FORBIDDEN', error.message, 403);
+    }
+    next(error);
+  }
+});
+
+// DELETE /blacklist/:email - Lift ban / remove email from blacklist
+router.delete('/blacklist/:email', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { email } = req.params;
+    if (!email) {
+      return sendError(res, 'BAD_REQUEST', 'Email parameter is required', 400);
+    }
+    await removeEmailBlacklist(decodeURIComponent(email));
+    return sendSuccess(res, { email }, 'Email removed from blacklist successfully');
   } catch (error) {
     next(error);
   }

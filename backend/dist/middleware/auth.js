@@ -10,6 +10,7 @@ const auth_1 = require("firebase-admin/auth");
 const env_1 = require("../config/env");
 const db_1 = require("../config/db");
 const response_1 = require("./response");
+const blacklist_1 = require("../utils/blacklist");
 // Initialize Firebase Admin securely for cryptographic token verification
 try {
     const existingApps = (0, app_1.getApps)();
@@ -152,6 +153,12 @@ const authMiddleware = async (req, res, next) => {
         const user = await resolveUserFromToken(token);
         if (!user) {
             return (0, response_1.sendError)(res, 'INVALID_TOKEN', 'Session expired or token invalid', 401);
+        }
+        if (user.email && !(0, exports.isAdminEmail)(user.email)) {
+            const blacklist = await (0, blacklist_1.checkEmailBlacklist)(user.email);
+            if (blacklist.isBlacklisted) {
+                return (0, response_1.sendError)(res, 'ACCOUNT_BLACKLISTED', blacklist.message || 'Your account has been blacklisted.', 403);
+            }
         }
         req.user = user;
         next();

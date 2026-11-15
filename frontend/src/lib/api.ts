@@ -826,6 +826,30 @@ export const api = {
     return handleResponse(res);
   },
 
+  async getAdminBlacklist(): Promise<any[]> {
+    const res = await fetch(`${API_BASE}/admin/blacklist`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async blacklistUser(data: { email: string; days?: number | null; reason?: string }): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/blacklist`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
+
+  async removeAdminBlacklist(email: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/blacklist/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
   async getAdminListings(): Promise<any[]> {
     const res = await fetch(`${API_BASE}/admin/listings`, {
       headers: getHeaders(),

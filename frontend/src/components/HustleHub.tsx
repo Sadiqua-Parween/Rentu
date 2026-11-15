@@ -29,7 +29,8 @@ import {
   Check,
   X,
   Star,
-  AlertCircle
+  AlertCircle,
+  Ban
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { SupportTicket, isAuthorizedAdmin } from '../lib/types';
@@ -58,8 +59,15 @@ export const HustleHub: React.FC = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
-  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'USER' | 'ADMIN'>('ALL');
+  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'USER' | 'ADMIN' | 'BLACKLISTED'>('ALL');
   const [isUpdatingUser, setIsUpdatingUser] = useState<string | null>(null);
+  const [blacklistModalUser, setBlacklistModalUser] = useState<any | null>(null);
+  const [blacklistDays, setBlacklistDays] = useState<number | 'PERM'>(7);
+  const [customDays, setCustomDays] = useState<string>('');
+  const [blacklistReason, setBlacklistReason] = useState<string>('');
+  const [isSubmittingBlacklist, setIsSubmittingBlacklist] = useState(false);
+  const [isManualBlacklistOpen, setIsManualBlacklistOpen] = useState(false);
+  const [manualBlacklistEmail, setManualBlacklistEmail] = useState('');
 
   // 3. Listings Admin State
   const [adminListings, setAdminListings] = useState<any[]>([]);
@@ -302,6 +310,60 @@ export const HustleHub: React.FC = () => {
       setAdminUsers(prev => prev.map(u => u.id === targetUser.id ? { ...u, trust_score: score } : u));
     } catch (err: any) {
       alert(err.message || 'Failed to update trust score');
+    } finally {
+      setIsUpdatingUser(null);
+    }
+  };
+
+  const handleOpenBlacklistModal = (targetUser: any) => {
+    setBlacklistModalUser(targetUser);
+    setBlacklistDays(7);
+    setCustomDays('');
+    setBlacklistReason('');
+  };
+
+  const handleSubmitBlacklist = async () => {
+    const email = blacklistModalUser?.email || manualBlacklistEmail.trim().toLowerCase();
+    if (!email) {
+      alert('Email is required to blacklist.');
+      return;
+    }
+    const days = blacklistDays === 'PERM' ? null : (blacklistDays === -1 ? Number(customDays) : blacklistDays);
+    if (blacklistDays === -1 && (!days || days <= 0)) {
+      alert('Please enter a valid number of days for the ban duration.');
+      return;
+    }
+
+    setIsSubmittingBlacklist(true);
+    try {
+      await api.blacklistUser({
+        email,
+        days: days || null,
+        reason: blacklistReason.trim() || undefined,
+      });
+      alert(`Successfully blacklisted ${email} ${days ? `for ${days} days` : 'permanently'}.`);
+      setBlacklistModalUser(null);
+      setIsManualBlacklistOpen(false);
+      setManualBlacklistEmail('');
+      loadAdminUsers();
+    } catch (err: any) {
+      alert(err.message || 'Failed to blacklist user');
+    } finally {
+      setIsSubmittingBlacklist(false);
+    }
+  };
+
+  const handleLiftBan = async (targetUser: any) => {
+    const email = targetUser.email;
+    if (!window.confirm(`Lift suspension for ${email}? They will immediately regain access to login and rent.`)) return;
+
+    setIsUpdatingUser(targetUser.id);
+    try {
+      await api.removeAdminBlacklist(email);
+      alert(`Ban lifted for ${email}.`);
+      setAdminUsers(prev => prev.map(u => u.email?.toLowerCase() === email.toLowerCase() ? { ...u, is_blacklisted: false, blacklist_expires_at: null, blacklist_reason: null } : u));
+    } catch (err: any) {
+      alert(err.message || 'Failed to lift ban');
     } finally {
       setIsUpdatingUser(null);
     }
@@ -984,13 +1046,29 @@ export const HustleHub: React.FC = () => {
                   </p>
                 </div>
 
-                <button
-                  onClick={loadAdminUsers}
-                  className="btn-secondary text-xs px-3.5 py-1.5 cursor-pointer font-bold inline-flex items-center gap-1.5 self-start sm:self-auto"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Refresh Users</span>
-                </button>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <button
+                    onClick={() => {
+                      setIsManualBlacklistOpen(true);
+                      setBlacklistModalUser(null);
+                      setManualBlacklistEmail('');
+                      setBlacklistDays(7);
+                      setCustomDays('');
+                      setBlacklistReason('');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Blacklist Email</span>
+                  </button>
+                  <button
+                    onClick={loadAdminUsers}
+                    className="btn-secondary text-xs px-3.5 py-1.5 cursor-pointer font-bold inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Refresh Users</span>
+                  </button>
+                </div>
               </div>
 
               {/* Filters */}
@@ -1006,17 +1084,19 @@ export const HustleHub: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="font-bold text-ink mr-1">Role:</span>
-                  {(['ALL', 'USER', 'ADMIN'] as const).map(r => (
+                <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                  <span className="font-bold text-ink mr-1">Filter:</span>
+                  {(['ALL', 'USER', 'ADMIN', 'BLACKLISTED'] as const).map(r => (
                     <button
                       key={r}
                       onClick={() => setUserRoleFilter(r)}
                       className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
-                        userRoleFilter === r ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
+                        userRoleFilter === r
+                          ? r === 'BLACKLISTED' ? 'bg-rose-600 text-white shadow-xs' : 'bg-brand text-white shadow-xs'
+                          : 'hover:bg-surface text-ink-secondary'
                       }`}
                     >
-                      {r}
+                      {r === 'BLACKLISTED' ? 'Banned / Blacklisted' : r}
                     </button>
                   ))}
                 </div>
@@ -1060,7 +1140,11 @@ export const HustleHub: React.FC = () => {
                     <tbody className="divide-y divide-divider/60 font-medium">
                       {adminUsers
                         .filter(u => {
-                          if (userRoleFilter !== 'ALL' && u.role !== userRoleFilter) return false;
+                          if (userRoleFilter === 'BLACKLISTED') {
+                            if (!u.is_blacklisted) return false;
+                          } else if (userRoleFilter !== 'ALL' && u.role !== userRoleFilter) {
+                            return false;
+                          }
                           if (!userSearch) return true;
                           const q = userSearch.toLowerCase();
                           return u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.locality?.toLowerCase().includes(q);
@@ -1075,8 +1159,23 @@ export const HustleHub: React.FC = () => {
                                   className="w-8 h-8 rounded-full object-cover border border-divider shrink-0"
                                 />
                                 <div className="min-w-0">
-                                  <span className="font-bold text-ink block truncate">{u.name || 'Neighbor'}</span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-ink truncate">{u.name || 'Neighbor'}</span>
+                                    {u.is_blacklisted && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-rose-500/10 text-rose-500 border border-rose-500/30">
+                                        Suspended
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className="text-[11px] text-ink-secondary block truncate">{u.email}</span>
+                                  {u.is_blacklisted && (
+                                    <span className="text-[10px] text-rose-500 font-semibold block truncate">
+                                      {u.blacklist_expires_at
+                                        ? `Banned until ${new Date(u.blacklist_expires_at).toLocaleDateString()}`
+                                        : 'Permanently Banned'}
+                                      {u.blacklist_reason ? ` • ${u.blacklist_reason}` : ''}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -1132,12 +1231,157 @@ export const HustleHub: React.FC = () => {
                                 >
                                   {isUpdatingUser === u.id ? 'Updating...' : u.role === 'ADMIN' ? 'Demote' : 'Make Admin'}
                                 </button>
+                                {u.is_blacklisted ? (
+                                  <button
+                                    type="button"
+                                    disabled={isUpdatingUser === u.id}
+                                    onClick={() => handleLiftBan(u)}
+                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-50"
+                                    title="Lift Suspension"
+                                  >
+                                    Lift Ban
+                                  </button>
+                                ) : !isAuthorizedAdmin(u.email) ? (
+                                  <button
+                                    type="button"
+                                    disabled={isUpdatingUser === u.id}
+                                    onClick={() => handleOpenBlacklistModal(u)}
+                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 inline-flex items-center gap-1 disabled:opacity-50"
+                                    title="Blacklist User"
+                                  >
+                                    <Ban className="w-3 h-3" />
+                                    <span>Ban</span>
+                                  </button>
+                                ) : null}
                               </div>
                             </td>
                           </tr>
                         ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Blacklist User Modal */}
+              {(blacklistModalUser || isManualBlacklistOpen) && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-canvas border border-divider rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+                    <div className="p-5 border-b border-divider flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-rose-500 font-bold text-base">
+                        <Ban className="w-5 h-5" />
+                        <span>Blacklist User / Email</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setBlacklistModalUser(null);
+                          setIsManualBlacklistOpen(false);
+                        }}
+                        className="p-1 rounded-lg hover:bg-surface text-ink-secondary hover:text-ink cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="p-5 space-y-4">
+                      {blacklistModalUser ? (
+                        <div className="p-3 bg-surface rounded-xl border border-divider">
+                          <p className="text-xs text-ink-muted">Target Account</p>
+                          <p className="text-sm font-bold text-ink">{blacklistModalUser.name || 'User'}</p>
+                          <p className="text-xs text-rose-500 font-mono font-medium">{blacklistModalUser.email}</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs font-bold text-ink mb-1">Email Address to Blacklist</label>
+                          <input
+                            type="email"
+                            value={manualBlacklistEmail}
+                            onChange={(e) => setManualBlacklistEmail(e.target.value)}
+                            placeholder="user@example.com"
+                            className="w-full bg-surface border border-divider rounded-xl px-3 py-2 text-xs text-ink outline-none focus:border-rose-500 font-mono"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-bold text-ink mb-1.5">Ban Duration</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: '1 Day', val: 1 },
+                            { label: '7 Days', val: 7 },
+                            { label: '14 Days', val: 14 },
+                            { label: '30 Days', val: 30 },
+                            { label: 'Custom', val: -1 },
+                            { label: 'Permanent', val: 'PERM' },
+                          ].map(opt => (
+                            <button
+                              key={opt.label}
+                              type="button"
+                              onClick={() => setBlacklistDays(opt.val as any)}
+                              className={`py-2 px-2.5 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
+                                blacklistDays === opt.val
+                                  ? 'bg-rose-500 text-white border-rose-500 shadow-xs'
+                                  : 'border-divider hover:bg-surface text-ink-secondary'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {blacklistDays === -1 && (
+                          <div className="mt-2.5">
+                            <label className="block text-[11px] font-bold text-ink-muted mb-1">Number of Days</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="3650"
+                              value={customDays}
+                              onChange={(e) => setCustomDays(e.target.value)}
+                              placeholder="e.g. 60 or 90"
+                              className="w-full bg-surface border border-divider rounded-xl px-3 py-2 text-xs text-ink outline-none focus:border-rose-500"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-ink mb-1">Reason / Note (Optional)</label>
+                        <textarea
+                          rows={2}
+                          value={blacklistReason}
+                          onChange={(e) => setBlacklistReason(e.target.value)}
+                          placeholder="e.g., Non-return of rental equipment, policy violation..."
+                          className="w-full bg-surface border border-divider rounded-xl p-2.5 text-xs text-ink outline-none focus:border-rose-500 resize-none"
+                        />
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-600 dark:text-amber-400">
+                        Blacklisting immediately revokes active login tokens, prevents Google Sign-In and registration, and blocks rental requests for this email address.
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-surface/50 border-t border-divider flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBlacklistModalUser(null);
+                          setIsManualBlacklistOpen(false);
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl border border-divider hover:bg-surface text-xs font-bold text-ink-secondary cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSubmittingBlacklist}
+                        onClick={handleSubmitBlacklist}
+                        className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                      >
+                        {isSubmittingBlacklist ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                        <span>Confirm Blacklist</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
