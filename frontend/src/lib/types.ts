@@ -274,6 +274,8 @@ export interface CommunityPulse {
   total_community_volume: number;
   open_wishes: number;
   fulfilled_wishes: number;
+  active_requests?: number;
+  active_rentals?: number;
 }
 
 export interface CategoryStat {

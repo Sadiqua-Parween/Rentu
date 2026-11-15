@@ -21,6 +21,11 @@ router.get('/overview', optionalAuthMiddleware, async (req: AuthenticatedRequest
         (SELECT COUNT(*) FROM requests WHERE status = 'OPEN')::int AS open_wishes,
         (SELECT COUNT(*) FROM requests WHERE status = 'FULFILLED')::int AS fulfilled_wishes,
         (
+          (SELECT COUNT(*) FROM requests WHERE status = 'OPEN') +
+          (SELECT COUNT(*) FROM bookings WHERE status IN ('PENDING', 'ACCEPTED', 'HANDED_OVER'))
+        )::int AS active_requests,
+        (SELECT COUNT(*) FROM bookings WHERE status IN ('PENDING', 'ACCEPTED', 'HANDED_OVER'))::int AS active_rentals,
+        (
           SELECT CASE 
             WHEN COUNT(*) = 0 THEN 100
             ELSE ROUND((COUNT(*) FILTER (WHERE status = 'COMPLETED')::numeric / COUNT(*)::numeric) * 100, 0)::int

@@ -312,6 +312,7 @@ export const App: React.FC = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [requests, setRequests] = useState<CommunityRequest[]>([]);
   const [activeUsersCount, setActiveUsersCount] = useState<number>(0);
+  const [activeRequestsCount, setActiveRequestsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals
@@ -514,7 +515,12 @@ export const App: React.FC = () => {
       }
 
       if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.pulse) {
-        setActiveUsersCount(Number(analyticsRes.value.pulse.total_users) || 0);
+        const pulse = analyticsRes.value.pulse;
+        setActiveUsersCount(Number(pulse.total_users) || 0);
+        const totalActive = typeof pulse.active_requests === 'number'
+          ? Number(pulse.active_requests)
+          : (Number(pulse.open_wishes || 0) + Number(pulse.active_rentals || 0));
+        setActiveRequestsCount(totalActive);
       }
     } catch (err) {
       console.error('Failed to load feed data:', err);
@@ -711,7 +717,7 @@ export const App: React.FC = () => {
                   onOpenDropGear={() => setIsDropGearOpen(true)}
                   onOpenDropWish={() => setIsDropWishOpen(true)}
                   itemsCount={(items || []).length}
-                  requestsCount={(requests || []).length}
+                  requestsCount={Math.max(activeRequestsCount, (requests || []).length)}
                   activeUsersCount={activeUsersCount}
                   isLoading={isLoading}
                   onOpenUserProfile={handleOpenUserProfile}
