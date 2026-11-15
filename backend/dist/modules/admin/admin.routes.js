@@ -228,12 +228,13 @@ router.get('/listings', async (req, res, next) => {
         const result = await (0, db_1.query)(`
       SELECT 
         i.*, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         COALESCE(u.name, 'Lender') AS owner_name, 
         u.email AS owner_email,
         u.avatar_url AS owner_avatar
       FROM items i
-      LEFT JOIN users u ON i.owner_id = u.id
-      ORDER BY i.created_at DESC
+      LEFT JOIN users u ON (i.owner_id = u.id OR i.owner_id = u.firebase_uid)
+      ORDER BY CASE WHEN COALESCE(i.approval_status, 'APPROVED') = 'PENDING' THEN 0 ELSE 1 END, i.created_at DESC
     `);
         return (0, response_1.sendSuccess)(res, result.rows);
     }
@@ -259,6 +260,24 @@ router.patch('/listings/:id/status', async (req, res, next) => {
         next(error);
     }
 });
+// 4b. UPDATE LISTING APPROVAL STATUS (Approve / Reject)
+router.patch('/listings/:id/approval', async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { approval_status } = req.body;
+        if (!['APPROVED', 'PENDING', 'REJECTED'].includes(approval_status)) {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'Invalid approval status. Must be APPROVED, PENDING, or REJECTED.', 400);
+        }
+        const result = await (0, db_1.query)(`UPDATE items SET approval_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [approval_status, id]);
+        if (result.rows.length === 0) {
+            return (0, response_1.sendError)(res, 'NOT_FOUND', 'Listing not found', 404);
+        }
+        return (0, response_1.sendSuccess)(res, result.rows[0], `Listing ${approval_status.toLowerCase()} successfully`);
+    }
+    catch (error) {
+        next(error);
+    }
+});
 // 5. DELETE LISTING (Admin Takedown)
 router.delete('/listings/:id', async (req, res, next) => {
     try {
@@ -276,14 +295,33 @@ router.get('/requests', async (req, res, next) => {
         const result = await (0, db_1.query)(`
       SELECT 
         r.*,
+        COALESCE(r.approval_status, 'APPROVED') AS approval_status,
         COALESCE(u.name, 'Seeker') AS seeker_name,
         u.email AS seeker_email,
         u.avatar_url AS seeker_avatar
       FROM requests r
       LEFT JOIN users u ON (r.seeker_id = u.id::text OR r.seeker_id = u.firebase_uid)
-      ORDER BY r.created_at DESC
+      ORDER BY CASE WHEN COALESCE(r.approval_status, 'APPROVED') = 'PENDING' THEN 0 ELSE 1 END, r.created_at DESC
     `);
         return (0, response_1.sendSuccess)(res, result.rows);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+// 6b. UPDATE REQUEST APPROVAL STATUS (Approve / Reject)
+router.patch('/requests/:id/approval', async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { approval_status } = req.body;
+        if (!['APPROVED', 'PENDING', 'REJECTED'].includes(approval_status)) {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'Invalid approval status. Must be APPROVED, PENDING, or REJECTED.', 400);
+        }
+        const result = await (0, db_1.query)(`UPDATE requests SET approval_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [approval_status, id]);
+        if (result.rows.length === 0) {
+            return (0, response_1.sendError)(res, 'NOT_FOUND', 'Request not found', 404);
+        }
+        return (0, response_1.sendSuccess)(res, result.rows[0], `Request ${approval_status.toLowerCase()} successfully`);
     }
     catch (error) {
         next(error);
@@ -427,6 +465,8 @@ router.get('/reports', async (req, res, next) => {
       SELECT 
         (SELECT COUNT(*) FROM users)::int AS total_users,
         (SELECT COUNT(*) FROM items)::int AS total_items,
+        (SELECT COUNT(*) FROM items WHERE COALESCE(approval_status, 'APPROVED') = 'PENDING')::int AS pending_items,
+        (SELECT COUNT(*) FROM requests WHERE COALESCE(approval_status, 'APPROVED') = 'PENDING')::int AS pending_requests,
         (SELECT COUNT(*) FROM bookings)::int AS total_bookings,
         (SELECT COUNT(*) FROM bookings WHERE status = 'COMPLETED')::int AS completed_bookings,
         (SELECT COUNT(*) FROM support_tickets)::int AS total_support_tickets,

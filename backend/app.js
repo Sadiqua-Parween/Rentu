@@ -96458,6 +96458,8 @@ router2.get("/", optionalAuthMiddleware, async (req, res, next) => {
         NULL AS latitude, 
         NULL AS longitude, 
         i.status AS status, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         EXISTS (
           SELECT 1 FROM bookings b
           WHERE b.item_id = i.id
@@ -96512,6 +96514,26 @@ router2.get("/", optionalAuthMiddleware, async (req, res, next) => {
       sql += ` AND (i.title ILIKE $${params.length} OR i.description ILIKE $${params.length} OR i.category ILIKE $${params.length})`;
     }
     const currentViewerId = req.user?.id;
+    const currentViewerEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminViewer = req.user?.role === "ADMIN" || Boolean(currentViewerEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(currentViewerEmail));
+    if (!isAdminViewer) {
+      if (ownerId && currentViewerId) {
+        const resolvedOwnerIds = await resolveUserIds(String(ownerId));
+        const resolvedViewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+        const isSelfProfile = resolvedOwnerIds.some((id) => resolvedViewerIds.includes(id));
+        if (!isSelfProfile) {
+          sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+        }
+      } else if (ownerId && !currentViewerId) {
+        sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+      } else if (currentViewerId) {
+        const resolvedViewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+        params.push(resolvedViewerIds);
+        sql += ` AND (COALESCE(i.approval_status, 'APPROVED') = 'APPROVED' OR i.owner_id = ANY($${params.length}::text[]))`;
+      } else {
+        sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+      }
+    }
     if (currentViewerId) {
       params.push(currentViewerId);
       sql += ` AND i.owner_id NOT IN (
@@ -96552,6 +96574,7 @@ router2.get("/:id", optionalAuthMiddleware, async (req, res, next) => {
         COALESCE(i.latitude, u.latitude) AS latitude, 
         COALESCE(i.longitude, u.longitude) AS longitude,
         i.status AS status, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         i.available_for_borrowing, i.offers_delivery, i.delivery_fee, i.offers_pickup, i.pickup_fee, i.created_at,
         u.id AS owner_id, u.name AS owner_name, u.username AS owner_username, u.avatar_url AS owner_avatar,
         u.bio AS owner_bio, u.trust_score AS owner_trust_score,
@@ -96571,6 +96594,15 @@ router2.get("/:id", optionalAuthMiddleware, async (req, res, next) => {
     }
     const item = result.rows[0];
     const currentViewerId = req.user?.id;
+    const currentViewerEmail = req.user?.email?.toLowerCase().trim();
+    const isAdmin = req.user?.role === "ADMIN" || Boolean(currentViewerEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(currentViewerEmail));
+    if (item.approval_status && item.approval_status !== "APPROVED" && !isAdmin) {
+      const viewerIds = currentViewerId ? await resolveUserIds(currentViewerId, currentViewerEmail) : [];
+      const isOwner = viewerIds.includes(String(item.owner_id));
+      if (!isOwner) {
+        return sendError(res, "FORBIDDEN", "This item is currently pending approval by admin.", 403);
+      }
+    }
     if (currentViewerId && item.owner_id && currentViewerId !== item.owner_id) {
       const blockCheck = await query(
         `SELECT 1 FROM user_blocks 
@@ -96770,11 +96802,14 @@ router2.post("/", authMiddleware, async (req, res, next) => {
       ).catch(() => {
       });
     }
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminUser = req.user?.role === "ADMIN" || Boolean(userEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(userEmail));
+    const initialApproval = isAdminUser ? "APPROVED" : "PENDING";
     const result = await query(
       `INSERT INTO items 
-        (owner_id, title, description, category, condition, price_per_day, max_duration_days, image_urls, sticker_badge, locality, address_text, pincode, latitude, longitude, status, available_for_borrowing, offers_delivery, delivery_fee, offers_pickup, pickup_fee)
+        (owner_id, title, description, category, condition, price_per_day, max_duration_days, image_urls, sticker_badge, locality, address_text, pincode, latitude, longitude, status, available_for_borrowing, offers_delivery, delivery_fee, offers_pickup, pickup_fee, approval_status)
        VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, 'AVAILABLE', $15, $16, $17, $18, $19)
+        ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, 'AVAILABLE', $15, $16, $17, $18, $19, $20)
        RETURNING *`,
       [
         req.user.id,
@@ -96795,7 +96830,8 @@ router2.post("/", authMiddleware, async (req, res, next) => {
         validated.offers_delivery ?? false,
         validated.delivery_fee ?? 0,
         validated.offers_pickup ?? false,
-        validated.pickup_fee ?? 0
+        validated.pickup_fee ?? 0,
+        initialApproval
       ]
     );
     const createdItem = result.rows[0];
@@ -97112,7 +97148,7 @@ router3.get("/", optionalAuthMiddleware, async (req, res, next) => {
         CASE WHEN r.seeker_id = ANY($1::text[]) THEN r.pincode ELSE NULL END AS pincode,
         r.pickup_type, r.pickup_locality, r.return_type, r.return_locality,
         r.will_pickup, r.will_drop_back, r.delivery_fee,
-        r.status, r.created_at, r.image_url,
+        r.status, COALESCE(r.approval_status, 'APPROVED') AS approval_status, r.created_at, r.image_url,
         COALESCE(u.id, r.seeker_id) AS seeker_id, 
         COALESCE(u.name, 'Community Member') AS seeker_name, 
         u.username AS seeker_username,
@@ -97153,6 +97189,23 @@ router3.get("/", optionalAuthMiddleware, async (req, res, next) => {
         sql += ` AND (r.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
       }
     }
+    const currentViewerEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminViewer = req.user?.role === "ADMIN" || Boolean(currentViewerEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(currentViewerEmail));
+    if (!isAdminViewer) {
+      if (seekerId && currentViewerId) {
+        const resolvedSeekerIds = await resolveUserIds(String(seekerId));
+        const isSelfSeeker = resolvedSeekerIds.some((id) => viewerIds.includes(id));
+        if (!isSelfSeeker) {
+          sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+        }
+      } else if (seekerId && !currentViewerId) {
+        sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+      } else if (viewerIds.length > 0) {
+        sql += ` AND (COALESCE(r.approval_status, 'APPROVED') = 'APPROVED' OR r.seeker_id = ANY($1::text[]))`;
+      } else {
+        sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+      }
+    }
     if (currentViewerId) {
       params.push(currentViewerId);
       sql += ` AND r.seeker_id NOT IN (
@@ -97179,7 +97232,7 @@ router3.get("/:id", optionalAuthMiddleware, async (req, res, next) => {
         r.offered_amount, r.locality, r.address_text, r.pincode,
         r.pickup_type, r.pickup_locality, r.return_type, r.return_locality,
         r.will_pickup, r.will_drop_back, r.delivery_fee,
-        r.status, r.created_at, r.image_url,
+        r.status, COALESCE(r.approval_status, 'APPROVED') AS approval_status, r.created_at, r.image_url,
         u.id AS seeker_id, u.name AS seeker_name, u.username AS seeker_username, u.avatar_url AS seeker_avatar,
         u.locality AS seeker_locality, u.trust_score AS seeker_trust_score,
         u.phone AS seeker_phone, u.email AS seeker_email
@@ -97193,10 +97246,17 @@ router3.get("/:id", optionalAuthMiddleware, async (req, res, next) => {
     }
     const requestItem = result.rows[0];
     const currentViewerId = req.user?.id;
+    const currentViewerEmail = req.user?.email?.toLowerCase().trim();
+    const isAdmin = req.user?.role === "ADMIN" || Boolean(currentViewerEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(currentViewerEmail));
     let canViewPrivate = false;
     if (currentViewerId) {
-      const viewerIds = await resolveUserIds(currentViewerId);
-      canViewPrivate = viewerIds.includes(String(requestItem.seeker_id)) || req.user?.role === "ADMIN";
+      const viewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+      canViewPrivate = viewerIds.includes(String(requestItem.seeker_id)) || isAdmin;
+    }
+    if (requestItem.approval_status && requestItem.approval_status !== "APPROVED" && !isAdmin) {
+      if (!canViewPrivate) {
+        return sendError(res, "FORBIDDEN", "This community wish is currently pending approval by admin.", 403);
+      }
     }
     if (!canViewPrivate) {
       requestItem.address_text = null;
@@ -97251,11 +97311,14 @@ router3.post("/", authMiddleware, async (req, res, next) => {
       ).catch(() => {
       });
     }
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminUser = req.user?.role === "ADMIN" || Boolean(userEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(userEmail));
+    const initialApproval = isAdminUser ? "APPROVED" : "PENDING";
     const result = await query(
       `INSERT INTO requests
-        (seeker_id, item_name, description, category, start_date, start_time, end_date, end_time, duration_days, offered_amount, locality, address_text, pincode, latitude, longitude, image_url, pickup_type, pickup_locality, return_type, return_locality, will_pickup, will_drop_back, delivery_fee, status)
+        (seeker_id, item_name, description, category, start_date, start_time, end_date, end_time, duration_days, offered_amount, locality, address_text, pincode, latitude, longitude, image_url, pickup_type, pickup_locality, return_type, return_locality, will_pickup, will_drop_back, delivery_fee, status, approval_status)
        VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'OPEN')
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'OPEN', $24)
        RETURNING *`,
       [
         req.user.id,
@@ -97280,7 +97343,8 @@ router3.post("/", authMiddleware, async (req, res, next) => {
         validated.return_locality || null,
         validated.will_pickup ?? true,
         validated.will_drop_back ?? true,
-        validated.delivery_fee ?? 0
+        validated.delivery_fee ?? 0,
+        initialApproval
       ]
     );
     const createdRequest = result.rows[0];
@@ -103366,12 +103430,13 @@ router12.get("/listings", async (req, res, next) => {
     const result = await query(`
       SELECT 
         i.*, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         COALESCE(u.name, 'Lender') AS owner_name, 
         u.email AS owner_email,
         u.avatar_url AS owner_avatar
       FROM items i
-      LEFT JOIN users u ON i.owner_id = u.id
-      ORDER BY i.created_at DESC
+      LEFT JOIN users u ON (i.owner_id = u.id OR i.owner_id = u.firebase_uid)
+      ORDER BY CASE WHEN COALESCE(i.approval_status, 'APPROVED') = 'PENDING' THEN 0 ELSE 1 END, i.created_at DESC
     `);
     return sendSuccess(res, result.rows);
   } catch (error) {
@@ -103397,6 +103462,25 @@ router12.patch("/listings/:id/status", async (req, res, next) => {
     next(error);
   }
 });
+router12.patch("/listings/:id/approval", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { approval_status } = req.body;
+    if (!["APPROVED", "PENDING", "REJECTED"].includes(approval_status)) {
+      return sendError(res, "BAD_REQUEST", "Invalid approval status. Must be APPROVED, PENDING, or REJECTED.", 400);
+    }
+    const result = await query(
+      `UPDATE items SET approval_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [approval_status, id]
+    );
+    if (result.rows.length === 0) {
+      return sendError(res, "NOT_FOUND", "Listing not found", 404);
+    }
+    return sendSuccess(res, result.rows[0], `Listing ${approval_status.toLowerCase()} successfully`);
+  } catch (error) {
+    next(error);
+  }
+});
 router12.delete("/listings/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -103411,14 +103495,34 @@ router12.get("/requests", async (req, res, next) => {
     const result = await query(`
       SELECT 
         r.*,
+        COALESCE(r.approval_status, 'APPROVED') AS approval_status,
         COALESCE(u.name, 'Seeker') AS seeker_name,
         u.email AS seeker_email,
         u.avatar_url AS seeker_avatar
       FROM requests r
       LEFT JOIN users u ON (r.seeker_id = u.id::text OR r.seeker_id = u.firebase_uid)
-      ORDER BY r.created_at DESC
+      ORDER BY CASE WHEN COALESCE(r.approval_status, 'APPROVED') = 'PENDING' THEN 0 ELSE 1 END, r.created_at DESC
     `);
     return sendSuccess(res, result.rows);
+  } catch (error) {
+    next(error);
+  }
+});
+router12.patch("/requests/:id/approval", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { approval_status } = req.body;
+    if (!["APPROVED", "PENDING", "REJECTED"].includes(approval_status)) {
+      return sendError(res, "BAD_REQUEST", "Invalid approval status. Must be APPROVED, PENDING, or REJECTED.", 400);
+    }
+    const result = await query(
+      `UPDATE requests SET approval_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [approval_status, id]
+    );
+    if (result.rows.length === 0) {
+      return sendError(res, "NOT_FOUND", "Request not found", 404);
+    }
+    return sendSuccess(res, result.rows[0], `Request ${approval_status.toLowerCase()} successfully`);
   } catch (error) {
     next(error);
   }
@@ -103550,6 +103654,8 @@ router12.get("/reports", async (req, res, next) => {
       SELECT 
         (SELECT COUNT(*) FROM users)::int AS total_users,
         (SELECT COUNT(*) FROM items)::int AS total_items,
+        (SELECT COUNT(*) FROM items WHERE COALESCE(approval_status, 'APPROVED') = 'PENDING')::int AS pending_items,
+        (SELECT COUNT(*) FROM requests WHERE COALESCE(approval_status, 'APPROVED') = 'PENDING')::int AS pending_requests,
         (SELECT COUNT(*) FROM bookings)::int AS total_bookings,
         (SELECT COUNT(*) FROM bookings WHERE status = 'COMPLETED')::int AS completed_bookings,
         (SELECT COUNT(*) FROM support_tickets)::int AS total_support_tickets,

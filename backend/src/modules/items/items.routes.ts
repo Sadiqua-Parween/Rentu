@@ -204,6 +204,8 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next
         NULL AS latitude, 
         NULL AS longitude, 
         i.status AS status, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         EXISTS (
           SELECT 1 FROM bookings b
           WHERE b.item_id = i.id
@@ -264,6 +266,33 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next
 
     // Exclude items from blocked users
     const currentViewerId = (req as AuthenticatedRequest).user?.id;
+    const currentViewerEmail = (req as AuthenticatedRequest).user?.email?.toLowerCase().trim();
+    const isAdminViewer = (req as AuthenticatedRequest).user?.role === 'ADMIN' || 
+      Boolean(currentViewerEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(currentViewerEmail));
+
+    // Approval status filtering:
+    // - Admins can view all listings
+    // - When filtering by ownerId, if viewer is the owner, show all their listings (including pending preview)
+    // - In public marketplace, only show APPROVED items, plus the viewer's own pending items if logged in
+    if (!isAdminViewer) {
+      if (ownerId && currentViewerId) {
+        const resolvedOwnerIds = await resolveUserIds(String(ownerId));
+        const resolvedViewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+        const isSelfProfile = resolvedOwnerIds.some(id => resolvedViewerIds.includes(id));
+        if (!isSelfProfile) {
+          sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+        }
+      } else if (ownerId && !currentViewerId) {
+        sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+      } else if (currentViewerId) {
+        const resolvedViewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+        params.push(resolvedViewerIds);
+        sql += ` AND (COALESCE(i.approval_status, 'APPROVED') = 'APPROVED' OR i.owner_id = ANY($${params.length}::text[]))`;
+      } else {
+        sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+      }
+    }
+
     if (currentViewerId) {
       params.push(currentViewerId);
       sql += ` AND i.owner_id NOT IN (
@@ -312,6 +341,7 @@ router.get('/:id', optionalAuthMiddleware, async (req: Request, res: Response, n
         COALESCE(i.latitude, u.latitude) AS latitude, 
         COALESCE(i.longitude, u.longitude) AS longitude,
         i.status AS status, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         i.available_for_borrowing, i.offers_delivery, i.delivery_fee, i.offers_pickup, i.pickup_fee, i.created_at,
         u.id AS owner_id, u.name AS owner_name, u.username AS owner_username, u.avatar_url AS owner_avatar,
         u.bio AS owner_bio, u.trust_score AS owner_trust_score,
@@ -333,8 +363,20 @@ router.get('/:id', optionalAuthMiddleware, async (req: Request, res: Response, n
 
     const item = result.rows[0];
 
-    // Block check: if viewer and owner have a block relationship, hide item
+    // Approval status protection:
+    // If item is pending or rejected, only allow owner or administrators to view the preview
     const currentViewerId = (req as AuthenticatedRequest).user?.id;
+    const currentViewerEmail = (req as AuthenticatedRequest).user?.email?.toLowerCase().trim();
+    const isAdmin = (req as AuthenticatedRequest).user?.role === 'ADMIN' ||
+      Boolean(currentViewerEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(currentViewerEmail));
+
+    if (item.approval_status && item.approval_status !== 'APPROVED' && !isAdmin) {
+      const viewerIds = currentViewerId ? await resolveUserIds(currentViewerId, currentViewerEmail) : [];
+      const isOwner = viewerIds.includes(String(item.owner_id));
+      if (!isOwner) {
+        return sendError(res, 'FORBIDDEN', 'This item is currently pending approval by admin.', 403);
+      }
+    }
     if (currentViewerId && item.owner_id && currentViewerId !== item.owner_id) {
       const blockCheck = await query(
         `SELECT 1 FROM user_blocks 
@@ -551,11 +593,15 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
       ).catch(() => { });
     }
 
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminUser = req.user?.role === 'ADMIN' || Boolean(userEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(userEmail));
+    const initialApproval = isAdminUser ? 'APPROVED' : 'PENDING';
+
     const result = await query(
       `INSERT INTO items 
-        (owner_id, title, description, category, condition, price_per_day, max_duration_days, image_urls, sticker_badge, locality, address_text, pincode, latitude, longitude, status, available_for_borrowing, offers_delivery, delivery_fee, offers_pickup, pickup_fee)
+        (owner_id, title, description, category, condition, price_per_day, max_duration_days, image_urls, sticker_badge, locality, address_text, pincode, latitude, longitude, status, available_for_borrowing, offers_delivery, delivery_fee, offers_pickup, pickup_fee, approval_status)
        VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, 'AVAILABLE', $15, $16, $17, $18, $19)
+        ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, 'AVAILABLE', $15, $16, $17, $18, $19, $20)
        RETURNING *`,
       [
         req.user!.id,
@@ -577,6 +623,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
         validated.delivery_fee ?? 0,
         validated.offers_pickup ?? false,
         validated.pickup_fee ?? 0,
+        initialApproval,
       ]);
     const createdItem = result.rows[0];
 

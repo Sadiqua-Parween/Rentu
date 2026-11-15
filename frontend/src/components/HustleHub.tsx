@@ -30,7 +30,8 @@ import {
   X,
   Star,
   AlertCircle,
-  Ban
+  Ban,
+  XCircle
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { SupportTicket, isAuthorizedAdmin } from '../lib/types';
@@ -75,7 +76,9 @@ export const HustleHub: React.FC = () => {
   const [listingsError, setListingsError] = useState<string | null>(null);
   const [listingSearch, setListingSearch] = useState('');
   const [listingStatusFilter, setListingStatusFilter] = useState<string>('ALL');
+  const [listingApprovalFilter, setListingApprovalFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
   const [isUpdatingListing, setIsUpdatingListing] = useState<string | null>(null);
+  const [isUpdatingApproval, setIsUpdatingApproval] = useState<string | null>(null);
 
   // 4. Requests Admin State
   const [adminRequests, setAdminRequests] = useState<any[]>([]);
@@ -83,6 +86,7 @@ export const HustleHub: React.FC = () => {
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const [requestSearch, setRequestSearch] = useState('');
   const [requestStatusFilter, setRequestStatusFilter] = useState<string>('ALL');
+  const [requestApprovalFilter, setRequestApprovalFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
 
   // 5. Bookings Admin State
   const [adminBookings, setAdminBookings] = useState<any[]>([]);
@@ -254,6 +258,12 @@ export const HustleHub: React.FC = () => {
     if (activeSidebar === 'Overview' || activeSidebar === 'Analytics') loadOverviewAnalytics();
   }, [activeSidebar, ticketFilterType, ticketFilterStatus]);
 
+  // Initial load of listings & requests so approval counts appear immediately in sidebar & overview
+  useEffect(() => {
+    loadAdminListings();
+    loadAdminRequests();
+  }, []);
+
   // Live listener: automatically refresh admin tickets whenever a ticket is submitted anywhere in the app
   useEffect(() => {
     const handleTicketSubmitted = () => {
@@ -375,6 +385,32 @@ export const HustleHub: React.FC = () => {
       alert(err.message || 'Failed to lift ban');
     } finally {
       setIsUpdatingUser(null);
+    }
+  };
+
+  // Listing approval status
+  const handleUpdateListingApproval = async (itemId: string, approval_status: 'APPROVED' | 'PENDING' | 'REJECTED') => {
+    setIsUpdatingApproval(itemId);
+    try {
+      await api.updateAdminListingApproval(itemId, approval_status);
+      setAdminListings(prev => prev.map(item => item.id === itemId ? { ...item, approval_status } : item));
+    } catch (err: any) {
+      alert(err.message || 'Failed to update approval status');
+    } finally {
+      setIsUpdatingApproval(null);
+    }
+  };
+
+  // Request approval status
+  const handleUpdateRequestApproval = async (requestId: string, approval_status: 'APPROVED' | 'PENDING' | 'REJECTED') => {
+    setIsUpdatingApproval(requestId);
+    try {
+      await api.updateAdminRequestApproval(requestId, approval_status);
+      setAdminRequests(prev => prev.map(r => r.id === requestId ? { ...r, approval_status } : r));
+    } catch (err: any) {
+      alert(err.message || 'Failed to update wish approval status');
+    } finally {
+      setIsUpdatingApproval(null);
     }
   };
 
@@ -590,12 +626,15 @@ export const HustleHub: React.FC = () => {
   const totalLocalityUsers = localities.reduce((sum, l) => sum + Number(l.user_count || 0), 0) || 1;
   const localityPalette = ['bg-brand', 'bg-purple-400', 'bg-emerald-400', 'bg-amber-400', 'bg-zinc-400'];
 
+  const pendingListingsCount = adminListings.filter(i => (i.approval_status || 'APPROVED') === 'PENDING').length;
+  const pendingRequestsCount = adminRequests.filter(r => (r.approval_status || 'APPROVED') === 'PENDING').length;
+
   const sidebarLinks = [
     { name: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
     { name: 'Concerns & Feedback', icon: <AlertTriangle className="w-4 h-4 text-amber-500" /> },
     { name: 'Users', icon: <Users className="w-4 h-4" /> },
-    { name: 'Listings', icon: <Package className="w-4 h-4" /> },
-    { name: 'Requests', icon: <Target className="w-4 h-4" /> },
+    { name: 'Listings', icon: <Package className="w-4 h-4" />, badge: pendingListingsCount > 0 ? `${pendingListingsCount} Pending` : undefined },
+    { name: 'Requests', icon: <Target className="w-4 h-4" />, badge: pendingRequestsCount > 0 ? `${pendingRequestsCount} Pending` : undefined },
     { name: 'Bookings', icon: <Layers className="w-4 h-4" /> },
     { name: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
     { name: 'Locality', icon: <MapPin className="w-4 h-4" /> },
@@ -626,14 +665,21 @@ export const HustleHub: React.FC = () => {
                 <button
                   key={item.name}
                   onClick={() => setActiveSidebar(item.name)}
-                  className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer ${
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
                     isActive
                       ? 'bg-ink text-canvas shadow-xs font-black'
                       : 'text-ink-secondary hover:text-ink hover:bg-surface font-semibold'
                   }`}
                 >
-                  {item.icon}
-                  <span>{item.name}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {item.icon}
+                    <span className="truncate">{item.name}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 shrink-0 shadow-xs">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -687,6 +733,53 @@ export const HustleHub: React.FC = () => {
                 </div>
               ) : (
                 <>
+              {/* Action Required: Pending Approvals Banner */}
+              {(pendingListingsCount > 0 || pendingRequestsCount > 0) && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-500 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-amber-400">
+                        {pendingListingsCount + pendingRequestsCount} Submissions Pending Admin Approval
+                      </h3>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        {pendingListingsCount > 0 && `${pendingListingsCount} gear ${pendingListingsCount === 1 ? 'item' : 'items'}`}
+                        {pendingListingsCount > 0 && pendingRequestsCount > 0 && ' and '}
+                        {pendingRequestsCount > 0 && `${pendingRequestsCount} community ${pendingRequestsCount === 1 ? 'wish' : 'wishes'}`}
+                        {' waiting for your verification before going live on the marketplace.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {pendingListingsCount > 0 && (
+                      <button
+                        onClick={() => {
+                          setListingApprovalFilter('PENDING');
+                          setActiveSidebar('Listings');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs hover:bg-amber-400 transition-colors cursor-pointer shadow-xs"
+                      >
+                        Review Listings ({pendingListingsCount})
+                      </button>
+                    )}
+                    {pendingRequestsCount > 0 && (
+                      <button
+                        onClick={() => {
+                          setRequestApprovalFilter('PENDING');
+                          setActiveSidebar('Requests');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs hover:bg-amber-400 transition-colors cursor-pointer shadow-xs"
+                      >
+                        Review Wishes ({pendingRequestsCount})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Top 4 Metrics Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-4 rounded-2xl bg-canvas border border-divider space-y-1">
@@ -1422,31 +1515,64 @@ export const HustleHub: React.FC = () => {
               </div>
 
               {/* Filters */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-canvas p-3 rounded-2xl border border-divider">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-ink-muted" />
-                  <input
-                    type="text"
-                    value={listingSearch}
-                    onChange={(e) => setListingSearch(e.target.value)}
-                    placeholder="Search by title, owner, or category..."
-                    className="w-full bg-surface border border-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-ink outline-none focus:border-brand font-semibold"
-                  />
+              <div className="flex flex-col gap-3 bg-canvas p-3.5 rounded-2xl border border-divider">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-ink-muted" />
+                    <input
+                      type="text"
+                      value={listingSearch}
+                      onChange={(e) => setListingSearch(e.target.value)}
+                      placeholder="Search by title, owner, or category..."
+                      className="w-full bg-surface border border-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-ink outline-none focus:border-brand font-semibold"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                    <span className="font-bold text-ink mr-1">Status:</span>
+                    {(['ALL', 'AVAILABLE', 'RENTED', 'UNAVAILABLE'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setListingStatusFilter(s)}
+                        className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
+                          listingStatusFilter === s ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="font-bold text-ink mr-1">Status:</span>
-                  {(['ALL', 'AVAILABLE', 'RENTED', 'UNAVAILABLE'] as const).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setListingStatusFilter(s)}
-                      className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
-                        listingStatusFilter === s ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                {/* Approval Filter Bar */}
+                <div className="pt-2.5 border-t border-divider flex items-center gap-1.5 text-xs flex-wrap">
+                  <span className="font-bold text-ink mr-1 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand" />
+                    <span>Approval:</span>
+                  </span>
+                  {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map(s => {
+                    const count = s === 'PENDING' ? pendingListingsCount : undefined;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setListingApprovalFilter(s)}
+                        className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                          listingApprovalFilter === s 
+                            ? (s === 'PENDING' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-ink text-canvas font-black shadow-xs') 
+                            : 'hover:bg-surface text-ink-secondary'
+                        }`}
+                      >
+                        <span>{s === 'PENDING' ? 'Pending Approval' : s}</span>
+                        {count !== undefined && count > 0 && (
+                          <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                            listingApprovalFilter === s ? 'bg-slate-950 text-amber-400' : 'bg-amber-500 text-slate-950'
+                          }`}>
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1481,13 +1607,16 @@ export const HustleHub: React.FC = () => {
                         <th className="p-3.5">Category</th>
                         <th className="p-3.5">Rate</th>
                         <th className="p-3.5">Owner</th>
-                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Marketplace Status</th>
+                        <th className="p-3.5">Admin Approval</th>
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-divider/60 font-medium">
                       {adminListings
                         .filter(item => {
+                          const appStatus = item.approval_status || 'APPROVED';
+                          if (listingApprovalFilter !== 'ALL' && appStatus !== listingApprovalFilter) return false;
                           if (listingStatusFilter !== 'ALL' && item.status !== listingStatusFilter) return false;
                           if (!listingSearch) return true;
                           const q = listingSearch.toLowerCase();
@@ -1496,6 +1625,7 @@ export const HustleHub: React.FC = () => {
                         .map(item => {
                           const images = Array.isArray(item.image_urls) ? item.image_urls : (typeof item.image_urls === 'string' ? JSON.parse(item.image_urls || '[]') : []);
                           const firstImg = images[0] || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=400&q=80';
+                          const appStatus = item.approval_status || 'APPROVED';
 
                           return (
                             <tr key={item.id} className="hover:bg-surface/60 transition-colors">
@@ -1546,16 +1676,61 @@ export const HustleHub: React.FC = () => {
                                   <option value="UNAVAILABLE">UNAVAILABLE</option>
                                 </select>
                               </td>
+                              <td className="p-3.5">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border ${
+                                  appStatus === 'APPROVED'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                                    : appStatus === 'PENDING'
+                                    ? 'bg-amber-500/15 text-amber-500 border-amber-500/30 animate-pulse'
+                                    : 'bg-rose-500/10 text-rose-500 border-rose-500/30'
+                                }`}>
+                                  {appStatus === 'APPROVED' ? (
+                                    <><CheckCircle2 className="w-3 h-3" /> Approved</>
+                                  ) : appStatus === 'PENDING' ? (
+                                    <><Clock className="w-3 h-3" /> Pending</>
+                                  ) : (
+                                    <><AlertCircle className="w-3 h-3" /> Rejected</>
+                                  )}
+                                </span>
+                              </td>
                               <td className="p-3.5 text-right">
-                                <button
-                                  type="button"
-                                  disabled={isUpdatingListing === item.id}
-                                  onClick={() => handleDeleteListing(item.id, item.title)}
-                                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Delete Listing"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {appStatus !== 'APPROVED' && (
+                                    <button
+                                      type="button"
+                                      disabled={isUpdatingApproval === item.id}
+                                      onClick={() => handleUpdateListingApproval(item.id, 'APPROVED')}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                                      title="Approve listing and publish to marketplace"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>Approve</span>
+                                    </button>
+                                  )}
+
+                                  {appStatus !== 'REJECTED' && (
+                                    <button
+                                      type="button"
+                                      disabled={isUpdatingApproval === item.id}
+                                      onClick={() => handleUpdateListingApproval(item.id, 'REJECTED')}
+                                      className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                      title="Reject listing"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      <span>Reject</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    disabled={isUpdatingListing === item.id}
+                                    onClick={() => handleDeleteListing(item.id, item.title)}
+                                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Delete Listing"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1593,31 +1768,64 @@ export const HustleHub: React.FC = () => {
               </div>
 
               {/* Filters */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-canvas p-3 rounded-2xl border border-divider">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-ink-muted" />
-                  <input
-                    type="text"
-                    value={requestSearch}
-                    onChange={(e) => setRequestSearch(e.target.value)}
-                    placeholder="Search by wish, seeker name, or category..."
-                    className="w-full bg-surface border border-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-ink outline-none focus:border-brand font-semibold"
-                  />
+              <div className="flex flex-col gap-3 bg-canvas p-3.5 rounded-2xl border border-divider">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-ink-muted" />
+                    <input
+                      type="text"
+                      value={requestSearch}
+                      onChange={(e) => setRequestSearch(e.target.value)}
+                      placeholder="Search by wish, seeker name, or category..."
+                      className="w-full bg-surface border border-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-ink outline-none focus:border-brand font-semibold"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                    <span className="font-bold text-ink mr-1">Status:</span>
+                    {(['ALL', 'OPEN', 'FULFILLED', 'CANCELLED'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setRequestStatusFilter(s)}
+                        className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
+                          requestStatusFilter === s ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="font-bold text-ink mr-1">Status:</span>
-                  {(['ALL', 'OPEN', 'FULFILLED', 'CANCELLED'] as const).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setRequestStatusFilter(s)}
-                      className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
-                        requestStatusFilter === s ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                {/* Approval Filter Bar */}
+                <div className="pt-2.5 border-t border-divider flex items-center gap-1.5 text-xs flex-wrap">
+                  <span className="font-bold text-ink mr-1 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand" />
+                    <span>Approval:</span>
+                  </span>
+                  {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map(s => {
+                    const count = s === 'PENDING' ? pendingRequestsCount : undefined;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setRequestApprovalFilter(s)}
+                        className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                          requestApprovalFilter === s 
+                            ? (s === 'PENDING' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-ink text-canvas font-black shadow-xs') 
+                            : 'hover:bg-surface text-ink-secondary'
+                        }`}
+                      >
+                        <span>{s === 'PENDING' ? 'Pending Approval' : s}</span>
+                        {count !== undefined && count > 0 && (
+                          <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                            requestApprovalFilter === s ? 'bg-slate-950 text-amber-400' : 'bg-amber-500 text-slate-950'
+                          }`}>
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1654,62 +1862,113 @@ export const HustleHub: React.FC = () => {
                         <th className="p-3.5">Seeker</th>
                         <th className="p-3.5">Schedule</th>
                         <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Admin Approval</th>
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-divider/60 font-medium">
                       {adminRequests
                         .filter(r => {
+                          const appStatus = r.approval_status || 'APPROVED';
+                          if (requestApprovalFilter !== 'ALL' && appStatus !== requestApprovalFilter) return false;
                           if (requestStatusFilter !== 'ALL' && r.status !== requestStatusFilter) return false;
                           if (!requestSearch) return true;
                           const q = requestSearch.toLowerCase();
                           return r.item_name?.toLowerCase().includes(q) || r.seeker_name?.toLowerCase().includes(q) || r.category?.toLowerCase().includes(q);
                         })
-                        .map(r => (
-                          <tr key={r.id} className="hover:bg-surface/60 transition-colors">
-                            <td className="p-3.5">
-                              <span className="font-bold text-ink block">{r.item_name}</span>
-                              <span className="text-[11px] text-ink-muted block line-clamp-1">{r.description || 'No description provided'}</span>
-                            </td>
-                            <td className="p-3.5">
-                              <span className="bg-surface px-2.5 py-0.5 rounded-full border border-divider text-[11px] font-bold text-ink">
-                                {r.category || 'General'}
-                              </span>
-                            </td>
-                            <td className="p-3.5 font-bold text-brand">
-                              ₹{Number(r.offered_amount)}
-                            </td>
-                            <td className="p-3.5">
-                              <span className="font-bold text-ink block truncate">{r.seeker_name || 'Seeker'}</span>
-                              <span className="text-[10px] text-ink-secondary block truncate">{r.seeker_email}</span>
-                            </td>
-                            <td className="p-3.5 text-ink-secondary">
-                              <span className="text-ink font-semibold">{r.start_date}</span>
-                              <span className="block text-[10px] text-ink-muted">({r.duration_days} days)</span>
-                            </td>
-                            <td className="p-3.5">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                r.status === 'OPEN'
-                                  ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
-                                  : r.status === 'FULFILLED'
-                                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
-                                  : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/30'
-                              }`}>
-                                {r.status}
-                              </span>
-                            </td>
-                            <td className="p-3.5 text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteRequest(r.id, r.item_name)}
-                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                                title="Delete Request"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        .map(r => {
+                          const appStatus = r.approval_status || 'APPROVED';
+                          return (
+                            <tr key={r.id} className="hover:bg-surface/60 transition-colors">
+                              <td className="p-3.5">
+                                <span className="font-bold text-ink block">{r.item_name}</span>
+                                <span className="text-[11px] text-ink-muted block line-clamp-1">{r.description || 'No description provided'}</span>
+                              </td>
+                              <td className="p-3.5">
+                                <span className="bg-surface px-2.5 py-0.5 rounded-full border border-divider text-[11px] font-bold text-ink">
+                                  {r.category || 'General'}
+                                </span>
+                              </td>
+                              <td className="p-3.5 font-bold text-brand">
+                                ₹{Number(r.offered_amount)}
+                              </td>
+                              <td className="p-3.5">
+                                <span className="font-bold text-ink block truncate">{r.seeker_name || 'Seeker'}</span>
+                                <span className="text-[10px] text-ink-secondary block truncate">{r.seeker_email}</span>
+                              </td>
+                              <td className="p-3.5 text-ink-secondary">
+                                <span className="text-ink font-semibold">{r.start_date}</span>
+                                <span className="block text-[10px] text-ink-muted">({r.duration_days} days)</span>
+                              </td>
+                              <td className="p-3.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                  r.status === 'OPEN'
+                                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+                                    : r.status === 'FULFILLED'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
+                                    : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/30'
+                                }`}>
+                                  {r.status}
+                                </span>
+                              </td>
+                              <td className="p-3.5">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border ${
+                                  appStatus === 'APPROVED'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                                    : appStatus === 'PENDING'
+                                    ? 'bg-amber-500/15 text-amber-500 border-amber-500/30 animate-pulse'
+                                    : 'bg-rose-500/10 text-rose-500 border-rose-500/30'
+                                }`}>
+                                  {appStatus === 'APPROVED' ? (
+                                    <><CheckCircle2 className="w-3 h-3" /> Approved</>
+                                  ) : appStatus === 'PENDING' ? (
+                                    <><Clock className="w-3 h-3" /> Pending</>
+                                  ) : (
+                                    <><AlertCircle className="w-3 h-3" /> Rejected</>
+                                  )}
+                                </span>
+                              </td>
+                              <td className="p-3.5 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {appStatus !== 'APPROVED' && (
+                                    <button
+                                      type="button"
+                                      disabled={isUpdatingApproval === r.id}
+                                      onClick={() => handleUpdateRequestApproval(r.id, 'APPROVED')}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                                      title="Approve wish and publish to community board"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>Approve</span>
+                                    </button>
+                                  )}
+
+                                  {appStatus !== 'REJECTED' && (
+                                    <button
+                                      type="button"
+                                      disabled={isUpdatingApproval === r.id}
+                                      onClick={() => handleUpdateRequestApproval(r.id, 'REJECTED')}
+                                      className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                      title="Reject wish"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      <span>Reject</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteRequest(r.id, r.item_name)}
+                                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                    title="Delete Request"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>

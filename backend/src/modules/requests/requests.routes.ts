@@ -116,7 +116,7 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next
         CASE WHEN r.seeker_id = ANY($1::text[]) THEN r.pincode ELSE NULL END AS pincode,
         r.pickup_type, r.pickup_locality, r.return_type, r.return_locality,
         r.will_pickup, r.will_drop_back, r.delivery_fee,
-        r.status, r.created_at, r.image_url,
+        r.status, COALESCE(r.approval_status, 'APPROVED') AS approval_status, r.created_at, r.image_url,
         COALESCE(u.id, r.seeker_id) AS seeker_id, 
         COALESCE(u.name, 'Community Member') AS seeker_name, 
         u.username AS seeker_username,
@@ -161,6 +161,30 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next
       }
     }
 
+    // Approval status filtering:
+    // - Admins can view all wishes
+    // - If viewing own profile wishes (seekerId matches viewer), show pending requests
+    // - In public marketplace, only show APPROVED requests, plus viewer's own pending requests
+    const currentViewerEmail = (req as AuthenticatedRequest).user?.email?.toLowerCase().trim();
+    const isAdminViewer = (req as AuthenticatedRequest).user?.role === 'ADMIN' || 
+      Boolean(currentViewerEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(currentViewerEmail));
+
+    if (!isAdminViewer) {
+      if (seekerId && currentViewerId) {
+        const resolvedSeekerIds = await resolveUserIds(String(seekerId));
+        const isSelfSeeker = resolvedSeekerIds.some(id => viewerIds.includes(id));
+        if (!isSelfSeeker) {
+          sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+        }
+      } else if (seekerId && !currentViewerId) {
+        sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+      } else if (viewerIds.length > 0) {
+        sql += ` AND (COALESCE(r.approval_status, 'APPROVED') = 'APPROVED' OR r.seeker_id = ANY($1::text[]))`;
+      } else {
+        sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+      }
+    }
+
     // Exclude requests from blocked users
     if (currentViewerId) {
       params.push(currentViewerId);
@@ -193,7 +217,7 @@ router.get('/:id', optionalAuthMiddleware, async (req: Request, res: Response, n
         r.offered_amount, r.locality, r.address_text, r.pincode,
         r.pickup_type, r.pickup_locality, r.return_type, r.return_locality,
         r.will_pickup, r.will_drop_back, r.delivery_fee,
-        r.status, r.created_at, r.image_url,
+        r.status, COALESCE(r.approval_status, 'APPROVED') AS approval_status, r.created_at, r.image_url,
         u.id AS seeker_id, u.name AS seeker_name, u.username AS seeker_username, u.avatar_url AS seeker_avatar,
         u.locality AS seeker_locality, u.trust_score AS seeker_trust_score,
         u.phone AS seeker_phone, u.email AS seeker_email
@@ -209,10 +233,20 @@ router.get('/:id', optionalAuthMiddleware, async (req: Request, res: Response, n
 
     const requestItem = result.rows[0];
     const currentViewerId = (req as AuthenticatedRequest).user?.id;
+    const currentViewerEmail = (req as AuthenticatedRequest).user?.email?.toLowerCase().trim();
+    const isAdmin = (req as AuthenticatedRequest).user?.role === 'ADMIN' ||
+      Boolean(currentViewerEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(currentViewerEmail));
+
     let canViewPrivate = false;
     if (currentViewerId) {
-      const viewerIds = await resolveUserIds(currentViewerId);
-      canViewPrivate = viewerIds.includes(String(requestItem.seeker_id)) || (req as AuthenticatedRequest).user?.role === 'ADMIN';
+      const viewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+      canViewPrivate = viewerIds.includes(String(requestItem.seeker_id)) || isAdmin;
+    }
+
+    if (requestItem.approval_status && requestItem.approval_status !== 'APPROVED' && !isAdmin) {
+      if (!canViewPrivate) {
+        return sendError(res, 'FORBIDDEN', 'This community wish is currently pending approval by admin.', 403);
+      }
     }
 
     if (!canViewPrivate) {
@@ -281,11 +315,15 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
       ).catch(() => {});
     }
 
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminUser = req.user?.role === 'ADMIN' || Boolean(userEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(userEmail));
+    const initialApproval = isAdminUser ? 'APPROVED' : 'PENDING';
+
     const result = await query(
       `INSERT INTO requests
-        (seeker_id, item_name, description, category, start_date, start_time, end_date, end_time, duration_days, offered_amount, locality, address_text, pincode, latitude, longitude, image_url, pickup_type, pickup_locality, return_type, return_locality, will_pickup, will_drop_back, delivery_fee, status)
+        (seeker_id, item_name, description, category, start_date, start_time, end_date, end_time, duration_days, offered_amount, locality, address_text, pincode, latitude, longitude, image_url, pickup_type, pickup_locality, return_type, return_locality, will_pickup, will_drop_back, delivery_fee, status, approval_status)
        VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'OPEN')
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'OPEN', $24)
        RETURNING *`,
       [
         req.user!.id,
@@ -311,6 +349,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
         validated.will_pickup ?? true,
         validated.will_drop_back ?? true,
         validated.delivery_fee ?? 0,
+        initialApproval,
       ]);
     const createdRequest = result.rows[0];
     const seekerId = req.user!.id;

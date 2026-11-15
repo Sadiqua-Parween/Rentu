@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Star, Check, Package, MapPin } from 'lucide-react';
+import { Heart, Star, Check, Package, MapPin, Clock, AlertCircle } from 'lucide-react';
 import { Item } from '../lib/types';
 import { useAuth } from '../lib/authContext';
 import { getReachDistance } from '../lib/distance';
@@ -80,7 +80,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick, onOpenUserPro
           <button
             type="button"
             onClick={toggleFavorite}
-            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shadow-xs transition-transform active:scale-90 hover:bg-white dark:hover:bg-zinc-800"
+            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shadow-xs transition-transform active:scale-90 hover:bg-white dark:hover:bg-zinc-800 z-10"
             title="Save to favorites"
           >
             <Heart
@@ -88,6 +88,20 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick, onOpenUserPro
                 }`}
             />
           </button>
+
+          {/* Approval Status Overlay for owner preview */}
+          {item.approval_status === 'PENDING' && (
+            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-amber-500/95 text-slate-950 font-black text-[10px] tracking-wide shadow-sm flex items-center gap-1 backdrop-blur-xs z-10">
+              <Clock className="w-3 h-3 text-slate-950" />
+              <span>Approval Pending</span>
+            </div>
+          )}
+          {item.approval_status === 'REJECTED' && (
+            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-rose-500/95 text-white font-black text-[10px] tracking-wide shadow-sm flex items-center gap-1 backdrop-blur-xs z-10">
+              <AlertCircle className="w-3 h-3 text-white" />
+              <span>Rejected</span>
+            </div>
+          )}
         </div>
 
         {/* Content Info matching Screen 2 */}

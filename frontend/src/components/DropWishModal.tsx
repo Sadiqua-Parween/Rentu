@@ -16,7 +16,8 @@ import {
   Truck,
   CheckCircle2,
   Compass,
-  Check
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
@@ -1057,34 +1058,41 @@ export const DropWishModal: React.FC<DropWishModalProps> = ({
         </form>
 
         {/* Clean Fixed Footer outside scrollable form */}
-        <div className="px-6 py-4 border-t border-divider bg-surface shrink-0 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="btn-secondary text-xs px-5 py-2.5 cursor-pointer font-bold"
-          >
-            Cancel
-          </button>
+        <div className="px-6 py-4 border-t border-divider bg-surface shrink-0 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-[11px] text-ink-muted flex items-center gap-1.5 self-start sm:self-auto">
+            <ShieldCheck className="w-3.5 h-3.5 text-brand shrink-0" />
+            <span>Wishes are reviewed by admin before appearing on the public board.</span>
+          </p>
 
-          <button
-            type="submit"
-            form="drop-wish-form"
-            disabled={isSubmitting || isUploading}
-            className="btn-primary text-xs px-6 py-2.5 shadow-pink cursor-pointer inline-flex items-center gap-2 font-bold disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Publishing Request...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                <span>Post Request</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="btn-secondary text-xs px-5 py-2.5 cursor-pointer font-bold"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              form="drop-wish-form"
+              disabled={isSubmitting || isUploading}
+              className="btn-primary text-xs px-6 py-2.5 shadow-pink cursor-pointer inline-flex items-center gap-2 font-bold disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Submitting Request...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 stroke-[2.5]" />
+                  <span>Post Request</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

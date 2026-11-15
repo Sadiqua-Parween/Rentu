@@ -866,10 +866,20 @@ export const api = {
     return handleResponse(res);
   },
 
+  async updateAdminListingApproval(id: string, approval_status: 'APPROVED' | 'PENDING' | 'REJECTED'): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/listings/${encodeURIComponent(id)}/approval`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ approval_status }),
+    });
+    return handleResponse(res);
+  },
+
   async deleteAdminListing(id: string): Promise<any> {
     const res = await fetch(`${API_BASE}/admin/listings/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getHeaders(),
+      body: JSON.stringify({}),
     });
     return handleResponse(res);
   },
@@ -877,6 +887,15 @@ export const api = {
   async getAdminRequests(): Promise<any[]> {
     const res = await fetch(`${API_BASE}/admin/requests`, {
       headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async updateAdminRequestApproval(id: string, approval_status: 'APPROVED' | 'PENDING' | 'REJECTED'): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/requests/${encodeURIComponent(id)}/approval`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ approval_status }),
     });
     return handleResponse(res);
   },
