@@ -74,6 +74,8 @@ export interface Item {
   longitude?: number;
   distance_meters?: number | null;
   status: 'AVAILABLE' | 'RENTED' | 'UNAVAILABLE';
+  approval_status?: 'APPROVED' | 'PENDING' | 'REJECTED';
+  rejection_reason?: string;
   available_for_borrowing?: boolean;
   offers_delivery?: boolean;
   delivery_fee?: number;
@@ -129,6 +131,7 @@ export interface CommunityRequest {
   return_locality?: string;
   image_url?: string | null;
   status: 'OPEN' | 'FULFILLED' | 'CANCELLED';
+  approval_status?: 'APPROVED' | 'PENDING' | 'REJECTED';
   created_at: string;
   seeker_name?: string;
   seeker_username?: string;
@@ -274,6 +277,8 @@ export interface CommunityPulse {
   total_community_volume: number;
   open_wishes: number;
   fulfilled_wishes: number;
+  active_requests?: number;
+  active_rentals?: number;
 }
 
 export interface CategoryStat {

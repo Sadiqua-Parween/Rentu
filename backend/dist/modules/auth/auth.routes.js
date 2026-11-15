@@ -12,6 +12,7 @@ const db_1 = require("../../config/db");
 const env_1 = require("../../config/env");
 const response_1 = require("../../middleware/response");
 const auth_2 = require("../../middleware/auth");
+const blacklist_1 = require("../../utils/blacklist");
 const router = (0, express_1.Router)();
 const registerSchema = zod_1.z.object({
     email: zod_1.z.string().email('Invalid email address format'),
@@ -56,6 +57,11 @@ router.post('/register', async (req, res, next) => {
     try {
         const validated = registerSchema.parse(req.body);
         const email = validated.email.toLowerCase();
+        // Check if email is blacklisted
+        const blacklist = await (0, blacklist_1.checkEmailBlacklist)(email);
+        if (blacklist.isBlacklisted) {
+            return (0, response_1.sendError)(res, 'ACCOUNT_BLACKLISTED', blacklist.message || 'This email address has been blacklisted.', 403);
+        }
         const displayName = validated.name || email.split('@')[0];
         const locality = validated.locality || '';
         let cleanUsername = validated.username ? validated.username.trim().toLowerCase() : null;
@@ -111,8 +117,14 @@ router.post('/register', async (req, res, next) => {
 router.post('/login', async (req, res, next) => {
     try {
         const validated = loginSchema.parse(req.body);
+        const email = validated.email.toLowerCase();
+        // Check if email is blacklisted
+        const blacklist = await (0, blacklist_1.checkEmailBlacklist)(email);
+        if (blacklist.isBlacklisted) {
+            return (0, response_1.sendError)(res, 'ACCOUNT_BLACKLISTED', blacklist.message || 'This email address has been blacklisted.', 403);
+        }
         const result = await (0, db_1.query)(`SELECT id, email, password_hash, name, username, phone, locality, address_text, pincode, avatar_url, bio, trust_score, role, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
-       FROM users WHERE email = $1`, [validated.email.toLowerCase()]);
+       FROM users WHERE email = $1`, [email]);
         if (result.rows.length === 0) {
             return (0, response_1.sendError)(res, 'USER_NOT_FOUND', 'No account found with this email', 404);
         }
@@ -221,6 +233,11 @@ const handleSyncUser = async (req, res, next) => {
         // Rely strictly on verified identity claims from Google / Firebase
         const uid = decodedToken.uid;
         const email = (decodedToken.email || validated.email).toLowerCase();
+        // Check if email is blacklisted
+        const blacklist = await (0, blacklist_1.checkEmailBlacklist)(email);
+        if (blacklist.isBlacklisted) {
+            return (0, response_1.sendError)(res, 'ACCOUNT_BLACKLISTED', blacklist.message || 'This email address has been blacklisted.', 403);
+        }
         const name = decodedToken.name || validated.name || email.split('@')[0];
         const avatar = decodedToken.picture || validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(name)}`;
         const locality = validated.locality || '';

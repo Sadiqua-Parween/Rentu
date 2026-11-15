@@ -74,11 +74,19 @@ export const AiListingCard: React.FC<AiListingCardProps> = ({ item, onSelectItem
                 <span className="text-brand font-bold">₹{estTotal} total</span>
               </>
             )}
-            <span>•</span>
-            <span className="flex items-center gap-0.5 truncate">
-              <MapPin className="w-3 h-3 text-ink-muted shrink-0" />
-              <span className="truncate">{getReachDistance(item)}</span>
-            </span>
+            {(() => {
+              const dist = getReachDistance(item);
+              if (!dist) return null;
+              return (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-0.5 truncate">
+                    <MapPin className="w-3 h-3 text-ink-muted shrink-0" />
+                    <span className="truncate">{dist}</span>
+                  </span>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

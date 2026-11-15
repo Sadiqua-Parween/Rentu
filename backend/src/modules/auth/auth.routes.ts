@@ -7,6 +7,7 @@ import { query } from '../../config/db';
 import { ENV } from '../../config/env';
 import { sendError, sendSuccess } from '../../middleware/response';
 import { authMiddleware, AuthenticatedRequest } from '../../middleware/auth';
+import { checkEmailBlacklist } from '../../utils/blacklist';
 
 const router = Router();
 
@@ -60,6 +61,12 @@ router.post('/register', async (req: Request, res: Response, next) => {
   try {
     const validated = registerSchema.parse(req.body);
     const email = validated.email.toLowerCase();
+
+    // Check if email is blacklisted
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, 'ACCOUNT_BLACKLISTED', blacklist.message || 'This email address has been blacklisted.', 403);
+    }
     const displayName = validated.name || email.split('@')[0];
     const locality = validated.locality || '';
     let cleanUsername = validated.username ? validated.username.trim().toLowerCase() : null;
@@ -126,11 +133,18 @@ router.post('/register', async (req: Request, res: Response, next) => {
 router.post('/login', async (req: Request, res: Response, next) => {
   try {
     const validated = loginSchema.parse(req.body);
+    const email = validated.email.toLowerCase();
+
+    // Check if email is blacklisted
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, 'ACCOUNT_BLACKLISTED', blacklist.message || 'This email address has been blacklisted.', 403);
+    }
 
     const result = await query(
       `SELECT id, email, password_hash, name, username, phone, locality, address_text, pincode, avatar_url, bio, trust_score, role, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
        FROM users WHERE email = $1`,
-      [validated.email.toLowerCase()]
+      [email]
     );
 
     if (result.rows.length === 0) {
@@ -254,6 +268,12 @@ const handleSyncUser = async (req: Request, res: Response, next: any) => {
     // Rely strictly on verified identity claims from Google / Firebase
     const uid = decodedToken.uid;
     const email = (decodedToken.email || validated.email).toLowerCase();
+
+    // Check if email is blacklisted
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, 'ACCOUNT_BLACKLISTED', blacklist.message || 'This email address has been blacklisted.', 403);
+    }
     const name = decodedToken.name || validated.name || email.split('@')[0];
     const avatar = decodedToken.picture || validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(name)}`;
     const locality = validated.locality || '';

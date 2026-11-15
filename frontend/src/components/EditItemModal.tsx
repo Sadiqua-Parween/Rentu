@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, MapPin, Loader2, Trash2, CheckCircle2, Sparkles, Plus, Check, Pencil } from 'lucide-react';
+import { X, Upload, MapPin, Loader2, Trash2, CheckCircle2, Sparkles, Plus, Check, Pencil, AlertCircle } from 'lucide-react';
 import { Item, SavedLocation } from '../lib/types';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/authContext';
@@ -27,7 +27,9 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   const [listingType, setListingType] = useState<'Rent' | 'Borrow'>('Rent');
   const { user } = useAuth();
   const savedLocations = getEffectiveSavedLocations(user);
-  const [selectedLocationId, setSelectedLocationId] = useState<string>('keep_current');
+  const [selectedLocationId, setSelectedLocationId] = useState<string>(() => {
+    return savedLocations.length > 0 ? (savedLocations.find(l => l.is_default)?.id || savedLocations[0].id) : '';
+  });
   const [isAddLocationOpen, setIsAddLocationOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<SavedLocation | null>(null);
   const [pricePerDay, setPricePerDay] = useState<number | ''>('');
@@ -48,18 +50,41 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (savedLocations.length > 0 && !selectedLocationId) {
+      const defaultLoc = savedLocations.find(l => l.is_default) || savedLocations[0];
+      setSelectedLocationId(defaultLoc.id);
+      setLocality(defaultLoc.locality || '');
+    }
+  }, [savedLocations, selectedLocationId]);
+
+  useEffect(() => {
     if (item && isOpen) {
       setTitle(item.title || '');
       setDescription(item.description || '');
       const rawCat = item.category || 'Electronics & Tech';
       setCategory(rawCat === 'Clothing & Accessories' ? 'Clothing & Fits' : rawCat);
       setCondition(item.condition || 'Good');
-      setSelectedLocationId('keep_current');
+
+      // Match item location with a saved location if possible, otherwise use default or first saved location
+      const matchingLoc = savedLocations.find(l => 
+        (l.locality && item.locality && l.locality.toLowerCase() === item.locality.toLowerCase()) ||
+        (l.street_road_landmark && item.address_text && item.address_text.toLowerCase().includes(l.street_road_landmark.toLowerCase()))
+      ) || savedLocations.find(l => l.is_default) || savedLocations[0];
+
+      if (matchingLoc) {
+        setSelectedLocationId(matchingLoc.id);
+        setLocality(matchingLoc.locality || item.locality || '');
+      } else {
+        setSelectedLocationId('');
+      }
+
       const isBorrow = Boolean(item.available_for_borrowing && (Number(item.price_per_day) <= 0 || !item.price_per_day));
       setListingType(isBorrow ? 'Borrow' : 'Rent');
       setPricePerDay(item.price_per_day !== undefined && item.price_per_day !== null ? Number(item.price_per_day) : '');
       setMaxDurationDays(item.max_duration_days || 5);
-      setLocality(item.locality || '');
+      if (!matchingLoc) {
+        setLocality(item.locality || '');
+      }
       setStatus(item.status || 'AVAILABLE');
       setImageUrls(Array.isArray(item.image_urls) ? item.image_urls.filter(Boolean) : []);
       setOffersDelivery(Boolean(item.offers_delivery));
@@ -157,15 +182,13 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
       let latitude = item.latitude;
       let longitude = item.longitude;
 
-      if (selectedLocationId !== 'keep_current') {
-        const chosenLocation = savedLocations.find(l => l.id === selectedLocationId) || savedLocations[0];
-        if (chosenLocation) {
-          itemAddress = [chosenLocation.building_flat_house, chosenLocation.street_road_landmark].filter(Boolean).join(', ');
-          finalLocality = chosenLocation.locality || locality.trim() || user?.locality || '';
-          pincode = chosenLocation.pincode || user?.pincode || undefined;
-          latitude = chosenLocation.latitude ?? user?.latitude;
-          longitude = chosenLocation.longitude ?? user?.longitude;
-        }
+      const chosenLocation = savedLocations.find(l => l.id === selectedLocationId) || savedLocations[0];
+      if (chosenLocation) {
+        itemAddress = [chosenLocation.building_flat_house, chosenLocation.street_road_landmark].filter(Boolean).join(', ');
+        finalLocality = chosenLocation.locality || locality.trim() || user?.locality || '';
+        pincode = chosenLocation.pincode || user?.pincode || undefined;
+        latitude = chosenLocation.latitude ?? user?.latitude;
+        longitude = chosenLocation.longitude ?? user?.longitude;
       }
 
       await api.updateItem(item.id, {
@@ -473,36 +496,33 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
 
             {/* List of Saved Locations in User's Profile */}
             <div className="space-y-2.5">
-              {/* Keep Existing Listing Location Option */}
-              <div
-                onClick={() => setSelectedLocationId('keep_current')}
-                className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
-                  selectedLocationId === 'keep_current'
-                    ? 'bg-brand/5 border-brand ring-1 ring-brand/20 shadow-xs'
-                    : 'bg-canvas border-divider hover:border-brand/40'
-                }`}
-              >
-                <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
-                  selectedLocationId === 'keep_current' ? 'border-brand bg-brand' : 'border-divider bg-surface'
-                }`}>
-                  {selectedLocationId === 'keep_current' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-extrabold text-ink">
-                      Keep Current Item Location
-                    </span>
-                    {selectedLocationId === 'keep_current' && (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                        <Check className="w-2.5 h-2.5" /> Retain existing coordinates
-                      </span>
-                    )}
+              {/* If no location set in profile */}
+              {savedLocations.length === 0 && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3 animate-in fade-in">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                      <AlertCircle className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-xs font-black text-ink">No Location Set in Your Profile</h4>
+                      <p className="text-[11px] text-ink-secondary mt-0.5 leading-relaxed">
+                        You have not set any location yet. Please add a location below so renters can coordinate handoffs.
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-[11px] text-ink-secondary mt-1 truncate">
-                    {item?.address_text || item?.locality || 'Current location on file'}
+
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddLocationOpen(true)}
+                      className="btn-primary text-xs px-3.5 py-1.5 shadow-pink font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>+ Add Another Location</span>
+                    </button>
                   </div>
                 </div>
-              </div>
+              )}
 
               {savedLocations.map((loc) => {
                 const isSelected = selectedLocationId === loc.id;

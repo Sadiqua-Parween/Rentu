@@ -30,8 +30,10 @@ import { updateSeo } from './lib/seo';
 import { Item, CommunityRequest, isAuthorizedAdmin } from './lib/types';
 import confetti from 'canvas-confetti';
 import { CheckCircle2, AlertCircle, X, ArrowRight } from 'lucide-react';
+import { SavedItemsView } from './components/SavedItemsView';
+import { syncFavoritesWithBackend } from './lib/favorites';
 
-export type TabType = 'home' | 'explore' | 'requests' | 'bookings' | 'messages' | 'community' | 'hustle' | 'profile' | 'notifications';
+export type TabType = 'home' | 'explore' | 'requests' | 'bookings' | 'messages' | 'community' | 'hustle' | 'profile' | 'notifications' | 'saved';
 
 const RESERVED_ROUTES = new Set([
   'admin',
@@ -44,6 +46,8 @@ const RESERVED_ROUTES = new Set([
   'profile',
   'explore',
   'marketplace',
+  'saved',
+  'favorites',
   'api',
   'login',
   'signup',
@@ -106,6 +110,7 @@ const getTabFromUrl = (): TabType => {
   if (path === 'profile' || hash === 'profile') return 'profile';
   if (path === 'explore' || hash === 'explore' || path === 'marketplace' || hash === 'marketplace') return 'explore';
   if (path === 'notifications' || hash === 'notifications' || path === 'alerts' || hash === 'alerts') return 'notifications';
+  if (path === 'saved' || hash === 'saved' || path === 'favorites' || hash === 'favorites') return 'saved';
   return 'home';
 };
 
@@ -262,6 +267,13 @@ export const App: React.FC = () => {
     }
   };
 
+  // Sync user favorites with backend when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      syncFavoritesWithBackend();
+    }
+  }, [isAuthenticated]);
+
   const handleCloseUserProfile = () => {
     setViewingUserId(null);
     const targetPath = activeTab === 'home'
@@ -312,6 +324,7 @@ export const App: React.FC = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [requests, setRequests] = useState<CommunityRequest[]>([]);
   const [activeUsersCount, setActiveUsersCount] = useState<number>(0);
+  const [activeRequestsCount, setActiveRequestsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals
@@ -514,7 +527,12 @@ export const App: React.FC = () => {
       }
 
       if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.pulse) {
-        setActiveUsersCount(Number(analyticsRes.value.pulse.total_users) || 0);
+        const pulse = analyticsRes.value.pulse;
+        setActiveUsersCount(Number(pulse.total_users) || 0);
+        const totalActive = typeof pulse.active_requests === 'number'
+          ? Number(pulse.active_requests)
+          : (Number(pulse.open_wishes || 0) + Number(pulse.active_rentals || 0));
+        setActiveRequestsCount(totalActive);
       }
     } catch (err) {
       console.error('Failed to load feed data:', err);
@@ -711,7 +729,7 @@ export const App: React.FC = () => {
                   onOpenDropGear={() => setIsDropGearOpen(true)}
                   onOpenDropWish={() => setIsDropWishOpen(true)}
                   itemsCount={(items || []).length}
-                  requestsCount={(requests || []).length}
+                  requestsCount={Math.max(activeRequestsCount, (requests || []).length)}
                   activeUsersCount={activeUsersCount}
                   isLoading={isLoading}
                   onOpenUserProfile={handleOpenUserProfile}
@@ -863,6 +881,24 @@ export const App: React.FC = () => {
                 onNavigateTab={(tab) => {
                   setSearchQuery('');
                   setActiveTab(tab);
+                }}
+                onOpenAuth={handleOpenAuth}
+              />
+            )}
+
+            {/* VIEW 13: SAVED ITEMS & WISHES VIEW */}
+            {activeTab === 'saved' && (
+              <SavedItemsView
+                onSelectItem={(item) => setSelectedItem(item)}
+                onClaimRequest={handleClaimRequest}
+                onOpenUserProfile={handleOpenUserProfile}
+                onExploreMarketplace={() => {
+                  setSearchQuery('');
+                  setActiveTab('explore');
+                }}
+                onExploreRequests={() => {
+                  setSearchQuery('');
+                  setActiveTab('requests');
                 }}
                 onOpenAuth={handleOpenAuth}
               />

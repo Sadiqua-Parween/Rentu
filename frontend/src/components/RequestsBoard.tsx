@@ -222,11 +222,19 @@ export const RequestsBoard: React.FC<RequestsBoardProps> = ({
                           />
                           <span className="group-hover:underline text-ink group-hover:text-brand">{req.seeker_name}</span>
                         </button>
-                        <span>•</span>
-                        <span className="flex items-center gap-0.5">
-                          <MapPin className="w-3 h-3 text-brand" />
-                          <span>{getReachDistance(req, user)}</span>
-                        </span>
+                        {(() => {
+                          const dist = getReachDistance(req, user);
+                          if (!dist) return null;
+                          return (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-0.5">
+                                <MapPin className="w-3 h-3 text-brand" />
+                                <span>{dist}</span>
+                              </span>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

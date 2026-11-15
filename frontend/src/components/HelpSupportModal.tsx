@@ -15,7 +15,11 @@ import {
   ArrowRight,
   ShieldCheck,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  Edit2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
@@ -45,6 +49,72 @@ const FEEDBACK_CATEGORIES = [
   'General Thought',
 ];
 
+const QUICK_PRESETS = [
+  {
+    icon: '⏱️',
+    label: 'Late Handover',
+    type: 'CONCERN' as const,
+    category: 'Booking & Handover Logistics',
+    priority: 'NORMAL' as const,
+    subject: 'Late Handover / Timing Issue',
+    placeholder: 'Neighbor was late or could not make the scheduled handover time...',
+  },
+  {
+    icon: '💳',
+    label: 'Deposit / Payment',
+    type: 'CONCERN' as const,
+    category: 'Payment & Deposit Settlement',
+    priority: 'NORMAL' as const,
+    subject: 'Deposit / Payment Settlement Inquiry',
+    placeholder: 'Questions regarding deposit release, UPI payout, or transaction...',
+  },
+  {
+    icon: '📷',
+    label: 'Item Damage / Quality',
+    type: 'CONCERN' as const,
+    category: 'Item Quality or Damage',
+    priority: 'HIGH' as const,
+    subject: 'Gear Condition or Damage Report',
+    placeholder: 'Item condition was not as described, or damage occurred during rental...',
+  },
+  {
+    icon: '⚠️',
+    label: 'Neighbor Safety',
+    type: 'CONCERN' as const,
+    category: 'Neighbor Conduct & Safety',
+    priority: 'HIGH' as const,
+    subject: 'Neighbor Safety & Conduct Concern',
+    placeholder: 'Describe any inappropriate communication, safety, or conduct issue...',
+  },
+  {
+    icon: '🐛',
+    label: 'App Bug / Glitch',
+    type: 'CONCERN' as const,
+    category: 'App Bug or Technical Glitch',
+    priority: 'NORMAL' as const,
+    subject: 'App Bug / Technical Glitch in Rentu',
+    placeholder: 'Encountered an error, button not responding, or page display issue...',
+  },
+  {
+    icon: '💡',
+    label: 'Feature Idea',
+    type: 'FEEDBACK' as const,
+    category: 'New Feature Suggestion',
+    priority: 'NORMAL' as const,
+    subject: 'Feature Suggestion for Rentu',
+    placeholder: 'I would love if Rentu had this feature or improvement...',
+  },
+  {
+    icon: '❤️',
+    label: 'Compliment Rentu',
+    type: 'FEEDBACK' as const,
+    category: 'Love Rentu / Compliment',
+    priority: 'NORMAL' as const,
+    subject: 'Compliment & Great Experience on Rentu',
+    placeholder: 'Tell us what you loved about your peer-to-peer rental experience...',
+  },
+];
+
 export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onClose, initialTab = 'NEW' }) => {
   const { user, isAuthenticated } = useAuth();
 
@@ -55,6 +125,9 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [userEmail, setUserEmail] = useState(user?.email || '');
+  const [selectedPresetLabel, setSelectedPresetLabel] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -131,22 +204,28 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
+  const handleSelectPreset = (preset: typeof QUICK_PRESETS[0]) => {
+    setSelectedPresetLabel(preset.label);
+    setTicketType(preset.type);
+    setCategory(preset.category);
+    setPriority(preset.priority);
+    setSubject(preset.subject);
+    if (!description || description.trim() === '') {
+      setDescription(preset.placeholder);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedSubject = subject.trim();
     const trimmedDesc = description.trim();
     const trimmedEmail = userEmail.trim();
 
-    if (!trimmedSubject || !trimmedDesc) {
-      setErrorMsg('Please provide both a subject and details.');
+    if (!trimmedDesc) {
+      setErrorMsg('Please describe what happened or how we can help.');
       return;
     }
-    if (trimmedSubject.length < 3) {
-      setErrorMsg('Subject must be at least 3 characters.');
-      return;
-    }
-    if (trimmedDesc.length < 10) {
-      setErrorMsg('Please describe your concern or feedback in at least 10 characters.');
+    if (trimmedDesc.length < 3) {
+      setErrorMsg('Please write at least 3 characters.');
       return;
     }
     if (!isAuthenticated && !trimmedEmail) {
@@ -154,11 +233,13 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
       return;
     }
 
+    const trimmedSubject = subject.trim() || selectedPresetLabel || trimmedDesc.split('\n')[0].slice(0, 50).trim() || `${category} Inquiry`;
+
     setIsSubmitting(true);
     setErrorMsg('');
 
     try {
-      await api.submitSupportTicket({
+      const ticket = await api.submitSupportTicket({
         type: ticketType,
         category,
         subject: trimmedSubject,
@@ -166,6 +247,9 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
         priority: ticketType === 'CONCERN' ? priority : 'NORMAL',
         user_email: trimmedEmail || undefined,
       });
+
+      // Notify any active admin listeners in the app to refresh immediately
+      window.dispatchEvent(new CustomEvent('rentu-ticket-submitted', { detail: ticket }));
 
       confetti({
         particleCount: 70,
@@ -176,6 +260,7 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
       setSubmitSuccess(true);
       setSubject('');
       setDescription('');
+      setSelectedPresetLabel(null);
     } catch (err: any) {
       console.error('Failed to submit support ticket:', err);
       setErrorMsg(err.message || 'Could not submit. Please try again.');
@@ -189,6 +274,8 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
     setErrorMsg('');
     setSubject('');
     setDescription('');
+    setSelectedPresetLabel(null);
+    setShowAdvanced(false);
   };
 
   return (
@@ -295,42 +382,74 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* 1-Click Quick Topics */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-ink">
+                      Quick Topic <span className="text-[10px] text-ink-muted font-normal">(Click one to auto-fill)</span>
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {QUICK_PRESETS.map((preset) => {
+                      const isSelected = selectedPresetLabel === preset.label;
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => handleSelectPreset(preset)}
+                          className={`text-[11px] px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-brand text-white shadow-xs ring-2 ring-brand/30'
+                              : 'bg-canvas border border-divider text-ink-secondary hover:text-ink hover:bg-surface'
+                          }`}
+                        >
+                          <span>{preset.icon}</span>
+                          <span>{preset.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Type Selection: Concern vs Feedback */}
                 <div>
-                  <label className="block text-xs font-bold text-ink mb-1.5">
-                    What would you like to do?
-                  </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setTicketType('CONCERN')}
-                      className={`p-3 rounded-2xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${ticketType === 'CONCERN'
+                      onClick={() => {
+                        setTicketType('CONCERN');
+                        setSelectedPresetLabel(null);
+                      }}
+                      className={`p-2.5 rounded-2xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${ticketType === 'CONCERN'
                         ? 'bg-red-500/10 border-red-500/40 text-red-500 shadow-xs'
                         : 'bg-canvas border-divider text-ink-secondary hover:text-ink hover:bg-surface'
                         }`}
                     >
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
                       <div>
                         <div className="text-xs font-black">Raise a Concern</div>
-                        <div className="text-[10px] text-ink-secondary leading-tight mt-0.5">
-                          Report a rental problem, neighbor issue, damage, or bug
+                        <div className="text-[10px] text-ink-secondary leading-tight">
+                          Rental issue, damage, or bug
                         </div>
                       </div>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setTicketType('FEEDBACK')}
-                      className={`p-3 rounded-2xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${ticketType === 'FEEDBACK'
+                      onClick={() => {
+                        setTicketType('FEEDBACK');
+                        setSelectedPresetLabel(null);
+                      }}
+                      className={`p-2.5 rounded-2xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${ticketType === 'FEEDBACK'
                         ? 'bg-amber-500/10 border-amber-500/40 text-amber-500 shadow-xs'
                         : 'bg-canvas border-divider text-ink-secondary hover:text-ink hover:bg-surface'
                         }`}
                     >
-                      <Lightbulb className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                      <Lightbulb className="w-4 h-4 shrink-0 text-amber-500" />
                       <div>
                         <div className="text-xs font-black">Share Feedback</div>
-                        <div className="text-[10px] text-ink-secondary leading-tight mt-0.5">
-                          Ideas, feature requests, or compliments for Rentu
+                        <div className="text-[10px] text-ink-secondary leading-tight">
+                          Ideas & feature suggestions
                         </div>
                       </div>
                     </button>
@@ -339,16 +458,16 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
 
                 {/* Category Selector */}
                 <div>
-                  <label className="block text-xs font-bold text-ink mb-1.5">
-                    Category
-                  </label>
                   <div className="flex flex-wrap gap-1.5">
                     {(ticketType === 'CONCERN' ? CONCERN_CATEGORIES : FEEDBACK_CATEGORIES).map((cat) => (
                       <button
                         type="button"
                         key={cat}
-                        onClick={() => setCategory(cat)}
-                        className={`text-[11px] sm:text-xs px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full font-bold transition-all cursor-pointer ${category === cat
+                        onClick={() => {
+                          setCategory(cat);
+                          setSelectedPresetLabel(null);
+                        }}
+                        className={`text-[11px] px-2.5 py-1 rounded-full font-bold transition-all cursor-pointer ${category === cat
                           ? 'bg-brand text-white shadow-xs'
                           : 'bg-canvas border border-divider text-ink-secondary hover:text-ink hover:bg-surface'
                           }`}
@@ -359,94 +478,128 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({ isOpen, onCl
                   </div>
                 </div>
 
-                {/* Urgency for Concerns */}
-                {ticketType === 'CONCERN' && (
-                  <div>
-                    <label className="block text-xs font-bold text-ink mb-1.5">
-                      Urgency Level
+                {/* Primary Message / Details Text Area */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-ink">
+                      Your Message / What happened? <span className="text-brand font-black">*</span>
                     </label>
-                    <div className="grid grid-cols-4 gap-2 text-xs font-bold">
-                      {(['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const).map((lvl) => (
-                        <button
-                          type="button"
-                          key={lvl}
-                          onClick={() => setPriority(lvl)}
-                          className={`py-1.5 rounded-xl border text-center transition-all cursor-pointer text-[11px] ${priority === lvl
-                            ? lvl === 'URGENT' || lvl === 'HIGH'
-                              ? 'bg-red-500 text-white border-red-500 shadow-xs'
-                              : 'bg-brand text-white border-brand'
-                            : 'bg-canvas border-divider text-ink-secondary hover:text-ink'
-                            }`}
-                        >
-                          {lvl === 'URGENT' ? 'Urgent' : lvl === 'HIGH' ? 'High' : lvl === 'LOW' ? 'Low' : 'Normal'}
-                        </button>
-                      ))}
-                    </div>
+                    <span className="text-[10px] text-ink-muted">
+                      {description.length > 0 ? `${description.length} chars` : 'min 3 chars'}
+                    </span>
                   </div>
-                )}
-
-                {/* Subject */}
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">
-                    Subject / Short Summary *
-                  </label>
-                  <input
-                    type="text"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder={
-                      ticketType === 'CONCERN'
-                        ? 'e.g. Lens cap missing during return / late handover'
-                        : 'e.g. Would love to have weekend bundle discounts'
-                    }
-                    className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
-                    required
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">
-                    Details & Specifics *
-                  </label>
                   <textarea
                     rows={4}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={
                       ticketType === 'CONCERN'
-                        ? 'Please describe what occurred, dates, any gear or booking references so admin can quickly assist...'
-                        : 'Tell us your idea, what you liked, or how Rentu can be improved...'
+                        ? 'Describe what happened (dates, gear, or neighbor name)... Admin will assist you immediately.'
+                        : 'Tell us your idea, suggestion, or feedback for Rentu...'
                     }
                     className="w-full bg-canvas border border-divider rounded-xl p-3 text-xs font-medium text-ink outline-none focus:border-brand resize-none leading-relaxed"
                     required
                   />
                 </div>
 
+                {/* Collapsible Advanced Options: Custom Subject & Urgency */}
+                <div className="border border-divider/60 rounded-xl overflow-hidden bg-canvas/30">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="w-full px-3 py-2 text-left flex items-center justify-between text-xs font-bold text-ink-secondary hover:text-ink cursor-pointer"
+                  >
+                    <span>{showAdvanced ? 'Hide Subject & Urgency' : '+ Add Custom Subject or Urgency (Optional)'}</span>
+                    {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="p-3 border-t border-divider/60 space-y-3 bg-surface/50 animate-in fade-in duration-150">
+                      <div>
+                        <label className="block text-[11px] font-bold text-ink mb-1">
+                          Subject Summary (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={subject}
+                          onChange={(e) => setSubject(e.target.value)}
+                          placeholder="Auto-generated from your message if left blank"
+                          className="w-full bg-canvas border border-divider rounded-xl px-3 py-2 text-xs font-medium text-ink outline-none focus:border-brand"
+                        />
+                      </div>
+
+                      {ticketType === 'CONCERN' && (
+                        <div>
+                          <label className="block text-[11px] font-bold text-ink mb-1">
+                            Urgency Level
+                          </label>
+                          <div className="grid grid-cols-4 gap-1.5 text-xs font-bold">
+                            {(['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const).map((lvl) => (
+                              <button
+                                type="button"
+                                key={lvl}
+                                onClick={() => setPriority(lvl)}
+                                className={`py-1 rounded-lg border text-center transition-all cursor-pointer text-[10px] ${priority === lvl
+                                  ? lvl === 'URGENT' || lvl === 'HIGH'
+                                    ? 'bg-red-500 text-white border-red-500 shadow-xs'
+                                    : 'bg-brand text-white border-brand'
+                                  : 'bg-canvas border-divider text-ink-secondary hover:text-ink'
+                                  }`}
+                              >
+                                {lvl === 'URGENT' ? 'Urgent' : lvl === 'HIGH' ? 'High' : lvl === 'LOW' ? 'Low' : 'Normal'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Contact Email confirmation */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-ink">
-                      Your Contact Email {!isAuthenticated && <span className="text-brand font-black">*</span>}
-                    </label>
-                    {isAuthenticated && (
-                      <span className="text-[10px] text-ink-muted">
-                        (Defaults to your account email)
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="email"
-                    required={!isAuthenticated}
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    placeholder={user?.email || "your-email@domain.com"}
-                    className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2 text-xs font-medium text-ink outline-none focus:border-brand"
-                  />
-                  {!isAuthenticated && (
-                    <p className="text-[10px] text-ink-secondary mt-1">
-                      Our support team will send resolution updates and answers directly to this email address.
-                    </p>
+                  {isAuthenticated && !isEditingEmail ? (
+                    <div className="p-2.5 rounded-xl bg-canvas border border-divider flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span className="text-ink-secondary text-[11px]">
+                          Replying to <strong className="text-ink">{userEmail || user?.email}</strong>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingEmail(true)}
+                        className="text-[10px] font-bold text-brand hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <Edit2 className="w-2.5 h-2.5" />
+                        <span>Change</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-ink">
+                          Your Contact Email {!isAuthenticated && <span className="text-brand font-black">*</span>}
+                        </label>
+                        {isAuthenticated && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingEmail(false)}
+                            className="text-[10px] text-brand font-bold hover:underline cursor-pointer"
+                          >
+                            Use Account Email
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="email"
+                        required={!isAuthenticated}
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
+                        placeholder={user?.email || "your-email@domain.com"}
+                        className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2 text-xs font-medium text-ink outline-none focus:border-brand"
+                      />
+                    </div>
                   )}
                 </div>
 

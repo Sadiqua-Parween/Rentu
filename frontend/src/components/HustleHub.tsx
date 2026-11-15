@@ -29,7 +29,9 @@ import {
   Check,
   X,
   Star,
-  AlertCircle
+  AlertCircle,
+  Ban,
+  XCircle
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { SupportTicket, isAuthorizedAdmin } from '../lib/types';
@@ -58,8 +60,15 @@ export const HustleHub: React.FC = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
-  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'USER' | 'ADMIN'>('ALL');
+  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'USER' | 'ADMIN' | 'BLACKLISTED'>('ALL');
   const [isUpdatingUser, setIsUpdatingUser] = useState<string | null>(null);
+  const [blacklistModalUser, setBlacklistModalUser] = useState<any | null>(null);
+  const [blacklistDays, setBlacklistDays] = useState<number | 'PERM'>(7);
+  const [customDays, setCustomDays] = useState<string>('');
+  const [blacklistReason, setBlacklistReason] = useState<string>('');
+  const [isSubmittingBlacklist, setIsSubmittingBlacklist] = useState(false);
+  const [isManualBlacklistOpen, setIsManualBlacklistOpen] = useState(false);
+  const [manualBlacklistEmail, setManualBlacklistEmail] = useState('');
 
   // 3. Listings Admin State
   const [adminListings, setAdminListings] = useState<any[]>([]);
@@ -67,7 +76,9 @@ export const HustleHub: React.FC = () => {
   const [listingsError, setListingsError] = useState<string | null>(null);
   const [listingSearch, setListingSearch] = useState('');
   const [listingStatusFilter, setListingStatusFilter] = useState<string>('ALL');
+  const [listingApprovalFilter, setListingApprovalFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
   const [isUpdatingListing, setIsUpdatingListing] = useState<string | null>(null);
+  const [isUpdatingApproval, setIsUpdatingApproval] = useState<string | null>(null);
 
   // 4. Requests Admin State
   const [adminRequests, setAdminRequests] = useState<any[]>([]);
@@ -75,6 +86,7 @@ export const HustleHub: React.FC = () => {
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const [requestSearch, setRequestSearch] = useState('');
   const [requestStatusFilter, setRequestStatusFilter] = useState<string>('ALL');
+  const [requestApprovalFilter, setRequestApprovalFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
 
   // 5. Bookings Admin State
   const [adminBookings, setAdminBookings] = useState<any[]>([]);
@@ -246,6 +258,21 @@ export const HustleHub: React.FC = () => {
     if (activeSidebar === 'Overview' || activeSidebar === 'Analytics') loadOverviewAnalytics();
   }, [activeSidebar, ticketFilterType, ticketFilterStatus]);
 
+  // Initial load of listings & requests so approval counts appear immediately in sidebar & overview
+  useEffect(() => {
+    loadAdminListings();
+    loadAdminRequests();
+  }, []);
+
+  // Live listener: automatically refresh admin tickets whenever a ticket is submitted anywhere in the app
+  useEffect(() => {
+    const handleTicketSubmitted = () => {
+      loadAdminTickets();
+    };
+    window.addEventListener('rentu-ticket-submitted', handleTicketSubmitted);
+    return () => window.removeEventListener('rentu-ticket-submitted', handleTicketSubmitted);
+  }, []);
+
   // Support ticket update
   const handleUpdateTicket = async (ticketId: string, newStatus?: 'OPEN' | 'IN_REVIEW' | 'RESOLVED' | 'CLOSED', notes?: string) => {
     setIsUpdatingTicket(ticketId);
@@ -304,6 +331,86 @@ export const HustleHub: React.FC = () => {
       alert(err.message || 'Failed to update trust score');
     } finally {
       setIsUpdatingUser(null);
+    }
+  };
+
+  const handleOpenBlacklistModal = (targetUser: any) => {
+    setBlacklistModalUser(targetUser);
+    setBlacklistDays(7);
+    setCustomDays('');
+    setBlacklistReason('');
+  };
+
+  const handleSubmitBlacklist = async () => {
+    const email = blacklistModalUser?.email || manualBlacklistEmail.trim().toLowerCase();
+    if (!email) {
+      alert('Email is required to blacklist.');
+      return;
+    }
+    const days = blacklistDays === 'PERM' ? null : (blacklistDays === -1 ? Number(customDays) : blacklistDays);
+    if (blacklistDays === -1 && (!days || days <= 0)) {
+      alert('Please enter a valid number of days for the ban duration.');
+      return;
+    }
+
+    setIsSubmittingBlacklist(true);
+    try {
+      await api.blacklistUser({
+        email,
+        days: days || null,
+        reason: blacklistReason.trim() || undefined,
+      });
+      alert(`Successfully blacklisted ${email} ${days ? `for ${days} days` : 'permanently'}.`);
+      setBlacklistModalUser(null);
+      setIsManualBlacklistOpen(false);
+      setManualBlacklistEmail('');
+      loadAdminUsers();
+    } catch (err: any) {
+      alert(err.message || 'Failed to blacklist user');
+    } finally {
+      setIsSubmittingBlacklist(false);
+    }
+  };
+
+  const handleLiftBan = async (targetUser: any) => {
+    const email = targetUser.email;
+    if (!window.confirm(`Lift suspension for ${email}? They will immediately regain access to login and rent.`)) return;
+
+    setIsUpdatingUser(targetUser.id);
+    try {
+      await api.removeAdminBlacklist(email);
+      alert(`Ban lifted for ${email}.`);
+      setAdminUsers(prev => prev.map(u => u.email?.toLowerCase() === email.toLowerCase() ? { ...u, is_blacklisted: false, blacklist_expires_at: null, blacklist_reason: null } : u));
+    } catch (err: any) {
+      alert(err.message || 'Failed to lift ban');
+    } finally {
+      setIsUpdatingUser(null);
+    }
+  };
+
+  // Listing approval status
+  const handleUpdateListingApproval = async (itemId: string, approval_status: 'APPROVED' | 'PENDING' | 'REJECTED') => {
+    setIsUpdatingApproval(itemId);
+    try {
+      await api.updateAdminListingApproval(itemId, approval_status);
+      setAdminListings(prev => prev.map(item => item.id === itemId ? { ...item, approval_status } : item));
+    } catch (err: any) {
+      alert(err.message || 'Failed to update approval status');
+    } finally {
+      setIsUpdatingApproval(null);
+    }
+  };
+
+  // Request approval status
+  const handleUpdateRequestApproval = async (requestId: string, approval_status: 'APPROVED' | 'PENDING' | 'REJECTED') => {
+    setIsUpdatingApproval(requestId);
+    try {
+      await api.updateAdminRequestApproval(requestId, approval_status);
+      setAdminRequests(prev => prev.map(r => r.id === requestId ? { ...r, approval_status } : r));
+    } catch (err: any) {
+      alert(err.message || 'Failed to update wish approval status');
+    } finally {
+      setIsUpdatingApproval(null);
     }
   };
 
@@ -519,12 +626,15 @@ export const HustleHub: React.FC = () => {
   const totalLocalityUsers = localities.reduce((sum, l) => sum + Number(l.user_count || 0), 0) || 1;
   const localityPalette = ['bg-brand', 'bg-purple-400', 'bg-emerald-400', 'bg-amber-400', 'bg-zinc-400'];
 
+  const pendingListingsCount = adminListings.filter(i => (i.approval_status || 'APPROVED') === 'PENDING').length;
+  const pendingRequestsCount = adminRequests.filter(r => (r.approval_status || 'APPROVED') === 'PENDING').length;
+
   const sidebarLinks = [
     { name: 'Overview', icon: <BarChart3 className="w-4 h-4" /> },
     { name: 'Concerns & Feedback', icon: <AlertTriangle className="w-4 h-4 text-amber-500" /> },
     { name: 'Users', icon: <Users className="w-4 h-4" /> },
-    { name: 'Listings', icon: <Package className="w-4 h-4" /> },
-    { name: 'Requests', icon: <Target className="w-4 h-4" /> },
+    { name: 'Listings', icon: <Package className="w-4 h-4" />, badge: pendingListingsCount > 0 ? `${pendingListingsCount} Pending` : undefined },
+    { name: 'Requests', icon: <Target className="w-4 h-4" />, badge: pendingRequestsCount > 0 ? `${pendingRequestsCount} Pending` : undefined },
     { name: 'Bookings', icon: <Layers className="w-4 h-4" /> },
     { name: 'Analytics', icon: <TrendingUp className="w-4 h-4" /> },
     { name: 'Locality', icon: <MapPin className="w-4 h-4" /> },
@@ -555,14 +665,21 @@ export const HustleHub: React.FC = () => {
                 <button
                   key={item.name}
                   onClick={() => setActiveSidebar(item.name)}
-                  className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer ${
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
                     isActive
                       ? 'bg-ink text-canvas shadow-xs font-black'
                       : 'text-ink-secondary hover:text-ink hover:bg-surface font-semibold'
                   }`}
                 >
-                  {item.icon}
-                  <span>{item.name}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {item.icon}
+                    <span className="truncate">{item.name}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 shrink-0 shadow-xs">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -616,6 +733,53 @@ export const HustleHub: React.FC = () => {
                 </div>
               ) : (
                 <>
+              {/* Action Required: Pending Approvals Banner */}
+              {(pendingListingsCount > 0 || pendingRequestsCount > 0) && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-500 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-extrabold text-amber-400">
+                        {pendingListingsCount + pendingRequestsCount} Submissions Pending Admin Approval
+                      </h3>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        {pendingListingsCount > 0 && `${pendingListingsCount} gear ${pendingListingsCount === 1 ? 'item' : 'items'}`}
+                        {pendingListingsCount > 0 && pendingRequestsCount > 0 && ' and '}
+                        {pendingRequestsCount > 0 && `${pendingRequestsCount} community ${pendingRequestsCount === 1 ? 'wish' : 'wishes'}`}
+                        {' waiting for your verification before going live on the marketplace.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {pendingListingsCount > 0 && (
+                      <button
+                        onClick={() => {
+                          setListingApprovalFilter('PENDING');
+                          setActiveSidebar('Listings');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs hover:bg-amber-400 transition-colors cursor-pointer shadow-xs"
+                      >
+                        Review Listings ({pendingListingsCount})
+                      </button>
+                    )}
+                    {pendingRequestsCount > 0 && (
+                      <button
+                        onClick={() => {
+                          setRequestApprovalFilter('PENDING');
+                          setActiveSidebar('Requests');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs hover:bg-amber-400 transition-colors cursor-pointer shadow-xs"
+                      >
+                        Review Wishes ({pendingRequestsCount})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Top 4 Metrics Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-4 rounded-2xl bg-canvas border border-divider space-y-1">
@@ -984,13 +1148,29 @@ export const HustleHub: React.FC = () => {
                   </p>
                 </div>
 
-                <button
-                  onClick={loadAdminUsers}
-                  className="btn-secondary text-xs px-3.5 py-1.5 cursor-pointer font-bold inline-flex items-center gap-1.5 self-start sm:self-auto"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Refresh Users</span>
-                </button>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <button
+                    onClick={() => {
+                      setIsManualBlacklistOpen(true);
+                      setBlacklistModalUser(null);
+                      setManualBlacklistEmail('');
+                      setBlacklistDays(7);
+                      setCustomDays('');
+                      setBlacklistReason('');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Blacklist Email</span>
+                  </button>
+                  <button
+                    onClick={loadAdminUsers}
+                    className="btn-secondary text-xs px-3.5 py-1.5 cursor-pointer font-bold inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Refresh Users</span>
+                  </button>
+                </div>
               </div>
 
               {/* Filters */}
@@ -1006,17 +1186,19 @@ export const HustleHub: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="font-bold text-ink mr-1">Role:</span>
-                  {(['ALL', 'USER', 'ADMIN'] as const).map(r => (
+                <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                  <span className="font-bold text-ink mr-1">Filter:</span>
+                  {(['ALL', 'USER', 'ADMIN', 'BLACKLISTED'] as const).map(r => (
                     <button
                       key={r}
                       onClick={() => setUserRoleFilter(r)}
                       className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
-                        userRoleFilter === r ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
+                        userRoleFilter === r
+                          ? r === 'BLACKLISTED' ? 'bg-rose-600 text-white shadow-xs' : 'bg-brand text-white shadow-xs'
+                          : 'hover:bg-surface text-ink-secondary'
                       }`}
                     >
-                      {r}
+                      {r === 'BLACKLISTED' ? 'Banned / Blacklisted' : r}
                     </button>
                   ))}
                 </div>
@@ -1060,7 +1242,11 @@ export const HustleHub: React.FC = () => {
                     <tbody className="divide-y divide-divider/60 font-medium">
                       {adminUsers
                         .filter(u => {
-                          if (userRoleFilter !== 'ALL' && u.role !== userRoleFilter) return false;
+                          if (userRoleFilter === 'BLACKLISTED') {
+                            if (!u.is_blacklisted) return false;
+                          } else if (userRoleFilter !== 'ALL' && u.role !== userRoleFilter) {
+                            return false;
+                          }
                           if (!userSearch) return true;
                           const q = userSearch.toLowerCase();
                           return u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.locality?.toLowerCase().includes(q);
@@ -1075,8 +1261,23 @@ export const HustleHub: React.FC = () => {
                                   className="w-8 h-8 rounded-full object-cover border border-divider shrink-0"
                                 />
                                 <div className="min-w-0">
-                                  <span className="font-bold text-ink block truncate">{u.name || 'Neighbor'}</span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-ink truncate">{u.name || 'Neighbor'}</span>
+                                    {u.is_blacklisted && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-rose-500/10 text-rose-500 border border-rose-500/30">
+                                        Suspended
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className="text-[11px] text-ink-secondary block truncate">{u.email}</span>
+                                  {u.is_blacklisted && (
+                                    <span className="text-[10px] text-rose-500 font-semibold block truncate">
+                                      {u.blacklist_expires_at
+                                        ? `Banned until ${new Date(u.blacklist_expires_at).toLocaleDateString()}`
+                                        : 'Permanently Banned'}
+                                      {u.blacklist_reason ? ` • ${u.blacklist_reason}` : ''}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -1132,12 +1333,157 @@ export const HustleHub: React.FC = () => {
                                 >
                                   {isUpdatingUser === u.id ? 'Updating...' : u.role === 'ADMIN' ? 'Demote' : 'Make Admin'}
                                 </button>
+                                {u.is_blacklisted ? (
+                                  <button
+                                    type="button"
+                                    disabled={isUpdatingUser === u.id}
+                                    onClick={() => handleLiftBan(u)}
+                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-50"
+                                    title="Lift Suspension"
+                                  >
+                                    Lift Ban
+                                  </button>
+                                ) : !isAuthorizedAdmin(u.email) ? (
+                                  <button
+                                    type="button"
+                                    disabled={isUpdatingUser === u.id}
+                                    onClick={() => handleOpenBlacklistModal(u)}
+                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 inline-flex items-center gap-1 disabled:opacity-50"
+                                    title="Blacklist User"
+                                  >
+                                    <Ban className="w-3 h-3" />
+                                    <span>Ban</span>
+                                  </button>
+                                ) : null}
                               </div>
                             </td>
                           </tr>
                         ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Blacklist User Modal */}
+              {(blacklistModalUser || isManualBlacklistOpen) && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-canvas border border-divider rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+                    <div className="p-5 border-b border-divider flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-rose-500 font-bold text-base">
+                        <Ban className="w-5 h-5" />
+                        <span>Blacklist User / Email</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setBlacklistModalUser(null);
+                          setIsManualBlacklistOpen(false);
+                        }}
+                        className="p-1 rounded-lg hover:bg-surface text-ink-secondary hover:text-ink cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="p-5 space-y-4">
+                      {blacklistModalUser ? (
+                        <div className="p-3 bg-surface rounded-xl border border-divider">
+                          <p className="text-xs text-ink-muted">Target Account</p>
+                          <p className="text-sm font-bold text-ink">{blacklistModalUser.name || 'User'}</p>
+                          <p className="text-xs text-rose-500 font-mono font-medium">{blacklistModalUser.email}</p>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs font-bold text-ink mb-1">Email Address to Blacklist</label>
+                          <input
+                            type="email"
+                            value={manualBlacklistEmail}
+                            onChange={(e) => setManualBlacklistEmail(e.target.value)}
+                            placeholder="user@example.com"
+                            className="w-full bg-surface border border-divider rounded-xl px-3 py-2 text-xs text-ink outline-none focus:border-rose-500 font-mono"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-bold text-ink mb-1.5">Ban Duration</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: '1 Day', val: 1 },
+                            { label: '7 Days', val: 7 },
+                            { label: '14 Days', val: 14 },
+                            { label: '30 Days', val: 30 },
+                            { label: 'Custom', val: -1 },
+                            { label: 'Permanent', val: 'PERM' },
+                          ].map(opt => (
+                            <button
+                              key={opt.label}
+                              type="button"
+                              onClick={() => setBlacklistDays(opt.val as any)}
+                              className={`py-2 px-2.5 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
+                                blacklistDays === opt.val
+                                  ? 'bg-rose-500 text-white border-rose-500 shadow-xs'
+                                  : 'border-divider hover:bg-surface text-ink-secondary'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {blacklistDays === -1 && (
+                          <div className="mt-2.5">
+                            <label className="block text-[11px] font-bold text-ink-muted mb-1">Number of Days</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="3650"
+                              value={customDays}
+                              onChange={(e) => setCustomDays(e.target.value)}
+                              placeholder="e.g. 60 or 90"
+                              className="w-full bg-surface border border-divider rounded-xl px-3 py-2 text-xs text-ink outline-none focus:border-rose-500"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-ink mb-1">Reason / Note (Optional)</label>
+                        <textarea
+                          rows={2}
+                          value={blacklistReason}
+                          onChange={(e) => setBlacklistReason(e.target.value)}
+                          placeholder="e.g., Non-return of rental equipment, policy violation..."
+                          className="w-full bg-surface border border-divider rounded-xl p-2.5 text-xs text-ink outline-none focus:border-rose-500 resize-none"
+                        />
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-600 dark:text-amber-400">
+                        Blacklisting immediately revokes active login tokens, prevents Google Sign-In and registration, and blocks rental requests for this email address.
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-surface/50 border-t border-divider flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBlacklistModalUser(null);
+                          setIsManualBlacklistOpen(false);
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl border border-divider hover:bg-surface text-xs font-bold text-ink-secondary cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSubmittingBlacklist}
+                        onClick={handleSubmitBlacklist}
+                        className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                      >
+                        {isSubmittingBlacklist ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                        <span>Confirm Blacklist</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1169,31 +1515,64 @@ export const HustleHub: React.FC = () => {
               </div>
 
               {/* Filters */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-canvas p-3 rounded-2xl border border-divider">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-ink-muted" />
-                  <input
-                    type="text"
-                    value={listingSearch}
-                    onChange={(e) => setListingSearch(e.target.value)}
-                    placeholder="Search by title, owner, or category..."
-                    className="w-full bg-surface border border-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-ink outline-none focus:border-brand font-semibold"
-                  />
+              <div className="flex flex-col gap-3 bg-canvas p-3.5 rounded-2xl border border-divider">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-ink-muted" />
+                    <input
+                      type="text"
+                      value={listingSearch}
+                      onChange={(e) => setListingSearch(e.target.value)}
+                      placeholder="Search by title, owner, or category..."
+                      className="w-full bg-surface border border-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-ink outline-none focus:border-brand font-semibold"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                    <span className="font-bold text-ink mr-1">Status:</span>
+                    {(['ALL', 'AVAILABLE', 'RENTED', 'UNAVAILABLE'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setListingStatusFilter(s)}
+                        className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
+                          listingStatusFilter === s ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="font-bold text-ink mr-1">Status:</span>
-                  {(['ALL', 'AVAILABLE', 'RENTED', 'UNAVAILABLE'] as const).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setListingStatusFilter(s)}
-                      className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
-                        listingStatusFilter === s ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                {/* Approval Filter Bar */}
+                <div className="pt-2.5 border-t border-divider flex items-center gap-1.5 text-xs flex-wrap">
+                  <span className="font-bold text-ink mr-1 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand" />
+                    <span>Approval:</span>
+                  </span>
+                  {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map(s => {
+                    const count = s === 'PENDING' ? pendingListingsCount : undefined;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setListingApprovalFilter(s)}
+                        className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                          listingApprovalFilter === s 
+                            ? (s === 'PENDING' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-ink text-canvas font-black shadow-xs') 
+                            : 'hover:bg-surface text-ink-secondary'
+                        }`}
+                      >
+                        <span>{s === 'PENDING' ? 'Pending Approval' : s}</span>
+                        {count !== undefined && count > 0 && (
+                          <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                            listingApprovalFilter === s ? 'bg-slate-950 text-amber-400' : 'bg-amber-500 text-slate-950'
+                          }`}>
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1228,13 +1607,16 @@ export const HustleHub: React.FC = () => {
                         <th className="p-3.5">Category</th>
                         <th className="p-3.5">Rate</th>
                         <th className="p-3.5">Owner</th>
-                        <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Marketplace Status</th>
+                        <th className="p-3.5">Admin Approval</th>
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-divider/60 font-medium">
                       {adminListings
                         .filter(item => {
+                          const appStatus = item.approval_status || 'APPROVED';
+                          if (listingApprovalFilter !== 'ALL' && appStatus !== listingApprovalFilter) return false;
                           if (listingStatusFilter !== 'ALL' && item.status !== listingStatusFilter) return false;
                           if (!listingSearch) return true;
                           const q = listingSearch.toLowerCase();
@@ -1243,6 +1625,7 @@ export const HustleHub: React.FC = () => {
                         .map(item => {
                           const images = Array.isArray(item.image_urls) ? item.image_urls : (typeof item.image_urls === 'string' ? JSON.parse(item.image_urls || '[]') : []);
                           const firstImg = images[0] || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=400&q=80';
+                          const appStatus = item.approval_status || 'APPROVED';
 
                           return (
                             <tr key={item.id} className="hover:bg-surface/60 transition-colors">
@@ -1293,16 +1676,61 @@ export const HustleHub: React.FC = () => {
                                   <option value="UNAVAILABLE">UNAVAILABLE</option>
                                 </select>
                               </td>
+                              <td className="p-3.5">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border ${
+                                  appStatus === 'APPROVED'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                                    : appStatus === 'PENDING'
+                                    ? 'bg-amber-500/15 text-amber-500 border-amber-500/30 animate-pulse'
+                                    : 'bg-rose-500/10 text-rose-500 border-rose-500/30'
+                                }`}>
+                                  {appStatus === 'APPROVED' ? (
+                                    <><CheckCircle2 className="w-3 h-3" /> Approved</>
+                                  ) : appStatus === 'PENDING' ? (
+                                    <><Clock className="w-3 h-3" /> Pending</>
+                                  ) : (
+                                    <><AlertCircle className="w-3 h-3" /> Rejected</>
+                                  )}
+                                </span>
+                              </td>
                               <td className="p-3.5 text-right">
-                                <button
-                                  type="button"
-                                  disabled={isUpdatingListing === item.id}
-                                  onClick={() => handleDeleteListing(item.id, item.title)}
-                                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Delete Listing"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {appStatus !== 'APPROVED' && (
+                                    <button
+                                      type="button"
+                                      disabled={isUpdatingApproval === item.id}
+                                      onClick={() => handleUpdateListingApproval(item.id, 'APPROVED')}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                                      title="Approve listing and publish to marketplace"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>Approve</span>
+                                    </button>
+                                  )}
+
+                                  {appStatus !== 'REJECTED' && (
+                                    <button
+                                      type="button"
+                                      disabled={isUpdatingApproval === item.id}
+                                      onClick={() => handleUpdateListingApproval(item.id, 'REJECTED')}
+                                      className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                      title="Reject listing"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      <span>Reject</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    disabled={isUpdatingListing === item.id}
+                                    onClick={() => handleDeleteListing(item.id, item.title)}
+                                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Delete Listing"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1340,31 +1768,64 @@ export const HustleHub: React.FC = () => {
               </div>
 
               {/* Filters */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-canvas p-3 rounded-2xl border border-divider">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-ink-muted" />
-                  <input
-                    type="text"
-                    value={requestSearch}
-                    onChange={(e) => setRequestSearch(e.target.value)}
-                    placeholder="Search by wish, seeker name, or category..."
-                    className="w-full bg-surface border border-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-ink outline-none focus:border-brand font-semibold"
-                  />
+              <div className="flex flex-col gap-3 bg-canvas p-3.5 rounded-2xl border border-divider">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-ink-muted" />
+                    <input
+                      type="text"
+                      value={requestSearch}
+                      onChange={(e) => setRequestSearch(e.target.value)}
+                      placeholder="Search by wish, seeker name, or category..."
+                      className="w-full bg-surface border border-divider rounded-xl pl-9 pr-3 py-1.5 text-xs text-ink outline-none focus:border-brand font-semibold"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                    <span className="font-bold text-ink mr-1">Status:</span>
+                    {(['ALL', 'OPEN', 'FULFILLED', 'CANCELLED'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setRequestStatusFilter(s)}
+                        className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
+                          requestStatusFilter === s ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="font-bold text-ink mr-1">Status:</span>
-                  {(['ALL', 'OPEN', 'FULFILLED', 'CANCELLED'] as const).map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setRequestStatusFilter(s)}
-                      className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all ${
-                        requestStatusFilter === s ? 'bg-brand text-white shadow-xs' : 'hover:bg-surface text-ink-secondary'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                {/* Approval Filter Bar */}
+                <div className="pt-2.5 border-t border-divider flex items-center gap-1.5 text-xs flex-wrap">
+                  <span className="font-bold text-ink mr-1 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand" />
+                    <span>Approval:</span>
+                  </span>
+                  {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map(s => {
+                    const count = s === 'PENDING' ? pendingRequestsCount : undefined;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setRequestApprovalFilter(s)}
+                        className={`px-3 py-1 rounded-xl font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                          requestApprovalFilter === s 
+                            ? (s === 'PENDING' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'bg-ink text-canvas font-black shadow-xs') 
+                            : 'hover:bg-surface text-ink-secondary'
+                        }`}
+                      >
+                        <span>{s === 'PENDING' ? 'Pending Approval' : s}</span>
+                        {count !== undefined && count > 0 && (
+                          <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                            requestApprovalFilter === s ? 'bg-slate-950 text-amber-400' : 'bg-amber-500 text-slate-950'
+                          }`}>
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1401,62 +1862,113 @@ export const HustleHub: React.FC = () => {
                         <th className="p-3.5">Seeker</th>
                         <th className="p-3.5">Schedule</th>
                         <th className="p-3.5">Status</th>
+                        <th className="p-3.5">Admin Approval</th>
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-divider/60 font-medium">
                       {adminRequests
                         .filter(r => {
+                          const appStatus = r.approval_status || 'APPROVED';
+                          if (requestApprovalFilter !== 'ALL' && appStatus !== requestApprovalFilter) return false;
                           if (requestStatusFilter !== 'ALL' && r.status !== requestStatusFilter) return false;
                           if (!requestSearch) return true;
                           const q = requestSearch.toLowerCase();
                           return r.item_name?.toLowerCase().includes(q) || r.seeker_name?.toLowerCase().includes(q) || r.category?.toLowerCase().includes(q);
                         })
-                        .map(r => (
-                          <tr key={r.id} className="hover:bg-surface/60 transition-colors">
-                            <td className="p-3.5">
-                              <span className="font-bold text-ink block">{r.item_name}</span>
-                              <span className="text-[11px] text-ink-muted block line-clamp-1">{r.description || 'No description provided'}</span>
-                            </td>
-                            <td className="p-3.5">
-                              <span className="bg-surface px-2.5 py-0.5 rounded-full border border-divider text-[11px] font-bold text-ink">
-                                {r.category || 'General'}
-                              </span>
-                            </td>
-                            <td className="p-3.5 font-bold text-brand">
-                              ₹{Number(r.offered_amount)}
-                            </td>
-                            <td className="p-3.5">
-                              <span className="font-bold text-ink block truncate">{r.seeker_name || 'Seeker'}</span>
-                              <span className="text-[10px] text-ink-secondary block truncate">{r.seeker_email}</span>
-                            </td>
-                            <td className="p-3.5 text-ink-secondary">
-                              <span className="text-ink font-semibold">{r.start_date}</span>
-                              <span className="block text-[10px] text-ink-muted">({r.duration_days} days)</span>
-                            </td>
-                            <td className="p-3.5">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                r.status === 'OPEN'
-                                  ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
-                                  : r.status === 'FULFILLED'
-                                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
-                                  : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/30'
-                              }`}>
-                                {r.status}
-                              </span>
-                            </td>
-                            <td className="p-3.5 text-right">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteRequest(r.id, r.item_name)}
-                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                                title="Delete Request"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        .map(r => {
+                          const appStatus = r.approval_status || 'APPROVED';
+                          return (
+                            <tr key={r.id} className="hover:bg-surface/60 transition-colors">
+                              <td className="p-3.5">
+                                <span className="font-bold text-ink block">{r.item_name}</span>
+                                <span className="text-[11px] text-ink-muted block line-clamp-1">{r.description || 'No description provided'}</span>
+                              </td>
+                              <td className="p-3.5">
+                                <span className="bg-surface px-2.5 py-0.5 rounded-full border border-divider text-[11px] font-bold text-ink">
+                                  {r.category || 'General'}
+                                </span>
+                              </td>
+                              <td className="p-3.5 font-bold text-brand">
+                                ₹{Number(r.offered_amount)}
+                              </td>
+                              <td className="p-3.5">
+                                <span className="font-bold text-ink block truncate">{r.seeker_name || 'Seeker'}</span>
+                                <span className="text-[10px] text-ink-secondary block truncate">{r.seeker_email}</span>
+                              </td>
+                              <td className="p-3.5 text-ink-secondary">
+                                <span className="text-ink font-semibold">{r.start_date}</span>
+                                <span className="block text-[10px] text-ink-muted">({r.duration_days} days)</span>
+                              </td>
+                              <td className="p-3.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                  r.status === 'OPEN'
+                                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+                                    : r.status === 'FULFILLED'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
+                                    : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/30'
+                                }`}>
+                                  {r.status}
+                                </span>
+                              </td>
+                              <td className="p-3.5">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border ${
+                                  appStatus === 'APPROVED'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                                    : appStatus === 'PENDING'
+                                    ? 'bg-amber-500/15 text-amber-500 border-amber-500/30 animate-pulse'
+                                    : 'bg-rose-500/10 text-rose-500 border-rose-500/30'
+                                }`}>
+                                  {appStatus === 'APPROVED' ? (
+                                    <><CheckCircle2 className="w-3 h-3" /> Approved</>
+                                  ) : appStatus === 'PENDING' ? (
+                                    <><Clock className="w-3 h-3" /> Pending</>
+                                  ) : (
+                                    <><AlertCircle className="w-3 h-3" /> Rejected</>
+                                  )}
+                                </span>
+                              </td>
+                              <td className="p-3.5 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {appStatus !== 'APPROVED' && (
+                                    <button
+                                      type="button"
+                                      disabled={isUpdatingApproval === r.id}
+                                      onClick={() => handleUpdateRequestApproval(r.id, 'APPROVED')}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                                      title="Approve wish and publish to community board"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>Approve</span>
+                                    </button>
+                                  )}
+
+                                  {appStatus !== 'REJECTED' && (
+                                    <button
+                                      type="button"
+                                      disabled={isUpdatingApproval === r.id}
+                                      onClick={() => handleUpdateRequestApproval(r.id, 'REJECTED')}
+                                      className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                      title="Reject wish"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                      <span>Reject</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteRequest(r.id, r.item_name)}
+                                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                    title="Delete Request"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>

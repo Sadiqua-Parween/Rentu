@@ -29,7 +29,8 @@ import {
   Home as HomeIcon,
   Briefcase,
   ClipboardList,
-  LogIn
+  LogIn,
+  Heart
 } from 'lucide-react';
 import { useAuth } from '../lib/authContext';
 import { useTheme } from '../lib/themeContext';
@@ -37,6 +38,7 @@ import { api } from '../lib/api';
 import { initWebPush } from '../lib/push';
 import { UserSearchResult, isAuthorizedAdmin, AppNotification } from '../lib/types';
 import { getReachDistance } from '../lib/distance';
+import { getTotalSavedCount } from '../lib/favorites';
 import type { TabType } from '../App';
 
 interface NavbarProps {
@@ -121,6 +123,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Unread messages count (falls back to local state if not passed from parent)
   const [localUnreadMessages, setLocalUnreadMessages] = useState<number>(0);
   const unreadMessagesCount = propUnreadMessagesCount !== undefined ? propUnreadMessagesCount : localUnreadMessages;
+
+  // Saved items & requests count
+  const [savedCount, setSavedCount] = useState<number>(() => getTotalSavedCount());
+
+  useEffect(() => {
+    const handleFavSync = () => {
+      setSavedCount(getTotalSavedCount());
+    };
+    window.addEventListener('rentu_favorites_updated', handleFavSync);
+    return () => window.removeEventListener('rentu_favorites_updated', handleFavSync);
+  }, []);
 
   const postMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -823,7 +836,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 </span>
                               </div>
                               <div className="text-[10px] text-ink-secondary truncate">
-                                {getReachDistance(u, user)} • {u.items_count} gear listed • {u.trust_score}% trust
+                                {(() => {
+                                  const dist = getReachDistance(u, user);
+                                  return (
+                                    <>
+                                      {dist ? `${dist} • ` : ''}
+                                      {u.items_count} gear listed • {u.trust_score}% trust
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -915,6 +936,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {unreadMessagesCount > 0 && (
                     <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-brand text-[10px] font-black text-white flex items-center justify-center leading-none shadow-sm animate-in zoom-in-75 duration-200">
                       {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Saved Items & Wishes Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('saved');
+                    setShowUserMenu(false);
+                    setShowMobileMenu(false);
+                    setShowNotifications(false);
+                  }}
+                  className={`relative p-2 rounded-full transition-colors cursor-pointer hidden sm:flex ${
+                    activeTab === 'saved'
+                      ? 'bg-brand/10 text-brand ring-1 ring-brand/30'
+                      : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-secondary hover:text-ink'
+                  }`}
+                  title="Saved Items & Wishes"
+                  aria-label="Saved Items"
+                >
+                  <Heart className={`w-4 h-4 ${activeTab === 'saved' || savedCount > 0 ? 'fill-brand text-brand' : ''}`} />
+                  {savedCount > 0 && (
+                    <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-brand text-[10px] font-black text-white flex items-center justify-center leading-none shadow-sm animate-in zoom-in-75 duration-200">
+                      {savedCount > 9 ? '9+' : savedCount}
                     </span>
                   )}
                 </button>
@@ -1036,7 +1082,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>My Profile & Listings</span>
                       </button>
 
-                      {/* Admin Dashboard (if admin) */}
+                      <button
+                        onClick={() => {
+                          setActiveTab('saved');
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 rounded-2xl hover:bg-canvas flex items-center justify-between font-semibold text-sm text-ink cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-3.5">
+                          <Heart className="w-5 h-5 text-brand fill-brand shrink-0" />
+                          <span>Saved Items & Wishes</span>
+                        </div>
+                        {savedCount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-brand-soft text-brand">
+                            {savedCount}
+                          </span>
+                        )}
+                      </button>
                       {isUserAdmin && (
                         <button
                           onClick={() => {
@@ -1222,7 +1284,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </div>
                             <div className="text-[10px] text-ink-secondary truncate flex items-center gap-1">
                               <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400 shrink-0" />
-                              <span>{Number(u.rating) > 0 ? Number(u.rating).toFixed(1) : '0.0'} • {getReachDistance(u, user)}</span>
+                              <span>
+                                {Number(u.rating) > 0 ? Number(u.rating).toFixed(1) : '0.0'}
+                                {(() => {
+                                  const dist = getReachDistance(u, user);
+                                  return dist ? ` • ${dist}` : '';
+                                })()}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -1328,6 +1396,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <ClipboardList className="w-5 h-5 text-[#0F172A] dark:text-[#E2E8F0]" />
                   <span>My Requests</span>
+                </button>
+
+                {/* 6b. Saved Items & Wishes */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('saved');
+                    setShowMobileMenu(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-sm font-medium text-[#0F172A] dark:text-[#E2E8F0] hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <Heart className="w-5 h-5 text-brand fill-brand" />
+                    <span>Saved Items & Wishes</span>
+                  </div>
+                  {savedCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-black bg-brand-soft text-brand">
+                      {savedCount}
+                    </span>
+                  )}
                 </button>
 
                 {/* 7. Settings */}

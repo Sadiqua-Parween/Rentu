@@ -9,10 +9,10 @@ const user_1 = require("../../utils/user");
 const notifications_service_1 = require("../notifications/notifications.service");
 const router = (0, express_1.Router)();
 const createTicketSchema = zod_1.z.object({
-    type: zod_1.z.enum(['CONCERN', 'FEEDBACK']),
-    category: zod_1.z.string().min(1, 'Category is required'),
-    subject: zod_1.z.string().min(3, 'Subject must be at least 3 characters'),
-    description: zod_1.z.string().min(10, 'Please describe your concern or feedback in at least 10 characters'),
+    type: zod_1.z.enum(['CONCERN', 'FEEDBACK']).default('CONCERN'),
+    category: zod_1.z.string().optional().default('General Concern'),
+    subject: zod_1.z.string().optional(),
+    description: zod_1.z.string().min(3, 'Please describe your concern or feedback in at least 3 characters'),
     priority: zod_1.z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional().default('NORMAL'),
     user_email: zod_1.z.string().email('Please enter a valid email address').optional(),
 });
@@ -34,6 +34,10 @@ router.post('/', auth_1.optionalAuthMiddleware, async (req, res, next) => {
         // Allow users and guests to specify their preferred contact email
         const userEmail = validated.user_email?.trim() || req.user?.email || 'unregistered@rentu.in';
         const assignedPriority = validated.priority || 'NORMAL';
+        const assignedCategory = validated.category?.trim() || (validated.type === 'FEEDBACK' ? 'General Thought' : 'Other Concern');
+        const finalSubject = (validated.subject && validated.subject.trim().length >= 3)
+            ? validated.subject.trim()
+            : (validated.description.trim().split('\n')[0].slice(0, 60).trim() || `${assignedCategory} Inquiry`);
         const insertRes = await (0, db_1.query)(`INSERT INTO support_tickets (user_id, user_name, user_email, type, category, subject, description, priority, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'OPEN')
        RETURNING *`, [
@@ -41,8 +45,8 @@ router.post('/', auth_1.optionalAuthMiddleware, async (req, res, next) => {
             userName,
             userEmail,
             validated.type,
-            validated.category,
-            validated.subject,
+            assignedCategory,
+            finalSubject,
             validated.description,
             assignedPriority,
         ]);
@@ -54,7 +58,7 @@ router.post('/', auth_1.optionalAuthMiddleware, async (req, res, next) => {
                 senderId: null,
                 type: 'SUPPORT_TICKET_RECEIVED',
                 title: validated.type === 'CONCERN' ? 'Concern Received' : 'Feedback Received',
-                body: `We have received your ${validated.type.toLowerCase()} regarding "${validated.subject}". Our admin team will review and resolve it promptly.`,
+                body: `We have received your ${validated.type.toLowerCase()} regarding "${finalSubject}". Our admin team will review and resolve it promptly.`,
                 referenceId: ticket.id,
                 referenceType: 'SUPPORT',
             }).catch(() => { });
@@ -68,8 +72,8 @@ router.post('/', auth_1.optionalAuthMiddleware, async (req, res, next) => {
                         userId: adminUser.id,
                         senderId: userId,
                         type: 'SUPPORT_TICKET_ADMIN_ALERT',
-                        title: `New Support ${validated.type}: ${validated.subject.slice(0, 40)}`,
-                        body: `${userName} submitted a new ${validated.type.toLowerCase()} under "${validated.category}". Urgency: ${assignedPriority}.`,
+                        title: `New Support ${validated.type}: ${finalSubject.slice(0, 40)}`,
+                        body: `${userName} submitted a new ${validated.type.toLowerCase()} under "${assignedCategory}". Urgency: ${assignedPriority}.`,
                         referenceId: ticket.id,
                         referenceType: 'SUPPORT',
                     }).catch(() => { });

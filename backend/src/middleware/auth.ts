@@ -5,6 +5,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { ENV } from '../config/env';
 import { query } from '../config/db';
 import { sendError } from './response';
+import { checkEmailBlacklist } from '../utils/blacklist';
 
 // Initialize Firebase Admin securely for cryptographic token verification
 try {
@@ -178,6 +179,12 @@ export const authMiddleware = async (
     const user = await resolveUserFromToken(token);
     if (!user) {
       return sendError(res, 'INVALID_TOKEN', 'Session expired or token invalid', 401);
+    }
+    if (user.email && !isAdminEmail(user.email)) {
+      const blacklist = await checkEmailBlacklist(user.email);
+      if (blacklist.isBlacklisted) {
+        return sendError(res, 'ACCOUNT_BLACKLISTED', blacklist.message || 'Your account has been blacklisted.', 403);
+      }
     }
     req.user = user;
     next();

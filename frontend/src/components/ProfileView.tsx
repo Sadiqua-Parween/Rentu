@@ -33,7 +33,8 @@ import {
   AtSign,
   Copy,
   Share2,
-  Users
+  Users,
+  Heart
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
@@ -52,13 +53,15 @@ import { ReviewModal } from './ReviewModal';
 import { getReachDistance } from '../lib/distance';
 import { checkIsLender } from '../lib/logistics';
 import { FollowListModal } from './FollowListModal';
+import { SavedItemsView } from './SavedItemsView';
+import { getTotalSavedCount } from '../lib/favorites';
 
 interface ProfileViewProps {
   onOpenDropGear: () => void;
   onOpenDropWish: () => void;
   onOpenChatWithBooking?: (bookingId: string) => void;
   onOpenAuth?: () => void;
-  initialTab?: 'listings' | 'requests' | 'reviews';
+  initialTab?: 'listings' | 'requests' | 'reviews' | 'saved';
   onOpenUserProfile?: (userId: string) => void;
 }
 
@@ -72,9 +75,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 }) => {
   const { user, refreshUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'listings' | 'requests' | 'reviews'>(
+  const [activeTab, setActiveTab] = useState<'listings' | 'requests' | 'reviews' | 'saved'>(
     initialTab && (initialTab as any) !== 'bookings' ? initialTab : 'listings'
   );
+  const [savedCount, setSavedCount] = useState<number>(() => getTotalSavedCount());
+
+  useEffect(() => {
+    const handleFavUpdate = () => {
+      setSavedCount(getTotalSavedCount());
+    };
+    window.addEventListener('rentu_favorites_updated', handleFavUpdate);
+    window.addEventListener('storage', handleFavUpdate);
+    return () => {
+      window.removeEventListener('rentu_favorites_updated', handleFavUpdate);
+      window.removeEventListener('storage', handleFavUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     if (initialTab && (initialTab as any) !== 'bookings') {
@@ -534,6 +550,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {[
           { key: 'listings', label: 'My Listings', count: myItems.length, icon: Package },
           { key: 'requests', label: 'My Requests', count: myRequests.length, icon: Sparkles },
+          { key: 'saved', label: 'Saved Items', count: savedCount, icon: Heart },
           { key: 'reviews', label: 'Reviews & Trust', count: receivedReviews.length, icon: Star },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -985,6 +1002,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               })()}
             </div>
 
+          </div>
+        )}
+
+        {/* Saved Items Tab */}
+        {activeTab === 'saved' && (
+          <div className="pt-2">
+            <SavedItemsView
+              onSelectItem={(item) => setPreviewItem(item)}
+              onExploreMarketplace={() => {
+                window.location.hash = '#/explore';
+              }}
+              onExploreRequests={() => {
+                window.location.hash = '#/community';
+              }}
+              onOpenAuth={onOpenAuth}
+            />
           </div>
         )}
 

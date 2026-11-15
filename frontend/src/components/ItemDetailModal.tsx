@@ -28,6 +28,7 @@ import {
 import confetti from 'canvas-confetti';
 import { Item } from '../lib/types';
 import { useAuth } from '../lib/authContext';
+import { isItemFavorited, toggleItemFavorite } from '../lib/favorites';
 import { api } from '../lib/api';
 import { getEffectiveSavedLocations, formatSavedLocationFull, formatFullAddress } from '../lib/location';
 import { RentalCalendar, formatTime12 } from './RentalCalendar';
@@ -72,14 +73,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   );
   const isAvailableForBorrowing = Boolean(item?.available_for_borrowing || isFreeListing);
   const [rentType, setRentType] = useState<'Rent' | 'Borrow'>(isFreeListing ? 'Borrow' : 'Rent');
-  const [isLiked, setIsLiked] = useState(() => {
-    try {
-      const favs = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-      return Array.isArray(favs) && Boolean(item?.id && favs.includes(item.id));
-    } catch {
-      return false;
-    }
-  });
+  const [isLiked, setIsLiked] = useState(() => isItemFavorited(item?.id || ''));
   const [isDeleting, setIsDeleting] = useState(false);
   const [isShareCopied, setIsShareCopied] = useState(false);
 
@@ -158,27 +152,19 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
   React.useEffect(() => {
     if (!item?.id) return;
-    try {
-      const favs = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-      setIsLiked(Array.isArray(favs) && favs.includes(item.id));
-    } catch {}
+    setIsLiked(isItemFavorited(item.id));
+    const handleSync = () => {
+      setIsLiked(isItemFavorited(item.id));
+    };
+    window.addEventListener('rentu_favorites_updated', handleSync);
+    return () => window.removeEventListener('rentu_favorites_updated', handleSync);
   }, [item?.id]);
 
   const toggleFavorite = () => {
     if (!item?.id) return;
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-      const updated = favs.includes(item.id)
-        ? favs.filter((id) => id !== item.id)
-        : [...favs, item.id];
-      localStorage.setItem('rentu_favorites', JSON.stringify(updated));
-      setIsLiked(updated.includes(item.id));
-      window.dispatchEvent(new Event('rentu_favorites_updated'));
-    } catch {
-      setIsLiked(!isLiked);
-    }
+    toggleItemFavorite(item.id);
   };
-  const reachDistanceText = item ? getReachDistance(item, user) : 'Nearby';
+  const reachDistanceText = item ? getReachDistance(item, user) : null;
 
   // Owner detection: checks user id or firebase_uid against item.owner_id
   const isOwner = Boolean(
@@ -492,6 +478,18 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 Owner Preview
               </span>
             )}
+            {item.approval_status === 'PENDING' && (
+              <span className="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-500 border border-amber-500/30 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>Approval Pending</span>
+              </span>
+            )}
+            {item.approval_status === 'REJECTED' && (
+              <span className="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/15 text-rose-500 border border-rose-500/30 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                <span>Rejected by Admin</span>
+              </span>
+            )}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -530,6 +528,44 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
         {/* Modal Body: Left gallery + details, Right booking card */}
         <div className="p-3.5 sm:p-6 lg:p-8 max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto">
+          {/* Approval Status Banner */}
+          {item.approval_status === 'PENDING' && (
+            <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3.5 text-amber-500 shadow-sm animate-in fade-in duration-200">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0 mt-0.5 text-amber-500">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-extrabold text-xs sm:text-sm text-amber-400">
+                    Approval by admin is pending
+                  </h4>
+                  <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+                    Under Review
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-xs text-ink-secondary mt-1 leading-relaxed">
+                  Your gear listing has been submitted and is waiting for review by Rentu administrators. It is visible here in your private preview, and will automatically go live on the public marketplace once approved!
+                </p>
+              </div>
+            </div>
+          )}
+
+          {item.approval_status === 'REJECTED' && (
+            <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-3.5 text-rose-500 shadow-sm animate-in fade-in duration-200">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0 mt-0.5 text-rose-500">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-extrabold text-xs sm:text-sm text-rose-400">
+                  Listing Rejected by Admin
+                </h4>
+                <p className="text-[11px] sm:text-xs text-ink-secondary mt-1 leading-relaxed">
+                  {item.rejection_reason || 'This listing was rejected by administrators because it did not meet marketplace guidelines. You can edit the listing to fix issues or contact support.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left 7 Columns: Gallery + Item Details */}
@@ -639,13 +675,17 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                         <span>•</span>
                       </>
                     ) : null}
-                    <div className="flex items-center gap-1.5 font-bold text-ink">
-                      <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-                      <span className="text-[11px] font-extrabold text-brand bg-brand-soft px-2.5 py-1 rounded-full border border-brand/20">
-                        {reachDistanceText}
-                      </span>
-                    </div>
-                    <span>•</span>
+                    {reachDistanceText && (
+                      <>
+                        <div className="flex items-center gap-1.5 font-bold text-ink">
+                          <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
+                          <span className="text-[11px] font-extrabold text-brand bg-brand-soft px-2.5 py-1 rounded-full border border-brand/20">
+                            {reachDistanceText}
+                          </span>
+                        </div>
+                        <span>•</span>
+                      </>
+                    )}
                     <span>{item.category}</span>
                   </div>
                 </div>
@@ -701,11 +741,15 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                     <h4 className="text-sm font-extrabold text-ink group-hover:text-brand transition-colors truncate">{item.owner_name || 'Gear Owner'}</h4>
                     <div className="text-xs text-ink-secondary font-medium flex items-center gap-2 mt-0.5 flex-wrap">
                       <span>{(item as any).owner_is_verified ? 'Verified Lender' : 'Gear Owner'}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1 text-ink font-semibold">
-                        <MapPin className="w-3 h-3 text-brand shrink-0" />
-                        <span className="truncate">{reachDistanceText}</span>
-                      </span>
+                      {reachDistanceText && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-1 text-ink font-semibold">
+                            <MapPin className="w-3 h-3 text-brand shrink-0" />
+                            <span className="truncate">{reachDistanceText}</span>
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -950,7 +994,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                                     </span>
                                   </div>
                                   <div className="text-[11px] text-ink-secondary">
-                                    {optForDelivery ? 'Owner delivers to your location' : `You pick up from owner (${reachDistanceText})`}
+                                    {optForDelivery ? 'Owner delivers to your location' : reachDistanceText ? `You pick up from owner (${reachDistanceText})` : 'You pick up from owner'}
                                   </div>
                                 </div>
                               </div>
@@ -1043,7 +1087,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                                     </span>
                                   </div>
                                   <div className="text-[11px] text-ink-secondary">
-                                    {optForPickup ? 'Owner collects from you on return' : `You return to owner (${reachDistanceText})`}
+                                    {optForPickup ? 'Owner collects from you on return' : reachDistanceText ? `You return to owner (${reachDistanceText})` : 'You return to owner'}
                                   </div>
                                 </div>
                               </div>
@@ -1138,7 +1182,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                       <div className="pt-2 border-t border-divider space-y-1">
                         <div className="flex items-center gap-2 text-xs text-ink-secondary">
                           <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-                          <span>Self pickup & return: <strong className="text-brand font-bold">{reachDistanceText}</strong></span>
+                          <span>Self pickup & return{reachDistanceText ? <>: <strong className="text-brand font-bold">{reachDistanceText}</strong></> : ''}</span>
                         </div>
                         <p className="text-[10px] text-ink-muted pl-5.5">
                           Exact pickup address shared privately after booking is confirmed.
@@ -1232,6 +1276,34 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                         <MapPin className="w-4 h-4" />
                         <span>Set Address to Order</span>
                       </button>
+                    ) : item.approval_status === 'PENDING' ? (
+                      <div className="space-y-1.5 mt-2">
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-3 text-xs sm:text-sm font-extrabold rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/30 cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          <Clock className="w-4 h-4" />
+                          <span>Approval by Admin is Pending</span>
+                        </button>
+                        <p className="text-[11px] text-center text-ink-secondary">
+                          This listing is currently in preview mode awaiting admin verification before public orders open.
+                        </p>
+                      </div>
+                    ) : item.approval_status === 'REJECTED' ? (
+                      <div className="space-y-1.5 mt-2">
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-3 text-xs sm:text-sm font-extrabold rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/30 cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          <AlertCircle className="w-4 h-4" />
+                          <span>Listing Rejected by Admin</span>
+                        </button>
+                        <p className="text-[11px] text-center text-ink-secondary">
+                          This item did not pass admin review and cannot be booked.
+                        </p>
+                      </div>
                     ) : item.status === 'RENTED' || (item as any).is_currently_booked ? (
                       <div className="space-y-1.5 mt-2">
                         <button

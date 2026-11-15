@@ -34,15 +34,18 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const zod_1 = require("zod");
 const db_1 = require("../../config/db");
 const response_1 = require("../../middleware/response");
 const auth_1 = require("../../middleware/auth");
+const blacklist_1 = require("../../utils/blacklist");
 const router = (0, express_1.Router)();
 // Apply admin protection to all routes in this module
 router.use(auth_1.adminMiddleware);
 // 1. GET ALL USERS (with gear, request, and booking counts)
 router.get('/users', async (req, res, next) => {
     try {
+        await (0, blacklist_1.ensureBlacklistTable)();
         const result = await (0, db_1.query)(`
       SELECT 
         u.id, 
@@ -55,6 +58,9 @@ router.get('/users', async (req, res, next) => {
         u.trust_score, 
         u.rating, 
         COALESCE(u.is_verified, FALSE) AS is_verified,
+        COALESCE(u.is_blacklisted, FALSE) AS is_blacklisted,
+        u.blacklist_expires_at,
+        u.blacklist_reason,
         u.created_at,
         (SELECT COUNT(*) FROM items i WHERE i.owner_id = u.id)::int AS items_count,
         (SELECT COUNT(*) FROM requests r WHERE r.seeker_id = u.id)::int AS requests_count,
@@ -137,6 +143,58 @@ router.delete('/users/:id', async (req, res, next) => {
         next(error);
     }
 });
+// 2.2 BLACKLIST MANAGEMENT
+const blacklistSchema = zod_1.z.object({
+    email: zod_1.z.string().email(),
+    days: zod_1.z.number().nullable().optional(),
+    reason: zod_1.z.string().optional(),
+});
+// GET /blacklist - List all blacklisted emails
+router.get('/blacklist', async (req, res, next) => {
+    try {
+        await (0, blacklist_1.ensureBlacklistTable)();
+        const result = await (0, db_1.query)(`SELECT id, email, reason, blacklisted_by, expires_at, created_at, updated_at
+       FROM email_blacklist
+       ORDER BY created_at DESC`);
+        return (0, response_1.sendSuccess)(res, result.rows);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+// POST /blacklist - Blacklist an email permanently or for X days
+router.post('/blacklist', async (req, res, next) => {
+    try {
+        const validated = blacklistSchema.parse(req.body);
+        const result = await (0, blacklist_1.blacklistEmail)({
+            email: validated.email,
+            days: validated.days,
+            reason: validated.reason,
+            blacklistedBy: req.user?.email || req.user?.name || 'Admin',
+        });
+        return (0, response_1.sendSuccess)(res, result, 'User email has been successfully blacklisted');
+    }
+    catch (error) {
+        if (error.message?.includes('cannot be blacklisted')) {
+            return (0, response_1.sendError)(res, 'FORBIDDEN', error.message, 403);
+        }
+        next(error);
+    }
+});
+// DELETE /blacklist/:email - Lift ban / remove email from blacklist
+router.delete('/blacklist/:email', async (req, res, next) => {
+    try {
+        const { email } = req.params;
+        if (!email) {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'Email parameter is required', 400);
+        }
+        await (0, blacklist_1.removeEmailBlacklist)(decodeURIComponent(email));
+        return (0, response_1.sendSuccess)(res, { email }, 'Email removed from blacklist successfully');
+    }
+    catch (error) {
+        next(error);
+    }
+});
 // 2.2 SYNC FIREBASE USER TO SUPABASE (Admin tool to manually add or sync any Firebase user)
 router.post('/sync-user', async (req, res, next) => {
     try {
@@ -170,12 +228,13 @@ router.get('/listings', async (req, res, next) => {
         const result = await (0, db_1.query)(`
       SELECT 
         i.*, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         COALESCE(u.name, 'Lender') AS owner_name, 
         u.email AS owner_email,
         u.avatar_url AS owner_avatar
       FROM items i
-      LEFT JOIN users u ON i.owner_id = u.id
-      ORDER BY i.created_at DESC
+      LEFT JOIN users u ON (i.owner_id = u.id OR i.owner_id = u.firebase_uid)
+      ORDER BY CASE WHEN COALESCE(i.approval_status, 'APPROVED') = 'PENDING' THEN 0 ELSE 1 END, i.created_at DESC
     `);
         return (0, response_1.sendSuccess)(res, result.rows);
     }
@@ -201,6 +260,24 @@ router.patch('/listings/:id/status', async (req, res, next) => {
         next(error);
     }
 });
+// 4b. UPDATE LISTING APPROVAL STATUS (Approve / Reject)
+router.patch('/listings/:id/approval', async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { approval_status } = req.body;
+        if (!['APPROVED', 'PENDING', 'REJECTED'].includes(approval_status)) {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'Invalid approval status. Must be APPROVED, PENDING, or REJECTED.', 400);
+        }
+        const result = await (0, db_1.query)(`UPDATE items SET approval_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [approval_status, id]);
+        if (result.rows.length === 0) {
+            return (0, response_1.sendError)(res, 'NOT_FOUND', 'Listing not found', 404);
+        }
+        return (0, response_1.sendSuccess)(res, result.rows[0], `Listing ${approval_status.toLowerCase()} successfully`);
+    }
+    catch (error) {
+        next(error);
+    }
+});
 // 5. DELETE LISTING (Admin Takedown)
 router.delete('/listings/:id', async (req, res, next) => {
     try {
@@ -218,14 +295,33 @@ router.get('/requests', async (req, res, next) => {
         const result = await (0, db_1.query)(`
       SELECT 
         r.*,
+        COALESCE(r.approval_status, 'APPROVED') AS approval_status,
         COALESCE(u.name, 'Seeker') AS seeker_name,
         u.email AS seeker_email,
         u.avatar_url AS seeker_avatar
       FROM requests r
       LEFT JOIN users u ON (r.seeker_id = u.id::text OR r.seeker_id = u.firebase_uid)
-      ORDER BY r.created_at DESC
+      ORDER BY CASE WHEN COALESCE(r.approval_status, 'APPROVED') = 'PENDING' THEN 0 ELSE 1 END, r.created_at DESC
     `);
         return (0, response_1.sendSuccess)(res, result.rows);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+// 6b. UPDATE REQUEST APPROVAL STATUS (Approve / Reject)
+router.patch('/requests/:id/approval', async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { approval_status } = req.body;
+        if (!['APPROVED', 'PENDING', 'REJECTED'].includes(approval_status)) {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'Invalid approval status. Must be APPROVED, PENDING, or REJECTED.', 400);
+        }
+        const result = await (0, db_1.query)(`UPDATE requests SET approval_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [approval_status, id]);
+        if (result.rows.length === 0) {
+            return (0, response_1.sendError)(res, 'NOT_FOUND', 'Request not found', 404);
+        }
+        return (0, response_1.sendSuccess)(res, result.rows[0], `Request ${approval_status.toLowerCase()} successfully`);
     }
     catch (error) {
         next(error);
@@ -369,6 +465,8 @@ router.get('/reports', async (req, res, next) => {
       SELECT 
         (SELECT COUNT(*) FROM users)::int AS total_users,
         (SELECT COUNT(*) FROM items)::int AS total_items,
+        (SELECT COUNT(*) FROM items WHERE COALESCE(approval_status, 'APPROVED') = 'PENDING')::int AS pending_items,
+        (SELECT COUNT(*) FROM requests WHERE COALESCE(approval_status, 'APPROVED') = 'PENDING')::int AS pending_requests,
         (SELECT COUNT(*) FROM bookings)::int AS total_bookings,
         (SELECT COUNT(*) FROM bookings WHERE status = 'COMPLETED')::int AS completed_bookings,
         (SELECT COUNT(*) FROM support_tickets)::int AS total_support_tickets,

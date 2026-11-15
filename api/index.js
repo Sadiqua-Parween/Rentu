@@ -87085,6 +87085,141 @@ var refreshToken = import_app.default.refreshToken;
 
 // src/middleware/auth.ts
 init_auth();
+
+// src/utils/blacklist.ts
+var ensureBlacklistTable = async () => {
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS email_blacklist (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        email VARCHAR(255) NOT NULL,
+        reason TEXT DEFAULT 'Violation of community terms',
+        blacklisted_by TEXT,
+        expires_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_email_blacklist_email_lower ON email_blacklist (LOWER(email));
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blacklisted BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS blacklist_expires_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS blacklist_reason TEXT;
+    `);
+  } catch (err) {
+    console.warn("ensureBlacklistTable notice:", err.message);
+  }
+};
+var checkEmailBlacklist = async (email) => {
+  if (!email) return { isBlacklisted: false };
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    const res = await query(
+      `SELECT id, email, reason, expires_at, created_at 
+       FROM email_blacklist 
+       WHERE LOWER(email) = LOWER($1) 
+       LIMIT 1`,
+      [cleanEmail]
+    );
+    if (res.rows.length === 0) {
+      return { isBlacklisted: false };
+    }
+    const row = res.rows[0];
+    const now = /* @__PURE__ */ new Date();
+    if (row.expires_at) {
+      const expiresAt = new Date(row.expires_at);
+      if (expiresAt <= now) {
+        await query(`DELETE FROM email_blacklist WHERE id = $1`, [row.id]).catch(() => {
+        });
+        await query(
+          `UPDATE users 
+           SET is_blacklisted = FALSE, blacklist_expires_at = NULL, blacklist_reason = NULL 
+           WHERE LOWER(email) = LOWER($1)`,
+          [cleanEmail]
+        ).catch(() => {
+        });
+        return { isBlacklisted: false };
+      }
+      const formattedDate = expiresAt.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+      return {
+        isBlacklisted: true,
+        isPermanent: false,
+        expiresAt: row.expires_at,
+        reason: row.reason,
+        message: `Your account (${cleanEmail}) has been suspended until ${formattedDate}. Reason: ${row.reason || "Violation of community rules"}. Contact support if you believe this is an error.`
+      };
+    }
+    return {
+      isBlacklisted: true,
+      isPermanent: true,
+      expiresAt: null,
+      reason: row.reason,
+      message: `Your account (${cleanEmail}) has been permanently blacklisted from Rentu. Reason: ${row.reason || "Violation of community rules"}. Contact support for review.`
+    };
+  } catch (err) {
+    if (err?.message?.includes("does not exist") || err?.message?.includes('relation "email_blacklist"')) {
+      await ensureBlacklistTable();
+    }
+    return { isBlacklisted: false };
+  }
+};
+var blacklistEmail = async (params) => {
+  const cleanEmail = params.email.trim().toLowerCase();
+  if (isAdminEmail(cleanEmail)) {
+    throw new Error("Authorized administrator accounts cannot be blacklisted.");
+  }
+  await ensureBlacklistTable();
+  let expiresAt = null;
+  if (params.days && params.days > 0) {
+    expiresAt = /* @__PURE__ */ new Date();
+    expiresAt.setDate(expiresAt.getDate() + params.days);
+  }
+  const reason = params.reason?.trim() || "Violation of community terms";
+  const res = await query(
+    `INSERT INTO email_blacklist (email, reason, blacklisted_by, expires_at, updated_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT ((LOWER(email))) DO UPDATE SET
+       reason = EXCLUDED.reason,
+       blacklisted_by = EXCLUDED.blacklisted_by,
+       expires_at = EXCLUDED.expires_at,
+       updated_at = NOW()
+     RETURNING id, email, reason, blacklisted_by, expires_at, created_at, updated_at`,
+    [cleanEmail, reason, params.blacklistedBy || "Admin", expiresAt]
+  );
+  await query(
+    `UPDATE users 
+     SET is_blacklisted = TRUE, 
+         blacklist_expires_at = $1, 
+         blacklist_reason = $2,
+         updated_at = NOW()
+     WHERE LOWER(email) = LOWER($3)`,
+    [expiresAt, reason, cleanEmail]
+  ).catch(() => {
+  });
+  return res.rows[0];
+};
+var removeEmailBlacklist = async (email) => {
+  const cleanEmail = email.trim().toLowerCase();
+  await ensureBlacklistTable();
+  await query(`DELETE FROM email_blacklist WHERE LOWER(email) = LOWER($1)`, [cleanEmail]);
+  await query(
+    `UPDATE users 
+     SET is_blacklisted = FALSE, 
+         blacklist_expires_at = NULL, 
+         blacklist_reason = NULL,
+         updated_at = NOW()
+     WHERE LOWER(email) = LOWER($1)`,
+    [cleanEmail]
+  ).catch(() => {
+  });
+  return true;
+};
+
+// src/middleware/auth.ts
 try {
   const existingApps = getApps();
   if (!existingApps.length) {
@@ -87210,6 +87345,12 @@ var authMiddleware = async (req, res, next) => {
     if (!user) {
       return sendError(res, "INVALID_TOKEN", "Session expired or token invalid", 401);
     }
+    if (user.email && !isAdminEmail(user.email)) {
+      const blacklist = await checkEmailBlacklist(user.email);
+      if (blacklist.isBlacklisted) {
+        return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "Your account has been blacklisted.", 403);
+      }
+    }
     req.user = user;
     next();
   } catch (err) {
@@ -87303,6 +87444,10 @@ router.post("/register", async (req, res, next) => {
   try {
     const validated = registerSchema.parse(req.body);
     const email = validated.email.toLowerCase();
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "This email address has been blacklisted.", 403);
+    }
     const displayName = validated.name || email.split("@")[0];
     const locality = validated.locality || "";
     let cleanUsername = validated.username ? validated.username.trim().toLowerCase() : null;
@@ -87357,10 +87502,15 @@ router.post("/register", async (req, res, next) => {
 router.post("/login", async (req, res, next) => {
   try {
     const validated = loginSchema.parse(req.body);
+    const email = validated.email.toLowerCase();
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "This email address has been blacklisted.", 403);
+    }
     const result = await query(
       `SELECT id, email, password_hash, name, username, phone, locality, address_text, pincode, avatar_url, bio, trust_score, role, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
        FROM users WHERE email = $1`,
-      [validated.email.toLowerCase()]
+      [email]
     );
     if (result.rows.length === 0) {
       return sendError(res, "USER_NOT_FOUND", "No account found with this email", 404);
@@ -87454,6 +87604,10 @@ var handleSyncUser = async (req, res, next) => {
     }
     const uid = decodedToken.uid;
     const email = (decodedToken.email || validated.email).toLowerCase();
+    const blacklist = await checkEmailBlacklist(email);
+    if (blacklist.isBlacklisted) {
+      return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "This email address has been blacklisted.", 403);
+    }
     const name = decodedToken.name || validated.name || email.split("@")[0];
     const avatar = decodedToken.picture || validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(name)}`;
     const locality = validated.locality || "";
@@ -96304,6 +96458,8 @@ router2.get("/", optionalAuthMiddleware, async (req, res, next) => {
         NULL AS latitude, 
         NULL AS longitude, 
         i.status AS status, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         EXISTS (
           SELECT 1 FROM bookings b
           WHERE b.item_id = i.id
@@ -96358,6 +96514,26 @@ router2.get("/", optionalAuthMiddleware, async (req, res, next) => {
       sql += ` AND (i.title ILIKE $${params.length} OR i.description ILIKE $${params.length} OR i.category ILIKE $${params.length})`;
     }
     const currentViewerId = req.user?.id;
+    const currentViewerEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminViewer = req.user?.role === "ADMIN" || Boolean(currentViewerEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(currentViewerEmail));
+    if (!isAdminViewer) {
+      if (ownerId && currentViewerId) {
+        const resolvedOwnerIds = await resolveUserIds(String(ownerId));
+        const resolvedViewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+        const isSelfProfile = resolvedOwnerIds.some((id) => resolvedViewerIds.includes(id));
+        if (!isSelfProfile) {
+          sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+        }
+      } else if (ownerId && !currentViewerId) {
+        sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+      } else if (currentViewerId) {
+        const resolvedViewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+        params.push(resolvedViewerIds);
+        sql += ` AND (COALESCE(i.approval_status, 'APPROVED') = 'APPROVED' OR i.owner_id = ANY($${params.length}::text[]))`;
+      } else {
+        sql += ` AND COALESCE(i.approval_status, 'APPROVED') = 'APPROVED'`;
+      }
+    }
     if (currentViewerId) {
       params.push(currentViewerId);
       sql += ` AND i.owner_id NOT IN (
@@ -96398,6 +96574,7 @@ router2.get("/:id", optionalAuthMiddleware, async (req, res, next) => {
         COALESCE(i.latitude, u.latitude) AS latitude, 
         COALESCE(i.longitude, u.longitude) AS longitude,
         i.status AS status, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         i.available_for_borrowing, i.offers_delivery, i.delivery_fee, i.offers_pickup, i.pickup_fee, i.created_at,
         u.id AS owner_id, u.name AS owner_name, u.username AS owner_username, u.avatar_url AS owner_avatar,
         u.bio AS owner_bio, u.trust_score AS owner_trust_score,
@@ -96417,6 +96594,15 @@ router2.get("/:id", optionalAuthMiddleware, async (req, res, next) => {
     }
     const item = result.rows[0];
     const currentViewerId = req.user?.id;
+    const currentViewerEmail = req.user?.email?.toLowerCase().trim();
+    const isAdmin = req.user?.role === "ADMIN" || Boolean(currentViewerEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(currentViewerEmail));
+    if (item.approval_status && item.approval_status !== "APPROVED" && !isAdmin) {
+      const viewerIds = currentViewerId ? await resolveUserIds(currentViewerId, currentViewerEmail) : [];
+      const isOwner = viewerIds.includes(String(item.owner_id));
+      if (!isOwner) {
+        return sendError(res, "FORBIDDEN", "This item is currently pending approval by admin.", 403);
+      }
+    }
     if (currentViewerId && item.owner_id && currentViewerId !== item.owner_id) {
       const blockCheck = await query(
         `SELECT 1 FROM user_blocks 
@@ -96616,11 +96802,14 @@ router2.post("/", authMiddleware, async (req, res, next) => {
       ).catch(() => {
       });
     }
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminUser = req.user?.role === "ADMIN" || Boolean(userEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(userEmail));
+    const initialApproval = isAdminUser ? "APPROVED" : "PENDING";
     const result = await query(
       `INSERT INTO items 
-        (owner_id, title, description, category, condition, price_per_day, max_duration_days, image_urls, sticker_badge, locality, address_text, pincode, latitude, longitude, status, available_for_borrowing, offers_delivery, delivery_fee, offers_pickup, pickup_fee)
+        (owner_id, title, description, category, condition, price_per_day, max_duration_days, image_urls, sticker_badge, locality, address_text, pincode, latitude, longitude, status, available_for_borrowing, offers_delivery, delivery_fee, offers_pickup, pickup_fee, approval_status)
        VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, 'AVAILABLE', $15, $16, $17, $18, $19)
+        ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, 'AVAILABLE', $15, $16, $17, $18, $19, $20)
        RETURNING *`,
       [
         req.user.id,
@@ -96641,7 +96830,8 @@ router2.post("/", authMiddleware, async (req, res, next) => {
         validated.offers_delivery ?? false,
         validated.delivery_fee ?? 0,
         validated.offers_pickup ?? false,
-        validated.pickup_fee ?? 0
+        validated.pickup_fee ?? 0,
+        initialApproval
       ]
     );
     const createdItem = result.rows[0];
@@ -96958,7 +97148,7 @@ router3.get("/", optionalAuthMiddleware, async (req, res, next) => {
         CASE WHEN r.seeker_id = ANY($1::text[]) THEN r.pincode ELSE NULL END AS pincode,
         r.pickup_type, r.pickup_locality, r.return_type, r.return_locality,
         r.will_pickup, r.will_drop_back, r.delivery_fee,
-        r.status, r.created_at, r.image_url,
+        r.status, COALESCE(r.approval_status, 'APPROVED') AS approval_status, r.created_at, r.image_url,
         COALESCE(u.id, r.seeker_id) AS seeker_id, 
         COALESCE(u.name, 'Community Member') AS seeker_name, 
         u.username AS seeker_username,
@@ -96999,6 +97189,23 @@ router3.get("/", optionalAuthMiddleware, async (req, res, next) => {
         sql += ` AND (r.locality ILIKE $${params.length} OR u.locality ILIKE $${params.length})`;
       }
     }
+    const currentViewerEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminViewer = req.user?.role === "ADMIN" || Boolean(currentViewerEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(currentViewerEmail));
+    if (!isAdminViewer) {
+      if (seekerId && currentViewerId) {
+        const resolvedSeekerIds = await resolveUserIds(String(seekerId));
+        const isSelfSeeker = resolvedSeekerIds.some((id) => viewerIds.includes(id));
+        if (!isSelfSeeker) {
+          sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+        }
+      } else if (seekerId && !currentViewerId) {
+        sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+      } else if (viewerIds.length > 0) {
+        sql += ` AND (COALESCE(r.approval_status, 'APPROVED') = 'APPROVED' OR r.seeker_id = ANY($1::text[]))`;
+      } else {
+        sql += ` AND COALESCE(r.approval_status, 'APPROVED') = 'APPROVED'`;
+      }
+    }
     if (currentViewerId) {
       params.push(currentViewerId);
       sql += ` AND r.seeker_id NOT IN (
@@ -97025,7 +97232,7 @@ router3.get("/:id", optionalAuthMiddleware, async (req, res, next) => {
         r.offered_amount, r.locality, r.address_text, r.pincode,
         r.pickup_type, r.pickup_locality, r.return_type, r.return_locality,
         r.will_pickup, r.will_drop_back, r.delivery_fee,
-        r.status, r.created_at, r.image_url,
+        r.status, COALESCE(r.approval_status, 'APPROVED') AS approval_status, r.created_at, r.image_url,
         u.id AS seeker_id, u.name AS seeker_name, u.username AS seeker_username, u.avatar_url AS seeker_avatar,
         u.locality AS seeker_locality, u.trust_score AS seeker_trust_score,
         u.phone AS seeker_phone, u.email AS seeker_email
@@ -97039,10 +97246,17 @@ router3.get("/:id", optionalAuthMiddleware, async (req, res, next) => {
     }
     const requestItem = result.rows[0];
     const currentViewerId = req.user?.id;
+    const currentViewerEmail = req.user?.email?.toLowerCase().trim();
+    const isAdmin = req.user?.role === "ADMIN" || Boolean(currentViewerEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(currentViewerEmail));
     let canViewPrivate = false;
     if (currentViewerId) {
-      const viewerIds = await resolveUserIds(currentViewerId);
-      canViewPrivate = viewerIds.includes(String(requestItem.seeker_id)) || req.user?.role === "ADMIN";
+      const viewerIds = await resolveUserIds(currentViewerId, currentViewerEmail);
+      canViewPrivate = viewerIds.includes(String(requestItem.seeker_id)) || isAdmin;
+    }
+    if (requestItem.approval_status && requestItem.approval_status !== "APPROVED" && !isAdmin) {
+      if (!canViewPrivate) {
+        return sendError(res, "FORBIDDEN", "This community wish is currently pending approval by admin.", 403);
+      }
     }
     if (!canViewPrivate) {
       requestItem.address_text = null;
@@ -97097,11 +97311,14 @@ router3.post("/", authMiddleware, async (req, res, next) => {
       ).catch(() => {
       });
     }
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const isAdminUser = req.user?.role === "ADMIN" || Boolean(userEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(userEmail));
+    const initialApproval = isAdminUser ? "APPROVED" : "PENDING";
     const result = await query(
       `INSERT INTO requests
-        (seeker_id, item_name, description, category, start_date, start_time, end_date, end_time, duration_days, offered_amount, locality, address_text, pincode, latitude, longitude, image_url, pickup_type, pickup_locality, return_type, return_locality, will_pickup, will_drop_back, delivery_fee, status)
+        (seeker_id, item_name, description, category, start_date, start_time, end_date, end_time, duration_days, offered_amount, locality, address_text, pincode, latitude, longitude, image_url, pickup_type, pickup_locality, return_type, return_locality, will_pickup, will_drop_back, delivery_fee, status, approval_status)
        VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'OPEN')
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'OPEN', $24)
        RETURNING *`,
       [
         req.user.id,
@@ -97126,7 +97343,8 @@ router3.post("/", authMiddleware, async (req, res, next) => {
         validated.return_locality || null,
         validated.will_pickup ?? true,
         validated.will_drop_back ?? true,
-        validated.delivery_fee ?? 0
+        validated.delivery_fee ?? 0,
+        initialApproval
       ]
     );
     const createdRequest = result.rows[0];
@@ -99149,6 +99367,11 @@ router5.get("/overview", optionalAuthMiddleware, async (req, res, next) => {
         (SELECT COUNT(*) FROM requests WHERE status = 'OPEN')::int AS open_wishes,
         (SELECT COUNT(*) FROM requests WHERE status = 'FULFILLED')::int AS fulfilled_wishes,
         (
+          (SELECT COUNT(*) FROM requests WHERE status = 'OPEN') +
+          (SELECT COUNT(*) FROM bookings WHERE status IN ('PENDING', 'ACCEPTED', 'HANDED_OVER'))
+        )::int AS active_requests,
+        (SELECT COUNT(*) FROM bookings WHERE status IN ('PENDING', 'ACCEPTED', 'HANDED_OVER'))::int AS active_rentals,
+        (
           SELECT CASE 
             WHEN COUNT(*) = 0 THEN 100
             ELSE ROUND((COUNT(*) FILTER (WHERE status = 'COMPLETED')::numeric / COUNT(*)::numeric) * 100, 0)::int
@@ -99565,6 +99788,125 @@ router6.get("/search", async (req, res, next) => {
       };
     });
     return sendSuccess(res, formattedRealUsers);
+  } catch (error) {
+    next(error);
+  }
+});
+router6.get("/favorites", authMiddleware, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const userEmail = req.user?.email;
+    const userIds = await resolveUserIds(userId, userEmail);
+    const itemsRes = await query(`
+      SELECT 
+        i.*,
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
+        COALESCE(u.name, 'Lender') AS owner_name, 
+        u.username AS owner_username,
+        u.avatar_url AS owner_avatar,
+        COALESCE(i.locality, u.locality) AS locality,
+        f.created_at AS saved_at
+      FROM user_favorites f
+      JOIN items i ON f.target_id = i.id::text
+      LEFT JOIN users u ON (i.owner_id = u.id OR i.owner_id = u.firebase_uid)
+      WHERE f.user_id = ANY($1::text[]) 
+        AND f.target_type = 'ITEM'
+        AND COALESCE(i.is_deleted, false) = false
+      ORDER BY f.created_at DESC
+    `, [userIds]);
+    const reqsRes = await query(`
+      SELECT 
+        r.*,
+        COALESCE(r.approval_status, 'APPROVED') AS approval_status,
+        COALESCE(u.name, 'Seeker') AS seeker_name,
+        u.username AS seeker_username,
+        u.avatar_url AS seeker_avatar,
+        COALESCE(u.locality, r.locality) AS locality,
+        f.created_at AS saved_at
+      FROM user_favorites f
+      JOIN requests r ON f.target_id = r.id::text
+      LEFT JOIN users u ON (r.seeker_id = u.id OR r.seeker_id = u.firebase_uid)
+      WHERE f.user_id = ANY($1::text[]) 
+        AND f.target_type = 'REQUEST'
+      ORDER BY f.created_at DESC
+    `, [userIds]);
+    return sendSuccess(res, {
+      items: itemsRes.rows,
+      requests: reqsRes.rows,
+      item_ids: itemsRes.rows.map((i2) => i2.id),
+      request_ids: reqsRes.rows.map((r2) => r2.id)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+router6.post("/favorites", authMiddleware, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { target_id, target_type } = req.body;
+    if (!target_id || !["ITEM", "REQUEST"].includes(target_type)) {
+      return sendError(res, "BAD_REQUEST", "target_id and valid target_type (ITEM or REQUEST) are required", 400);
+    }
+    await query(`
+      INSERT INTO user_favorites (user_id, target_id, target_type)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, target_id, target_type) DO NOTHING
+    `, [userId, String(target_id), target_type]);
+    return sendSuccess(res, { target_id, target_type, saved: true }, "Added to saved items");
+  } catch (error) {
+    next(error);
+  }
+});
+router6.delete("/favorites/:targetType/:targetId", authMiddleware, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const userEmail = req.user?.email;
+    const userIds = await resolveUserIds(userId, userEmail);
+    const { targetType, targetId } = req.params;
+    const normalizedType = targetType.toUpperCase();
+    if (!["ITEM", "REQUEST"].includes(normalizedType)) {
+      return sendError(res, "BAD_REQUEST", "Invalid targetType. Must be ITEM or REQUEST", 400);
+    }
+    await query(`
+      DELETE FROM user_favorites 
+      WHERE user_id = ANY($1::text[]) 
+        AND target_id = $2 
+        AND target_type = $3
+    `, [userIds, targetId, normalizedType]);
+    return sendSuccess(res, { target_id: targetId, target_type: normalizedType, saved: false }, "Removed from saved items");
+  } catch (error) {
+    next(error);
+  }
+});
+router6.post("/favorites/batch-sync", authMiddleware, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { item_ids = [], request_ids = [] } = req.body;
+    if (Array.isArray(item_ids) && item_ids.length > 0) {
+      for (const id of item_ids) {
+        if (id && typeof id === "string") {
+          await query(`
+            INSERT INTO user_favorites (user_id, target_id, target_type)
+            VALUES ($1, $2, 'ITEM')
+            ON CONFLICT (user_id, target_id, target_type) DO NOTHING
+          `, [userId, id]).catch(() => {
+          });
+        }
+      }
+    }
+    if (Array.isArray(request_ids) && request_ids.length > 0) {
+      for (const id of request_ids) {
+        if (id && typeof id === "string") {
+          await query(`
+            INSERT INTO user_favorites (user_id, target_id, target_type)
+            VALUES ($1, $2, 'REQUEST')
+            ON CONFLICT (user_id, target_id, target_type) DO NOTHING
+          `, [userId, id]).catch(() => {
+          });
+        }
+      }
+    }
+    return sendSuccess(res, { synced: true }, "Favorites synced");
   } catch (error) {
     next(error);
   }
@@ -102849,10 +103191,10 @@ var notifications_routes_default = router10;
 var import_express11 = __toESM(require_express2());
 var router11 = (0, import_express11.Router)();
 var createTicketSchema = external_exports.object({
-  type: external_exports.enum(["CONCERN", "FEEDBACK"]),
-  category: external_exports.string().min(1, "Category is required"),
-  subject: external_exports.string().min(3, "Subject must be at least 3 characters"),
-  description: external_exports.string().min(10, "Please describe your concern or feedback in at least 10 characters"),
+  type: external_exports.enum(["CONCERN", "FEEDBACK"]).default("CONCERN"),
+  category: external_exports.string().optional().default("General Concern"),
+  subject: external_exports.string().optional(),
+  description: external_exports.string().min(3, "Please describe your concern or feedback in at least 3 characters"),
   priority: external_exports.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).optional().default("NORMAL"),
   user_email: external_exports.string().email("Please enter a valid email address").optional()
 });
@@ -102871,6 +103213,8 @@ router11.post("/", optionalAuthMiddleware, async (req, res, next) => {
     }
     const userEmail = validated.user_email?.trim() || req.user?.email || "unregistered@rentu.in";
     const assignedPriority = validated.priority || "NORMAL";
+    const assignedCategory = validated.category?.trim() || (validated.type === "FEEDBACK" ? "General Thought" : "Other Concern");
+    const finalSubject = validated.subject && validated.subject.trim().length >= 3 ? validated.subject.trim() : validated.description.trim().split("\n")[0].slice(0, 60).trim() || `${assignedCategory} Inquiry`;
     const insertRes = await query(
       `INSERT INTO support_tickets (user_id, user_name, user_email, type, category, subject, description, priority, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'OPEN')
@@ -102880,8 +103224,8 @@ router11.post("/", optionalAuthMiddleware, async (req, res, next) => {
         userName,
         userEmail,
         validated.type,
-        validated.category,
-        validated.subject,
+        assignedCategory,
+        finalSubject,
         validated.description,
         assignedPriority
       ]
@@ -102893,7 +103237,7 @@ router11.post("/", optionalAuthMiddleware, async (req, res, next) => {
         senderId: null,
         type: "SUPPORT_TICKET_RECEIVED",
         title: validated.type === "CONCERN" ? "Concern Received" : "Feedback Received",
-        body: `We have received your ${validated.type.toLowerCase()} regarding "${validated.subject}". Our admin team will review and resolve it promptly.`,
+        body: `We have received your ${validated.type.toLowerCase()} regarding "${finalSubject}". Our admin team will review and resolve it promptly.`,
         referenceId: ticket.id,
         referenceType: "SUPPORT"
       }).catch(() => {
@@ -102910,8 +103254,8 @@ router11.post("/", optionalAuthMiddleware, async (req, res, next) => {
             userId: adminUser.id,
             senderId: userId,
             type: "SUPPORT_TICKET_ADMIN_ALERT",
-            title: `New Support ${validated.type}: ${validated.subject.slice(0, 40)}`,
-            body: `${userName} submitted a new ${validated.type.toLowerCase()} under "${validated.category}". Urgency: ${assignedPriority}.`,
+            title: `New Support ${validated.type}: ${finalSubject.slice(0, 40)}`,
+            body: `${userName} submitted a new ${validated.type.toLowerCase()} under "${assignedCategory}". Urgency: ${assignedPriority}.`,
             referenceId: ticket.id,
             referenceType: "SUPPORT"
           }).catch(() => {
@@ -103035,6 +103379,7 @@ var router12 = (0, import_express12.Router)();
 router12.use(adminMiddleware);
 router12.get("/users", async (req, res, next) => {
   try {
+    await ensureBlacklistTable();
     const result = await query(`
       SELECT 
         u.id, 
@@ -103047,6 +103392,9 @@ router12.get("/users", async (req, res, next) => {
         u.trust_score, 
         u.rating, 
         COALESCE(u.is_verified, FALSE) AS is_verified,
+        COALESCE(u.is_blacklisted, FALSE) AS is_blacklisted,
+        u.blacklist_expires_at,
+        u.blacklist_reason,
         u.created_at,
         (SELECT COUNT(*) FROM items i WHERE i.owner_id = u.id)::int AS items_count,
         (SELECT COUNT(*) FROM requests r WHERE r.seeker_id = u.id)::int AS requests_count,
@@ -103124,6 +103472,53 @@ router12.delete("/users/:id", async (req, res, next) => {
     next(error);
   }
 });
+var blacklistSchema = external_exports.object({
+  email: external_exports.string().email(),
+  days: external_exports.number().nullable().optional(),
+  reason: external_exports.string().optional()
+});
+router12.get("/blacklist", async (req, res, next) => {
+  try {
+    await ensureBlacklistTable();
+    const result = await query(
+      `SELECT id, email, reason, blacklisted_by, expires_at, created_at, updated_at
+       FROM email_blacklist
+       ORDER BY created_at DESC`
+    );
+    return sendSuccess(res, result.rows);
+  } catch (error) {
+    next(error);
+  }
+});
+router12.post("/blacklist", async (req, res, next) => {
+  try {
+    const validated = blacklistSchema.parse(req.body);
+    const result = await blacklistEmail({
+      email: validated.email,
+      days: validated.days,
+      reason: validated.reason,
+      blacklistedBy: req.user?.email || req.user?.name || "Admin"
+    });
+    return sendSuccess(res, result, "User email has been successfully blacklisted");
+  } catch (error) {
+    if (error.message?.includes("cannot be blacklisted")) {
+      return sendError(res, "FORBIDDEN", error.message, 403);
+    }
+    next(error);
+  }
+});
+router12.delete("/blacklist/:email", async (req, res, next) => {
+  try {
+    const { email } = req.params;
+    if (!email) {
+      return sendError(res, "BAD_REQUEST", "Email parameter is required", 400);
+    }
+    await removeEmailBlacklist(decodeURIComponent(email));
+    return sendSuccess(res, { email }, "Email removed from blacklist successfully");
+  } catch (error) {
+    next(error);
+  }
+});
 router12.post("/sync-user", async (req, res, next) => {
   try {
     const { uid, email, name, avatar_url } = req.body;
@@ -103154,12 +103549,13 @@ router12.get("/listings", async (req, res, next) => {
     const result = await query(`
       SELECT 
         i.*, 
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
         COALESCE(u.name, 'Lender') AS owner_name, 
         u.email AS owner_email,
         u.avatar_url AS owner_avatar
       FROM items i
-      LEFT JOIN users u ON i.owner_id = u.id
-      ORDER BY i.created_at DESC
+      LEFT JOIN users u ON (i.owner_id = u.id OR i.owner_id = u.firebase_uid)
+      ORDER BY CASE WHEN COALESCE(i.approval_status, 'APPROVED') = 'PENDING' THEN 0 ELSE 1 END, i.created_at DESC
     `);
     return sendSuccess(res, result.rows);
   } catch (error) {
@@ -103185,6 +103581,25 @@ router12.patch("/listings/:id/status", async (req, res, next) => {
     next(error);
   }
 });
+router12.patch("/listings/:id/approval", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { approval_status } = req.body;
+    if (!["APPROVED", "PENDING", "REJECTED"].includes(approval_status)) {
+      return sendError(res, "BAD_REQUEST", "Invalid approval status. Must be APPROVED, PENDING, or REJECTED.", 400);
+    }
+    const result = await query(
+      `UPDATE items SET approval_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [approval_status, id]
+    );
+    if (result.rows.length === 0) {
+      return sendError(res, "NOT_FOUND", "Listing not found", 404);
+    }
+    return sendSuccess(res, result.rows[0], `Listing ${approval_status.toLowerCase()} successfully`);
+  } catch (error) {
+    next(error);
+  }
+});
 router12.delete("/listings/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -103199,14 +103614,34 @@ router12.get("/requests", async (req, res, next) => {
     const result = await query(`
       SELECT 
         r.*,
+        COALESCE(r.approval_status, 'APPROVED') AS approval_status,
         COALESCE(u.name, 'Seeker') AS seeker_name,
         u.email AS seeker_email,
         u.avatar_url AS seeker_avatar
       FROM requests r
       LEFT JOIN users u ON (r.seeker_id = u.id::text OR r.seeker_id = u.firebase_uid)
-      ORDER BY r.created_at DESC
+      ORDER BY CASE WHEN COALESCE(r.approval_status, 'APPROVED') = 'PENDING' THEN 0 ELSE 1 END, r.created_at DESC
     `);
     return sendSuccess(res, result.rows);
+  } catch (error) {
+    next(error);
+  }
+});
+router12.patch("/requests/:id/approval", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { approval_status } = req.body;
+    if (!["APPROVED", "PENDING", "REJECTED"].includes(approval_status)) {
+      return sendError(res, "BAD_REQUEST", "Invalid approval status. Must be APPROVED, PENDING, or REJECTED.", 400);
+    }
+    const result = await query(
+      `UPDATE requests SET approval_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [approval_status, id]
+    );
+    if (result.rows.length === 0) {
+      return sendError(res, "NOT_FOUND", "Request not found", 404);
+    }
+    return sendSuccess(res, result.rows[0], `Request ${approval_status.toLowerCase()} successfully`);
   } catch (error) {
     next(error);
   }
@@ -103338,6 +103773,8 @@ router12.get("/reports", async (req, res, next) => {
       SELECT 
         (SELECT COUNT(*) FROM users)::int AS total_users,
         (SELECT COUNT(*) FROM items)::int AS total_items,
+        (SELECT COUNT(*) FROM items WHERE COALESCE(approval_status, 'APPROVED') = 'PENDING')::int AS pending_items,
+        (SELECT COUNT(*) FROM requests WHERE COALESCE(approval_status, 'APPROVED') = 'PENDING')::int AS pending_requests,
         (SELECT COUNT(*) FROM bookings)::int AS total_bookings,
         (SELECT COUNT(*) FROM bookings WHERE status = 'COMPLETED')::int AS completed_bookings,
         (SELECT COUNT(*) FROM support_tickets)::int AS total_support_tickets,

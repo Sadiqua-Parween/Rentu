@@ -826,6 +826,30 @@ export const api = {
     return handleResponse(res);
   },
 
+  async getAdminBlacklist(): Promise<any[]> {
+    const res = await fetch(`${API_BASE}/admin/blacklist`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async blacklistUser(data: { email: string; days?: number | null; reason?: string }): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/blacklist`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
+
+  async removeAdminBlacklist(email: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/blacklist/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
   async getAdminListings(): Promise<any[]> {
     const res = await fetch(`${API_BASE}/admin/listings`, {
       headers: getHeaders(),
@@ -842,10 +866,20 @@ export const api = {
     return handleResponse(res);
   },
 
+  async updateAdminListingApproval(id: string, approval_status: 'APPROVED' | 'PENDING' | 'REJECTED'): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/listings/${encodeURIComponent(id)}/approval`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ approval_status }),
+    });
+    return handleResponse(res);
+  },
+
   async deleteAdminListing(id: string): Promise<any> {
     const res = await fetch(`${API_BASE}/admin/listings/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getHeaders(),
+      body: JSON.stringify({}),
     });
     return handleResponse(res);
   },
@@ -853,6 +887,15 @@ export const api = {
   async getAdminRequests(): Promise<any[]> {
     const res = await fetch(`${API_BASE}/admin/requests`, {
       headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async updateAdminRequestApproval(id: string, approval_status: 'APPROVED' | 'PENDING' | 'REJECTED'): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/requests/${encodeURIComponent(id)}/approval`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ approval_status }),
     });
     return handleResponse(res);
   },
@@ -922,6 +965,40 @@ export const api = {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ messages, context }),
+    });
+    return handleResponse(res);
+  },
+
+  // Saved / Favorites
+  async getFavorites(): Promise<{ items: any[]; requests: any[]; item_ids: string[]; request_ids: string[] }> {
+    const res = await fetch(`${API_BASE}/users/favorites`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async addFavorite(targetId: string, targetType: 'ITEM' | 'REQUEST'): Promise<any> {
+    const res = await fetch(`${API_BASE}/users/favorites`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ target_id: targetId, target_type: targetType }),
+    });
+    return handleResponse(res);
+  },
+
+  async removeFavorite(targetType: 'ITEM' | 'REQUEST', targetId: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/users/favorites/${encodeURIComponent(targetType)}/${encodeURIComponent(targetId)}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async batchSyncFavorites(itemIds: string[], requestIds: string[]): Promise<any> {
+    const res = await fetch(`${API_BASE}/users/favorites/batch-sync`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ item_ids: itemIds, request_ids: requestIds }),
     });
     return handleResponse(res);
   },
