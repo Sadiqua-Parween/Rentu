@@ -128,13 +128,15 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick, onOpenUserPro
                   <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
                   <span>{Number(item.owner_rating).toFixed(1)}</span>
                 </div>
-                <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                {reachDistanceText && <span className="text-zinc-300 dark:text-zinc-700">•</span>}
               </>
             ) : null}
-            <span className="text-ink-secondary font-medium truncate flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-brand shrink-0" />
-              <span>{reachDistanceText}</span>
-            </span>
+            {reachDistanceText && (
+              <span className="text-ink-secondary font-medium truncate flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-brand shrink-0" />
+                <span>{reachDistanceText}</span>
+              </span>
+            )}
           </div>
 
           {/* Owner info row with clickable avatar */}

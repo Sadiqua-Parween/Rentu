@@ -77,6 +77,55 @@ export function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lo
 }
 
 /**
+ * Checks if an entity (user, profile, item, or request) has genuinely set their location.
+ * Returns false if location is null, empty string, or default generic text (e.g. 'Bengaluru', 'Bengaluru, India').
+ */
+export function hasUserSetLocation(entity?: {
+  latitude?: number | null;
+  longitude?: number | null;
+  locality?: string | null;
+  address_text?: string | null;
+  saved_locations?: any[];
+} | null): boolean {
+  if (!entity) return false;
+
+  // 1. Explicit non-zero coordinates
+  if (
+    typeof entity.latitude === 'number' &&
+    typeof entity.longitude === 'number' &&
+    !isNaN(entity.latitude) &&
+    !isNaN(entity.longitude) &&
+    entity.latitude !== 0 &&
+    entity.longitude !== 0
+  ) {
+    return true;
+  }
+
+  // 2. Concrete locality (must not be empty or generic city-level)
+  const loc = (entity.locality || '').toLowerCase().trim();
+  const genericStrings = ['bengaluru', 'bengaluru, india', 'bangalore', 'india', 'local hub', 'nearby', ''];
+  if (loc && !genericStrings.includes(loc)) {
+    return true;
+  }
+
+  // 3. Concrete address text
+  const addr = (entity.address_text || '').toLowerCase().trim();
+  if (addr && !genericStrings.includes(addr)) {
+    return true;
+  }
+
+  // 4. Concrete saved locations
+  if (Array.isArray(entity.saved_locations) && entity.saved_locations.length > 0) {
+    const hasValidSaved = entity.saved_locations.some((l: any) =>
+      l && ((l.building_flat_house && l.building_flat_house.trim()) || (l.street_road_landmark && l.street_road_landmark.trim()))
+    );
+    if (hasValidSaved) return true;
+  }
+
+  return false;
+}
+
+/**
  * Computes exact distance in meters between user and item/request.
  */
 export function getReachDistanceMeters(
@@ -85,15 +134,39 @@ export function getReachDistanceMeters(
     latitude?: number | null;
     longitude?: number | null;
     locality?: string | null;
+    address_text?: string | null;
     id?: string;
   },
   user?: {
     latitude?: number | null;
     longitude?: number | null;
     locality?: string | null;
+    address_text?: string | null;
   } | null
 ): number | null {
-  // 1. If backend provided exact Haversine distance_meters
+  // 1. Strict validation: If either entity has NOT set their location, do NOT compute or fake distance!
+  if (!hasUserSetLocation(item)) {
+    return null;
+  }
+
+  let userCoords = resolveCoords(user?.latitude, user?.longitude, user?.locality);
+  if (!userCoords && typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('rentu_user_location');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (hasUserSetLocation(parsed)) {
+          userCoords = resolveCoords(parsed.latitude, parsed.longitude, parsed.locality);
+        }
+      }
+    } catch {}
+  }
+
+  if (!hasUserSetLocation(user) && !userCoords) {
+    return null;
+  }
+
+  // 2. If backend provided exact Haversine distance_meters
   if (
     typeof item.distance_meters === 'number' &&
     !isNaN(item.distance_meters) &&
@@ -103,20 +176,7 @@ export function getReachDistanceMeters(
     return Math.round(item.distance_meters);
   }
 
-  // 2. Resolve coordinates
-  let userCoords = resolveCoords(user?.latitude, user?.longitude, user?.locality);
-
-  // Check client-side cached location in localStorage if profile coords are not yet populated
-  if (!userCoords && typeof window !== 'undefined') {
-    try {
-      const stored = localStorage.getItem('rentu_user_location');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        userCoords = resolveCoords(parsed.latitude, parsed.longitude, parsed.locality);
-      }
-    } catch {}
-  }
-
+  // 3. Resolve item coordinates
   const itemCoords = resolveCoords(item.latitude, item.longitude, item.locality);
 
   if (userCoords && itemCoords) {
@@ -124,20 +184,13 @@ export function getReachDistanceMeters(
     return Math.round(km * 1000);
   }
 
-  // 3. Locality proximity matching fallback
+  // 4. Locality proximity matching fallback (only for specific verified sub-localities)
   const itemLoc = (item.locality || '').toLowerCase().trim();
   const userLoc = (user?.locality || '').toLowerCase().trim();
 
-  if (itemLoc && userLoc) {
+  if (itemLoc && userLoc && itemLoc !== 'bengaluru' && userLoc !== 'bengaluru') {
     if (itemLoc === userLoc || itemLoc.includes(userLoc) || userLoc.includes(itemLoc)) {
       return 500;
-    }
-    // Same city fallback
-    if (
-      (itemLoc.includes('bengaluru') || itemLoc.includes('bangalore')) &&
-      (userLoc.includes('bengaluru') || userLoc.includes('bangalore'))
-    ) {
-      return 2000;
     }
   }
 
@@ -162,7 +215,7 @@ export function getReachDistanceKm(
   } | null
 ): number {
   const meters = getReachDistanceMeters(item, user);
-  if (meters === null) return 2.0;
+  if (meters === null) return 999.0;
   return Number((meters / 1000).toFixed(2));
 }
 
@@ -190,6 +243,7 @@ export function formatDistanceString(totalMeters: number): string {
 /**
  * Formats reach distance into clean user-facing string strictly indicating distance:
  * e.g. "Within ~500 m", "Within ~1.2 km", "Within ~2 km".
+ * Returns NULL if either user or target has not set their location.
  * Privacy Rule: UNDER NO CIRCUMSTANCES is anyone's physical location/locality shown publicly.
  */
 export function getReachDistance(
@@ -198,6 +252,7 @@ export function getReachDistance(
     latitude?: number | null;
     longitude?: number | null;
     locality?: string | null;
+    address_text?: string | null;
     id?: string;
     owner_id?: string;
   },
@@ -206,11 +261,17 @@ export function getReachDistance(
     latitude?: number | null;
     longitude?: number | null;
     locality?: string | null;
+    address_text?: string | null;
   } | null
-): string {
+): string | null {
   // If the viewing user is the item owner
   if (user?.id && item.owner_id && String(user.id) === String(item.owner_id)) {
     return 'Within ~100 m (Your Gear)';
+  }
+
+  // Strict check: if the item or user hasn't set location, NEVER show fake distance!
+  if (!hasUserSetLocation(item) || !hasUserSetLocation(user)) {
+    return null;
   }
 
   const meters = getReachDistanceMeters(item, user);
@@ -218,6 +279,6 @@ export function getReachDistance(
     return formatDistanceString(meters);
   }
 
-  // Privacy protection: Never expose raw locality/address publicly!
-  return 'Within ~2 km';
+  // Do NOT return 'Within ~2 km' if no location is set! Return null!
+  return null;
 }

@@ -823,7 +823,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 </span>
                               </div>
                               <div className="text-[10px] text-ink-secondary truncate">
-                                {getReachDistance(u, user)} • {u.items_count} gear listed • {u.trust_score}% trust
+                                {(() => {
+                                  const dist = getReachDistance(u, user);
+                                  return (
+                                    <>
+                                      {dist ? `${dist} • ` : ''}
+                                      {u.items_count} gear listed • {u.trust_score}% trust
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -1221,7 +1229,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </div>
                             <div className="text-[10px] text-ink-secondary truncate flex items-center gap-1">
                               <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400 shrink-0" />
-                              <span>{Number(u.rating) > 0 ? Number(u.rating).toFixed(1) : '0.0'} • {getReachDistance(u, user)}</span>
+                              <span>
+                                {Number(u.rating) > 0 ? Number(u.rating).toFixed(1) : '0.0'}
+                                {(() => {
+                                  const dist = getReachDistance(u, user);
+                                  return dist ? ` • ${dist}` : '';
+                                })()}
+                              </span>
                             </div>
                           </div>
                         </div>

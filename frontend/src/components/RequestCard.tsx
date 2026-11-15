@@ -126,12 +126,14 @@ export const RequestCard: React.FC<RequestCardProps> = ({
           </div>
 
           {/* Proximity Distance */}
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-ink-secondary">
-            <span className="text-ink-secondary font-medium truncate flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-brand shrink-0" />
-              <span>{reachDistanceText}</span>
-            </span>
-          </div>
+          {reachDistanceText && (
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-ink-secondary">
+              <span className="text-ink-secondary font-medium truncate flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-brand shrink-0" />
+                <span>{reachDistanceText}</span>
+              </span>
+            </div>
+          )}
 
           {/* Seeker info row with clickable avatar */}
           <div className="mt-2.5 pt-2 border-t border-divider flex items-center justify-between text-xs">

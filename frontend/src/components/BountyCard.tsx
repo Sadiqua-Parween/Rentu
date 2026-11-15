@@ -57,10 +57,16 @@ export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onClaim, isOwner
             <Clock className="w-3.5 h-3.5 text-brand" />
             <span className="text-ink">Duration: {bounty.duration_days} {bounty.duration_days === 1 ? 'day' : 'days'}</span>
           </div>
-          <div className="col-span-2 flex items-center gap-1.5 text-ink-secondary truncate">
-            <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-            <span className="text-ink truncate">{getReachDistance(bounty)}</span>
-          </div>
+          {(() => {
+            const dist = getReachDistance(bounty);
+            if (!dist) return null;
+            return (
+              <div className="col-span-2 flex items-center gap-1.5 text-ink-secondary truncate">
+                <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
+                <span className="text-ink truncate">{dist}</span>
+              </div>
+            );
+          })()}
           {(bounty.pickup_type || bounty.return_type || bounty.delivery_fee) && (
             <div className="col-span-2 pt-2 border-t border-divider/60 text-[11px] font-semibold text-ink-secondary flex flex-wrap items-center gap-x-2 gap-y-1">
               <span>Pickup: <strong className="text-ink">{bounty.will_pickup === false || bounty.pickup_type === 'MY_LOCATION' ? 'Deliver to Me' : 'Go to Lender'}</strong></span>

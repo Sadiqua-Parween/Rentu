@@ -467,15 +467,32 @@ export const PublicProfileView: React.FC<PublicProfileViewProps> = ({
                 )}
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-secondary font-medium mt-1">
-                  <span className="flex items-center gap-1 text-ink">
-                    <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-                    <span>
-                      {isOwnProfile
-                        ? (formatFullAddress(profile) || 'Location Not Set')
-                        : getReachDistance(profile, currentUser)}
-                    </span>
-                  </span>
-                  <span className="text-divider">•</span>
+                  {(() => {
+                    if (isOwnProfile) {
+                      const addr = formatFullAddress(profile);
+                      if (!addr) return null;
+                      return (
+                        <>
+                          <span className="flex items-center gap-1 text-ink">
+                            <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
+                            <span>{addr}</span>
+                          </span>
+                          <span className="text-divider">•</span>
+                        </>
+                      );
+                    }
+                    const dist = getReachDistance(profile, currentUser);
+                    if (!dist) return null;
+                    return (
+                      <>
+                        <span className="flex items-center gap-1 text-ink">
+                          <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
+                          <span>{dist}</span>
+                        </span>
+                        <span className="text-divider">•</span>
+                      </>
+                    );
+                  })()}
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
                     <span>Member since 2024</span>

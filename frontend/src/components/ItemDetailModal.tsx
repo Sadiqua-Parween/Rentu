@@ -178,7 +178,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
       setIsLiked(!isLiked);
     }
   };
-  const reachDistanceText = item ? getReachDistance(item, user) : 'Nearby';
+  const reachDistanceText = item ? getReachDistance(item, user) : null;
 
   // Owner detection: checks user id or firebase_uid against item.owner_id
   const isOwner = Boolean(
@@ -639,13 +639,17 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                         <span>•</span>
                       </>
                     ) : null}
-                    <div className="flex items-center gap-1.5 font-bold text-ink">
-                      <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-                      <span className="text-[11px] font-extrabold text-brand bg-brand-soft px-2.5 py-1 rounded-full border border-brand/20">
-                        {reachDistanceText}
-                      </span>
-                    </div>
-                    <span>•</span>
+                    {reachDistanceText && (
+                      <>
+                        <div className="flex items-center gap-1.5 font-bold text-ink">
+                          <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
+                          <span className="text-[11px] font-extrabold text-brand bg-brand-soft px-2.5 py-1 rounded-full border border-brand/20">
+                            {reachDistanceText}
+                          </span>
+                        </div>
+                        <span>•</span>
+                      </>
+                    )}
                     <span>{item.category}</span>
                   </div>
                 </div>
@@ -701,11 +705,15 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                     <h4 className="text-sm font-extrabold text-ink group-hover:text-brand transition-colors truncate">{item.owner_name || 'Gear Owner'}</h4>
                     <div className="text-xs text-ink-secondary font-medium flex items-center gap-2 mt-0.5 flex-wrap">
                       <span>{(item as any).owner_is_verified ? 'Verified Lender' : 'Gear Owner'}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1 text-ink font-semibold">
-                        <MapPin className="w-3 h-3 text-brand shrink-0" />
-                        <span className="truncate">{reachDistanceText}</span>
-                      </span>
+                      {reachDistanceText && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-1 text-ink font-semibold">
+                            <MapPin className="w-3 h-3 text-brand shrink-0" />
+                            <span className="truncate">{reachDistanceText}</span>
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -950,7 +958,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                                     </span>
                                   </div>
                                   <div className="text-[11px] text-ink-secondary">
-                                    {optForDelivery ? 'Owner delivers to your location' : `You pick up from owner (${reachDistanceText})`}
+                                    {optForDelivery ? 'Owner delivers to your location' : reachDistanceText ? `You pick up from owner (${reachDistanceText})` : 'You pick up from owner'}
                                   </div>
                                 </div>
                               </div>
@@ -1043,7 +1051,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                                     </span>
                                   </div>
                                   <div className="text-[11px] text-ink-secondary">
-                                    {optForPickup ? 'Owner collects from you on return' : `You return to owner (${reachDistanceText})`}
+                                    {optForPickup ? 'Owner collects from you on return' : reachDistanceText ? `You return to owner (${reachDistanceText})` : 'You return to owner'}
                                   </div>
                                 </div>
                               </div>
@@ -1138,7 +1146,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                       <div className="pt-2 border-t border-divider space-y-1">
                         <div className="flex items-center gap-2 text-xs text-ink-secondary">
                           <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-                          <span>Self pickup & return: <strong className="text-brand font-bold">{reachDistanceText}</strong></span>
+                          <span>Self pickup & return{reachDistanceText ? <>: <strong className="text-brand font-bold">{reachDistanceText}</strong></> : ''}</span>
                         </div>
                         <p className="text-[10px] text-ink-muted pl-5.5">
                           Exact pickup address shared privately after booking is confirmed.
