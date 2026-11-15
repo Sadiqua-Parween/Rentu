@@ -3,6 +3,7 @@ import { Heart, MapPin, CheckCircle2, ArrowRight, Clock, AlertCircle } from 'luc
 import { CommunityRequest } from '../lib/types';
 import { useAuth } from '../lib/authContext';
 import { getReachDistance } from '../lib/distance';
+import { isRequestFavorited, toggleRequestFavorite } from '../lib/favorites';
 
 interface RequestCardProps {
   request: CommunityRequest;
@@ -20,8 +21,22 @@ export const RequestCard: React.FC<RequestCardProps> = ({
   onOpenUserProfile,
 }) => {
   const { user } = useAuth();
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(() => isRequestFavorited(request.id));
   const [imageError, setImageError] = useState(false);
+
+  React.useEffect(() => {
+    setIsLiked(isRequestFavorited(request.id));
+    const handleSync = () => {
+      setIsLiked(isRequestFavorited(request.id));
+    };
+    window.addEventListener('rentu_favorites_updated', handleSync);
+    return () => window.removeEventListener('rentu_favorites_updated', handleSync);
+  }, [request.id]);
+
+  const toggleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleRequestFavorite(request.id);
+  };
 
   const hasImage = Boolean(request.image_url) && !imageError;
   const isFulfilled = request.status === 'FULFILLED';
@@ -69,10 +84,7 @@ export const RequestCard: React.FC<RequestCardProps> = ({
           {/* Floating Favorite Heart Icon */}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsLiked(!isLiked);
-            }}
+            onClick={toggleFavorite}
             className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shadow-xs transition-transform active:scale-90 hover:bg-white dark:hover:bg-zinc-800 z-10"
             title="Save to favorites"
           >

@@ -267,6 +267,15 @@ export const Footer: React.FC<FooterProps> = ({
                 <li>
                   <button
                     type="button"
+                    onClick={() => handleNavClick('saved')}
+                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
+                  >
+                    Saved Items & Wishes
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
                     onClick={() => setActiveModal('SECURITY')}
                     className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left flex items-center gap-1"
                   >

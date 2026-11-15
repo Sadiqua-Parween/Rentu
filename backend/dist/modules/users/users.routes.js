@@ -8,6 +8,7 @@ const response_1 = require("../../middleware/response");
 const auth_1 = require("../../middleware/auth");
 const notifications_service_1 = require("../notifications/notifications.service");
 const city_1 = require("../../utils/city");
+const user_1 = require("../../utils/user");
 const router = (0, express_1.Router)();
 exports.RESERVED_USERNAMES = new Set([
     'admin', 'api', 'messages', 'chat', 'explore', 'marketplace', 'requests', 'bookings',
@@ -384,6 +385,131 @@ router.get('/search', async (req, res, next) => {
             };
         });
         return (0, response_1.sendSuccess)(res, formattedRealUsers);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+// 1b. GET USER SAVED / FAVORITE ITEMS & REQUESTS
+router.get('/favorites', auth_1.authMiddleware, async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const userEmail = req.user?.email;
+        const userIds = await (0, user_1.resolveUserIds)(userId, userEmail);
+        const itemsRes = await (0, db_1.query)(`
+      SELECT 
+        i.*,
+        COALESCE(i.approval_status, 'APPROVED') AS approval_status,
+        COALESCE(u.name, 'Lender') AS owner_name, 
+        u.username AS owner_username,
+        u.avatar_url AS owner_avatar,
+        COALESCE(i.locality, u.locality) AS locality,
+        f.created_at AS saved_at
+      FROM user_favorites f
+      JOIN items i ON f.target_id = i.id::text
+      LEFT JOIN users u ON (i.owner_id = u.id OR i.owner_id = u.firebase_uid)
+      WHERE f.user_id = ANY($1::text[]) 
+        AND f.target_type = 'ITEM'
+        AND COALESCE(i.is_deleted, false) = false
+      ORDER BY f.created_at DESC
+    `, [userIds]);
+        const reqsRes = await (0, db_1.query)(`
+      SELECT 
+        r.*,
+        COALESCE(r.approval_status, 'APPROVED') AS approval_status,
+        COALESCE(u.name, 'Seeker') AS seeker_name,
+        u.username AS seeker_username,
+        u.avatar_url AS seeker_avatar,
+        COALESCE(u.locality, r.locality) AS locality,
+        f.created_at AS saved_at
+      FROM user_favorites f
+      JOIN requests r ON f.target_id = r.id::text
+      LEFT JOIN users u ON (r.seeker_id = u.id OR r.seeker_id = u.firebase_uid)
+      WHERE f.user_id = ANY($1::text[]) 
+        AND f.target_type = 'REQUEST'
+      ORDER BY f.created_at DESC
+    `, [userIds]);
+        return (0, response_1.sendSuccess)(res, {
+            items: itemsRes.rows,
+            requests: reqsRes.rows,
+            item_ids: itemsRes.rows.map(i => i.id),
+            request_ids: reqsRes.rows.map(r => r.id),
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+// 1c. ADD OR TOGGLE FAVORITE
+router.post('/favorites', auth_1.authMiddleware, async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { target_id, target_type } = req.body;
+        if (!target_id || !['ITEM', 'REQUEST'].includes(target_type)) {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'target_id and valid target_type (ITEM or REQUEST) are required', 400);
+        }
+        await (0, db_1.query)(`
+      INSERT INTO user_favorites (user_id, target_id, target_type)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, target_id, target_type) DO NOTHING
+    `, [userId, String(target_id), target_type]);
+        return (0, response_1.sendSuccess)(res, { target_id, target_type, saved: true }, 'Added to saved items');
+    }
+    catch (error) {
+        next(error);
+    }
+});
+// 1d. REMOVE FAVORITE
+router.delete('/favorites/:targetType/:targetId', auth_1.authMiddleware, async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const userEmail = req.user?.email;
+        const userIds = await (0, user_1.resolveUserIds)(userId, userEmail);
+        const { targetType, targetId } = req.params;
+        const normalizedType = targetType.toUpperCase();
+        if (!['ITEM', 'REQUEST'].includes(normalizedType)) {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'Invalid targetType. Must be ITEM or REQUEST', 400);
+        }
+        await (0, db_1.query)(`
+      DELETE FROM user_favorites 
+      WHERE user_id = ANY($1::text[]) 
+        AND target_id = $2 
+        AND target_type = $3
+    `, [userIds, targetId, normalizedType]);
+        return (0, response_1.sendSuccess)(res, { target_id: targetId, target_type: normalizedType, saved: false }, 'Removed from saved items');
+    }
+    catch (error) {
+        next(error);
+    }
+});
+// 1e. BATCH SYNC LOCAL FAVORITES
+router.post('/favorites/batch-sync', auth_1.authMiddleware, async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { item_ids = [], request_ids = [] } = req.body;
+        if (Array.isArray(item_ids) && item_ids.length > 0) {
+            for (const id of item_ids) {
+                if (id && typeof id === 'string') {
+                    await (0, db_1.query)(`
+            INSERT INTO user_favorites (user_id, target_id, target_type)
+            VALUES ($1, $2, 'ITEM')
+            ON CONFLICT (user_id, target_id, target_type) DO NOTHING
+          `, [userId, id]).catch(() => { });
+                }
+            }
+        }
+        if (Array.isArray(request_ids) && request_ids.length > 0) {
+            for (const id of request_ids) {
+                if (id && typeof id === 'string') {
+                    await (0, db_1.query)(`
+            INSERT INTO user_favorites (user_id, target_id, target_type)
+            VALUES ($1, $2, 'REQUEST')
+            ON CONFLICT (user_id, target_id, target_type) DO NOTHING
+          `, [userId, id]).catch(() => { });
+                }
+            }
+        }
+        return (0, response_1.sendSuccess)(res, { synced: true }, 'Favorites synced');
     }
     catch (error) {
         next(error);

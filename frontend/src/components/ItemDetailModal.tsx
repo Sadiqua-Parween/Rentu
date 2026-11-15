@@ -28,6 +28,7 @@ import {
 import confetti from 'canvas-confetti';
 import { Item } from '../lib/types';
 import { useAuth } from '../lib/authContext';
+import { isItemFavorited, toggleItemFavorite } from '../lib/favorites';
 import { api } from '../lib/api';
 import { getEffectiveSavedLocations, formatSavedLocationFull, formatFullAddress } from '../lib/location';
 import { RentalCalendar, formatTime12 } from './RentalCalendar';
@@ -72,14 +73,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   );
   const isAvailableForBorrowing = Boolean(item?.available_for_borrowing || isFreeListing);
   const [rentType, setRentType] = useState<'Rent' | 'Borrow'>(isFreeListing ? 'Borrow' : 'Rent');
-  const [isLiked, setIsLiked] = useState(() => {
-    try {
-      const favs = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-      return Array.isArray(favs) && Boolean(item?.id && favs.includes(item.id));
-    } catch {
-      return false;
-    }
-  });
+  const [isLiked, setIsLiked] = useState(() => isItemFavorited(item?.id || ''));
   const [isDeleting, setIsDeleting] = useState(false);
   const [isShareCopied, setIsShareCopied] = useState(false);
 
@@ -158,25 +152,17 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
   React.useEffect(() => {
     if (!item?.id) return;
-    try {
-      const favs = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-      setIsLiked(Array.isArray(favs) && favs.includes(item.id));
-    } catch {}
+    setIsLiked(isItemFavorited(item.id));
+    const handleSync = () => {
+      setIsLiked(isItemFavorited(item.id));
+    };
+    window.addEventListener('rentu_favorites_updated', handleSync);
+    return () => window.removeEventListener('rentu_favorites_updated', handleSync);
   }, [item?.id]);
 
   const toggleFavorite = () => {
     if (!item?.id) return;
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-      const updated = favs.includes(item.id)
-        ? favs.filter((id) => id !== item.id)
-        : [...favs, item.id];
-      localStorage.setItem('rentu_favorites', JSON.stringify(updated));
-      setIsLiked(updated.includes(item.id));
-      window.dispatchEvent(new Event('rentu_favorites_updated'));
-    } catch {
-      setIsLiked(!isLiked);
-    }
+    toggleItemFavorite(item.id);
   };
   const reachDistanceText = item ? getReachDistance(item, user) : null;
 

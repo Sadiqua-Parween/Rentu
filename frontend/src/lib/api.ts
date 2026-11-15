@@ -968,4 +968,38 @@ export const api = {
     });
     return handleResponse(res);
   },
+
+  // Saved / Favorites
+  async getFavorites(): Promise<{ items: any[]; requests: any[]; item_ids: string[]; request_ids: string[] }> {
+    const res = await fetch(`${API_BASE}/users/favorites`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async addFavorite(targetId: string, targetType: 'ITEM' | 'REQUEST'): Promise<any> {
+    const res = await fetch(`${API_BASE}/users/favorites`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ target_id: targetId, target_type: targetType }),
+    });
+    return handleResponse(res);
+  },
+
+  async removeFavorite(targetType: 'ITEM' | 'REQUEST', targetId: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/users/favorites/${encodeURIComponent(targetType)}/${encodeURIComponent(targetId)}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async batchSyncFavorites(itemIds: string[], requestIds: string[]): Promise<any> {
+    const res = await fetch(`${API_BASE}/users/favorites/batch-sync`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ item_ids: itemIds, request_ids: requestIds }),
+    });
+    return handleResponse(res);
+  },
 };

@@ -4,6 +4,7 @@ import { Item } from '../lib/types';
 import { useAuth } from '../lib/authContext';
 import { getReachDistance } from '../lib/distance';
 import { formatCleanTitle } from '../lib/formatters';
+import { isItemFavorited, toggleItemFavorite } from '../lib/favorites';
 
 interface ItemCardProps {
   item: Item;
@@ -14,22 +15,13 @@ interface ItemCardProps {
 
 export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick, onOpenUserProfile }) => {
   const { user } = useAuth();
-  const [isLiked, setIsLiked] = useState(() => {
-    try {
-      const favs = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-      return Array.isArray(favs) && favs.includes(item.id);
-    } catch {
-      return false;
-    }
-  });
+  const [isLiked, setIsLiked] = useState(() => isItemFavorited(item.id));
   const [imageError, setImageError] = useState(false);
 
   React.useEffect(() => {
+    setIsLiked(isItemFavorited(item.id));
     const handleSync = () => {
-      try {
-        const favs = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-        setIsLiked(Array.isArray(favs) && favs.includes(item.id));
-      } catch {}
+      setIsLiked(isItemFavorited(item.id));
     };
     window.addEventListener('rentu_favorites_updated', handleSync);
     return () => window.removeEventListener('rentu_favorites_updated', handleSync);
@@ -37,17 +29,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ item, onClick, onOpenUserPro
 
   const toggleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem('rentu_favorites') || '[]');
-      const updated = favs.includes(item.id)
-        ? favs.filter((id) => id !== item.id)
-        : [...favs, item.id];
-      localStorage.setItem('rentu_favorites', JSON.stringify(updated));
-      setIsLiked(updated.includes(item.id));
-      window.dispatchEvent(new Event('rentu_favorites_updated'));
-    } catch {
-      setIsLiked(!isLiked);
-    }
+    toggleItemFavorite(item.id);
   };
 
   const images = Array.isArray(item.image_urls) ? item.image_urls.filter(Boolean) : [];

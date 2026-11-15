@@ -30,8 +30,10 @@ import { updateSeo } from './lib/seo';
 import { Item, CommunityRequest, isAuthorizedAdmin } from './lib/types';
 import confetti from 'canvas-confetti';
 import { CheckCircle2, AlertCircle, X, ArrowRight } from 'lucide-react';
+import { SavedItemsView } from './components/SavedItemsView';
+import { syncFavoritesWithBackend } from './lib/favorites';
 
-export type TabType = 'home' | 'explore' | 'requests' | 'bookings' | 'messages' | 'community' | 'hustle' | 'profile' | 'notifications';
+export type TabType = 'home' | 'explore' | 'requests' | 'bookings' | 'messages' | 'community' | 'hustle' | 'profile' | 'notifications' | 'saved';
 
 const RESERVED_ROUTES = new Set([
   'admin',
@@ -44,6 +46,8 @@ const RESERVED_ROUTES = new Set([
   'profile',
   'explore',
   'marketplace',
+  'saved',
+  'favorites',
   'api',
   'login',
   'signup',
@@ -106,6 +110,7 @@ const getTabFromUrl = (): TabType => {
   if (path === 'profile' || hash === 'profile') return 'profile';
   if (path === 'explore' || hash === 'explore' || path === 'marketplace' || hash === 'marketplace') return 'explore';
   if (path === 'notifications' || hash === 'notifications' || path === 'alerts' || hash === 'alerts') return 'notifications';
+  if (path === 'saved' || hash === 'saved' || path === 'favorites' || hash === 'favorites') return 'saved';
   return 'home';
 };
 
@@ -261,6 +266,13 @@ export const App: React.FC = () => {
       window.history.pushState(null, '', targetPath);
     }
   };
+
+  // Sync user favorites with backend when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      syncFavoritesWithBackend();
+    }
+  }, [isAuthenticated]);
 
   const handleCloseUserProfile = () => {
     setViewingUserId(null);
@@ -869,6 +881,24 @@ export const App: React.FC = () => {
                 onNavigateTab={(tab) => {
                   setSearchQuery('');
                   setActiveTab(tab);
+                }}
+                onOpenAuth={handleOpenAuth}
+              />
+            )}
+
+            {/* VIEW 13: SAVED ITEMS & WISHES VIEW */}
+            {activeTab === 'saved' && (
+              <SavedItemsView
+                onSelectItem={(item) => setSelectedItem(item)}
+                onClaimRequest={handleClaimRequest}
+                onOpenUserProfile={handleOpenUserProfile}
+                onExploreMarketplace={() => {
+                  setSearchQuery('');
+                  setActiveTab('explore');
+                }}
+                onExploreRequests={() => {
+                  setSearchQuery('');
+                  setActiveTab('requests');
                 }}
                 onOpenAuth={handleOpenAuth}
               />
