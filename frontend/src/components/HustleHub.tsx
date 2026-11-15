@@ -254,6 +254,15 @@ export const HustleHub: React.FC = () => {
     if (activeSidebar === 'Overview' || activeSidebar === 'Analytics') loadOverviewAnalytics();
   }, [activeSidebar, ticketFilterType, ticketFilterStatus]);
 
+  // Live listener: automatically refresh admin tickets whenever a ticket is submitted anywhere in the app
+  useEffect(() => {
+    const handleTicketSubmitted = () => {
+      loadAdminTickets();
+    };
+    window.addEventListener('rentu-ticket-submitted', handleTicketSubmitted);
+    return () => window.removeEventListener('rentu-ticket-submitted', handleTicketSubmitted);
+  }, []);
+
   // Support ticket update
   const handleUpdateTicket = async (ticketId: string, newStatus?: 'OPEN' | 'IN_REVIEW' | 'RESOLVED' | 'CLOSED', notes?: string) => {
     setIsUpdatingTicket(ticketId);
