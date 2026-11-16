@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   X, 
   Share2, 
@@ -256,6 +256,26 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   const [endDate, setEndDate] = useState(defaultEndDate);
   const [endTime, setEndTime] = useState('18:00');
 
+  // Check if current selected date range conflicts with an active/accepted rental
+  const isSelectedDateOverlapping = useMemo(() => {
+    if (!startDate || !endDate) return false;
+    return (bookedDates || []).some((b: any) => {
+      const bStart = b.start_date?.slice(0, 10);
+      const bEnd = (b.end_date || b.start_date)?.slice(0, 10);
+      if (!bStart || !bEnd) return false;
+      if (bStart > endDate || bEnd < startDate) return false;
+
+      const bStartTime = b.start_time || '10:00';
+      const bEndTime = b.end_time || '18:00';
+      const reqStart = `${startDate}T${startTime}`;
+      const reqEnd = `${endDate}T${endTime}`;
+      const existingStart = `${bStart}T${bStartTime}`;
+      const existingEnd = `${bEnd}T${bEndTime}`;
+
+      return reqStart < existingEnd && existingStart < reqEnd;
+    });
+  }, [bookedDates, startDate, endDate, startTime, endTime]);
+
   // If today is selected, ensure start time is an upcoming time slot rather than in the past
   React.useEffect(() => {
     const now = new Date();
@@ -343,11 +363,6 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const currentHourMin = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    if (item.status === 'RENTED') {
-      setErrorMsg('This item is currently rented out to another neighbor and cannot accept new rental requests right now.');
-      return;
-    }
 
     if (item.status === 'UNAVAILABLE') {
       setErrorMsg('This listing has been paused by the owner and is currently unavailable.');
@@ -1230,6 +1245,18 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                       </div>
                     </div>
 
+                    {(item.status === 'RENTED' || (item as any).is_currently_booked) && (
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                        <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Currently with a neighbor</span>
+                          <p className="text-[10px] text-ink-secondary mt-0.5">
+                            This item is out on rent today. You can select and book any upcoming unreserved dates on the calendar!
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {errorMsg && (
                       <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold">
                         {errorMsg}
@@ -1304,20 +1331,6 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                           This item did not pass admin review and cannot be booked.
                         </p>
                       </div>
-                    ) : item.status === 'RENTED' || (item as any).is_currently_booked ? (
-                      <div className="space-y-1.5 mt-2">
-                        <button
-                          type="button"
-                          disabled
-                          className="w-full py-3 text-xs sm:text-sm font-extrabold rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          <AlertCircle className="w-4 h-4" />
-                          <span>Currently Rented Out</span>
-                        </button>
-                        <p className="text-[11px] text-center text-ink-secondary">
-                          This item is currently out with another neighbor. You can select future dates on the calendar or browse nearby listings.
-                        </p>
-                      </div>
                     ) : item.status === 'UNAVAILABLE' ? (
                       <div className="space-y-1.5 mt-2">
                         <button
@@ -1330,6 +1343,20 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                         </button>
                         <p className="text-[11px] text-center text-ink-secondary">
                           The owner has paused this listing from accepting requests.
+                        </p>
+                      </div>
+                    ) : isSelectedDateOverlapping ? (
+                      <div className="space-y-1.5 mt-2">
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-3 text-xs sm:text-sm font-extrabold rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          <AlertCircle className="w-4 h-4" />
+                          <span>Dates Already Booked</span>
+                        </button>
+                        <p className="text-[11px] text-center text-ink-secondary">
+                          This item is already reserved for the selected dates. Please choose different open dates on the calendar.
                         </p>
                       </div>
                     ) : (

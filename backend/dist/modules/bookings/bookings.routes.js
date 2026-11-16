@@ -249,15 +249,25 @@ router.post('/', auth_1.authMiddleware, async (req, res, next) => {
         const borrowerId = req.user.id;
         // Fetch Item & Owner
         const itemRes = await (0, db_1.query)(`SELECT id, owner_id, price_per_day, title, status, available_for_borrowing, 
-              offers_delivery, delivery_fee, offers_pickup, pickup_fee, locality, image_urls, category, max_duration_days
+              offers_delivery, delivery_fee, offers_pickup, pickup_fee, locality, image_urls, category, max_duration_days,
+              COALESCE(approval_status, 'APPROVED') AS approval_status, COALESCE(is_deleted, false) AS is_deleted
        FROM items WHERE id = $1`, [validated.item_id]);
         if (itemRes.rows.length === 0) {
             return (0, response_1.sendError)(res, 'NOT_FOUND', 'Item not found', 404);
         }
         const item = itemRes.rows[0];
-        // Status check: do not permit booking an item that is not AVAILABLE
-        if (item.status && item.status !== 'AVAILABLE') {
-            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'This item is currently unavailable for rent or borrowing.', 400);
+        if (item.is_deleted) {
+            return (0, response_1.sendError)(res, 'NOT_FOUND', 'This item is no longer available.', 404);
+        }
+        if (item.approval_status === 'PENDING') {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'This item is currently awaiting admin verification before orders open.', 400);
+        }
+        if (item.approval_status === 'REJECTED') {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'This item has been rejected by admin review and cannot be booked.', 400);
+        }
+        // Status check: do not permit booking an item that is paused or marked UNAVAILABLE by the owner
+        if (item.status === 'UNAVAILABLE') {
+            return (0, response_1.sendError)(res, 'BAD_REQUEST', 'This item has been paused by the owner and is currently unavailable for rent or borrowing.', 400);
         }
         if (item.owner_id === borrowerId) {
             return (0, response_1.sendError)(res, 'BAD_REQUEST', 'You cannot borrow your own gear.', 400);

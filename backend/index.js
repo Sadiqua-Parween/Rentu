@@ -97972,7 +97972,8 @@ router4.post("/", authMiddleware, async (req, res, next) => {
     const borrowerId = req.user.id;
     const itemRes = await query(
       `SELECT id, owner_id, price_per_day, title, status, available_for_borrowing, 
-              offers_delivery, delivery_fee, offers_pickup, pickup_fee, locality, image_urls, category, max_duration_days
+              offers_delivery, delivery_fee, offers_pickup, pickup_fee, locality, image_urls, category, max_duration_days,
+              COALESCE(approval_status, 'APPROVED') AS approval_status, COALESCE(is_deleted, false) AS is_deleted
        FROM items WHERE id = $1`,
       [validated.item_id]
     );
@@ -97980,8 +97981,17 @@ router4.post("/", authMiddleware, async (req, res, next) => {
       return sendError(res, "NOT_FOUND", "Item not found", 404);
     }
     const item = itemRes.rows[0];
-    if (item.status && item.status !== "AVAILABLE") {
-      return sendError(res, "BAD_REQUEST", "This item is currently unavailable for rent or borrowing.", 400);
+    if (item.is_deleted) {
+      return sendError(res, "NOT_FOUND", "This item is no longer available.", 404);
+    }
+    if (item.approval_status === "PENDING") {
+      return sendError(res, "BAD_REQUEST", "This item is currently awaiting admin verification before orders open.", 400);
+    }
+    if (item.approval_status === "REJECTED") {
+      return sendError(res, "BAD_REQUEST", "This item has been rejected by admin review and cannot be booked.", 400);
+    }
+    if (item.status === "UNAVAILABLE") {
+      return sendError(res, "BAD_REQUEST", "This item has been paused by the owner and is currently unavailable for rent or borrowing.", 400);
     }
     if (item.owner_id === borrowerId) {
       return sendError(res, "BAD_REQUEST", "You cannot borrow your own gear.", 400);
