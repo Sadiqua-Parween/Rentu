@@ -571,13 +571,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
       else if (lower.includes('hsr')) { itemLat = 12.9121; itemLon = 77.6446; }
     }
 
-    // 3NF: Upsert into postal_codes table before referencing it
-    if (cleanPincode && finalLocality) {
-      await query(
-        `INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`,
-        [cleanPincode, finalLocality]
-      ).catch(() => { });
-    }
+
 
     const userEmail = req.user?.email?.toLowerCase().trim();
     const isAdminUser = req.user?.role === 'ADMIN' || Boolean(userEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(userEmail));
@@ -741,15 +735,7 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
 
     const result = await query(updateSql, values);
 
-    if (validated.pincode && validated.locality) {
-      const cleanPincode = validated.pincode.replace(/\D/g, '').slice(0, 6);
-      if (cleanPincode) {
-        await query(
-          `INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`,
-          [cleanPincode, validated.locality]
-        ).catch(() => { });
-      }
-    }
+
 
     // If images were updated, clean up old storage photos that were removed
     if (validated.image_urls !== undefined) {

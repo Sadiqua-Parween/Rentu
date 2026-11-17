@@ -74726,13 +74726,6 @@ router2.post("/", authMiddleware, async (req, res, next) => {
         itemLon = 77.6446;
       }
     }
-    if (cleanPincode && finalLocality) {
-      await query(
-        `INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`,
-        [cleanPincode, finalLocality]
-      ).catch(() => {
-      });
-    }
     const userEmail = req.user?.email?.toLowerCase().trim();
     const isAdminUser = req.user?.role === "ADMIN" || Boolean(userEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(userEmail));
     const initialApproval = isAdminUser ? "APPROVED" : "PENDING";
@@ -74882,16 +74875,6 @@ router2.put("/:id", authMiddleware, async (req, res, next) => {
       RETURNING *
     `;
     const result = await query(updateSql, values);
-    if (validated.pincode && validated.locality) {
-      const cleanPincode = validated.pincode.replace(/\D/g, "").slice(0, 6);
-      if (cleanPincode) {
-        await query(
-          `INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`,
-          [cleanPincode, validated.locality]
-        ).catch(() => {
-        });
-      }
-    }
     if (validated.image_urls !== void 0) {
       const oldRawImages = check2.rows[0].image_urls;
       const oldImages = Array.isArray(oldRawImages) ? oldRawImages : [];
@@ -75235,13 +75218,6 @@ router3.post("/", authMiddleware, async (req, res, next) => {
     });
     let finalLocality = validated.locality?.trim() || "";
     const cleanPincode = validated.pincode?.trim() || null;
-    if (cleanPincode && finalLocality) {
-      await query(
-        `INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`,
-        [cleanPincode, finalLocality]
-      ).catch(() => {
-      });
-    }
     const userEmail = req.user?.email?.toLowerCase().trim();
     const isAdminUser = req.user?.role === "ADMIN" || Boolean(userEmail && ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"].includes(userEmail));
     const initialApproval = isAdminUser ? "APPROVED" : "PENDING";
@@ -78085,18 +78061,6 @@ router6.put("/profile", authMiddleware, async (req, res, next) => {
       cleanPincode = validated.pincode?.trim() || null;
       values.push(cleanPincode);
       fields.push(`pincode = $${values.length}`);
-      if (cleanPincode) {
-        let effectiveLocality = validated.locality?.trim();
-        if (!effectiveLocality) {
-          const userLocRes = await query(`SELECT locality FROM users WHERE id = $1`, [userId]);
-          effectiveLocality = userLocRes.rows[0]?.locality?.trim() || "Neighborhood";
-        }
-        await query(
-          `INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`,
-          [cleanPincode, effectiveLocality]
-        ).catch(() => {
-        });
-      }
     }
     if (validated.latitude !== void 0) {
       values.push(validated.latitude ?? null);
@@ -81677,17 +81641,15 @@ router12.get("/localities", async (req, res, next) => {
   try {
     const result = await query(`
       SELECT 
-        p.pincode, 
-        p.locality, 
-        p.city, 
-        p.state,
+        u.pincode, 
+        u.locality, 
         COUNT(DISTINCT u.id)::int AS users_count,
         COUNT(DISTINCT i.id)::int AS items_count
-      FROM postal_codes p
-      LEFT JOIN users u ON p.pincode = u.pincode
-      LEFT JOIN items i ON p.pincode = i.pincode
-      GROUP BY p.pincode, p.locality, p.city, p.state
-      ORDER BY users_count DESC, items_count DESC, p.locality ASC
+      FROM users u
+      LEFT JOIN items i ON u.pincode = i.pincode
+      WHERE u.pincode IS NOT NULL
+      GROUP BY u.pincode, u.locality
+      ORDER BY users_count DESC, items_count DESC
     `);
     return sendSuccess(res, result.rows);
   } catch (error) {
@@ -81696,17 +81658,11 @@ router12.get("/localities", async (req, res, next) => {
 });
 router12.post("/localities", async (req, res, next) => {
   try {
-    const { pincode, locality, city, state } = req.body;
+    const { pincode, locality, city = "Bangalore", state = "Karnataka" } = req.body;
     if (!pincode || !locality) {
       return sendError(res, "BAD_REQUEST", "Pincode and locality are required", 400);
     }
-    const result = await query(`
-      INSERT INTO postal_codes (pincode, locality, city, state)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (pincode) DO UPDATE SET locality = EXCLUDED.locality, city = EXCLUDED.city, state = EXCLUDED.state
-      RETURNING *
-    `, [pincode.trim(), locality.trim(), city?.trim() || "Bangalore", state?.trim() || "Karnataka"]);
-    return sendSuccess(res, result.rows[0], "Locality zone saved");
+    return sendSuccess(res, { pincode: pincode.trim(), locality: locality.trim(), city, state }, "Locality zone saved");
   } catch (error) {
     next(error);
   }
@@ -82082,46 +82038,6 @@ var runMigrations = async () => {
       ALTER TABLE messages ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
     `);
     await client.query(`
-      CREATE TABLE IF NOT EXISTS postal_codes (
-        pincode VARCHAR(10) PRIMARY KEY,
-        locality VARCHAR(120) NOT NULL,
-        city VARCHAR(120),
-        state VARCHAR(120),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_postal_codes_locality ON postal_codes(locality);
-
-      -- Backfill postal_codes from existing distinct pincodes and localities
-      INSERT INTO postal_codes (pincode, locality)
-      SELECT DISTINCT pincode, locality FROM users 
-      WHERE pincode IS NOT NULL AND locality IS NOT NULL AND pincode != ''
-      ON CONFLICT (pincode) DO NOTHING;
-
-      INSERT INTO postal_codes (pincode, locality)
-      SELECT DISTINCT pincode, locality FROM items 
-      WHERE pincode IS NOT NULL AND locality IS NOT NULL AND pincode != ''
-      ON CONFLICT (pincode) DO NOTHING;
-
-      INSERT INTO postal_codes (pincode, locality)
-      SELECT DISTINCT pincode, locality FROM requests 
-      WHERE pincode IS NOT NULL AND locality IS NOT NULL AND pincode != ''
-      ON CONFLICT (pincode) DO NOTHING;
-
-      INSERT INTO postal_codes (pincode, locality, city, state)
-      VALUES 
-        ('560001', 'MG Road / Central', 'Bangalore', 'Karnataka'),
-        ('560038', 'Indiranagar', 'Bangalore', 'Karnataka'),
-        ('560034', 'Koramangala', 'Bangalore', 'Karnataka'),
-        ('560059', 'Mylasandra / Global Village', 'Bangalore', 'Karnataka'),
-        ('560060', 'Kengeri Satellite Town', 'Bangalore', 'Karnataka'),
-        ('110017', 'Saket', 'New Delhi', 'Delhi'),
-        ('110016', 'Hauz Khas', 'New Delhi', 'Delhi'),
-        ('400050', 'Bandra West', 'Mumbai', 'Maharashtra'),
-        ('400076', 'Powai', 'Mumbai', 'Maharashtra')
-      ON CONFLICT (pincode) DO NOTHING;
-    `);
-    await client.query(`
       CREATE TABLE IF NOT EXISTS item_images (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
@@ -82373,10 +82289,7 @@ var runMigrations = async () => {
       { name: "fk_requests_seeker", sql: `ALTER TABLE requests ADD CONSTRAINT fk_requests_seeker FOREIGN KEY (seeker_id) REFERENCES users(id) ON DELETE CASCADE` },
       { name: "fk_bookings_borrower", sql: `ALTER TABLE bookings ADD CONSTRAINT fk_bookings_borrower FOREIGN KEY (borrower_id) REFERENCES users(id) ON DELETE CASCADE` },
       { name: "fk_bookings_lender", sql: `ALTER TABLE bookings ADD CONSTRAINT fk_bookings_lender FOREIGN KEY (lender_id) REFERENCES users(id) ON DELETE CASCADE` },
-      { name: "fk_messages_sender", sql: `ALTER TABLE messages ADD CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE` },
-      { name: "fk_users_pincode", sql: `ALTER TABLE users ADD CONSTRAINT fk_users_pincode FOREIGN KEY (pincode) REFERENCES postal_codes(pincode) ON DELETE SET NULL` },
-      { name: "fk_items_pincode", sql: `ALTER TABLE items ADD CONSTRAINT fk_items_pincode FOREIGN KEY (pincode) REFERENCES postal_codes(pincode) ON DELETE SET NULL` },
-      { name: "fk_requests_pincode", sql: `ALTER TABLE requests ADD CONSTRAINT fk_requests_pincode FOREIGN KEY (pincode) REFERENCES postal_codes(pincode) ON DELETE SET NULL` }
+      { name: "fk_messages_sender", sql: `ALTER TABLE messages ADD CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE` }
     ];
     for (const c of relationalConstraints) {
       const check2 = await client.query(`
@@ -82393,7 +82306,6 @@ var runMigrations = async () => {
       "items",
       "messages",
       "notifications",
-      "postal_codes",
       "push_subscriptions",
       "requests",
       "reviews",

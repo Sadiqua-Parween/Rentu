@@ -239,49 +239,8 @@ const runMigrations = async () => {
       ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_by TEXT[] DEFAULT '{}';
       ALTER TABLE messages ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
     `);
-        // 4. NORMALIZATION TABLES (1NF & 3NF Compliance)
-        // 4.1. POSTAL CODES (3NF: Eliminates transitive dependency pincode -> locality in users, items, requests)
-        await client.query(`
-      CREATE TABLE IF NOT EXISTS postal_codes (
-        pincode VARCHAR(10) PRIMARY KEY,
-        locality VARCHAR(120) NOT NULL,
-        city VARCHAR(120),
-        state VARCHAR(120),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_postal_codes_locality ON postal_codes(locality);
-
-      -- Backfill postal_codes from existing distinct pincodes and localities
-      INSERT INTO postal_codes (pincode, locality)
-      SELECT DISTINCT pincode, locality FROM users 
-      WHERE pincode IS NOT NULL AND locality IS NOT NULL AND pincode != ''
-      ON CONFLICT (pincode) DO NOTHING;
-
-      INSERT INTO postal_codes (pincode, locality)
-      SELECT DISTINCT pincode, locality FROM items 
-      WHERE pincode IS NOT NULL AND locality IS NOT NULL AND pincode != ''
-      ON CONFLICT (pincode) DO NOTHING;
-
-      INSERT INTO postal_codes (pincode, locality)
-      SELECT DISTINCT pincode, locality FROM requests 
-      WHERE pincode IS NOT NULL AND locality IS NOT NULL AND pincode != ''
-      ON CONFLICT (pincode) DO NOTHING;
-
-      INSERT INTO postal_codes (pincode, locality, city, state)
-      VALUES 
-        ('560001', 'MG Road / Central', 'Bangalore', 'Karnataka'),
-        ('560038', 'Indiranagar', 'Bangalore', 'Karnataka'),
-        ('560034', 'Koramangala', 'Bangalore', 'Karnataka'),
-        ('560059', 'Mylasandra / Global Village', 'Bangalore', 'Karnataka'),
-        ('560060', 'Kengeri Satellite Town', 'Bangalore', 'Karnataka'),
-        ('110017', 'Saket', 'New Delhi', 'Delhi'),
-        ('110016', 'Hauz Khas', 'New Delhi', 'Delhi'),
-        ('400050', 'Bandra West', 'Mumbai', 'Maharashtra'),
-        ('400076', 'Powai', 'Mumbai', 'Maharashtra')
-      ON CONFLICT (pincode) DO NOTHING;
-    `);
-        // 4.2. ITEM IMAGES (1NF: Eliminates multi-valued repeating group in items.image_urls)
+        // 4. NORMALIZATION TABLES
+        // 4.1. ITEM IMAGES (1NF: Eliminates multi-valued repeating group in items.image_urls)
         await client.query(`
       CREATE TABLE IF NOT EXISTS item_images (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -542,10 +501,7 @@ const runMigrations = async () => {
             { name: 'fk_requests_seeker', sql: `ALTER TABLE requests ADD CONSTRAINT fk_requests_seeker FOREIGN KEY (seeker_id) REFERENCES users(id) ON DELETE CASCADE` },
             { name: 'fk_bookings_borrower', sql: `ALTER TABLE bookings ADD CONSTRAINT fk_bookings_borrower FOREIGN KEY (borrower_id) REFERENCES users(id) ON DELETE CASCADE` },
             { name: 'fk_bookings_lender', sql: `ALTER TABLE bookings ADD CONSTRAINT fk_bookings_lender FOREIGN KEY (lender_id) REFERENCES users(id) ON DELETE CASCADE` },
-            { name: 'fk_messages_sender', sql: `ALTER TABLE messages ADD CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE` },
-            { name: 'fk_users_pincode', sql: `ALTER TABLE users ADD CONSTRAINT fk_users_pincode FOREIGN KEY (pincode) REFERENCES postal_codes(pincode) ON DELETE SET NULL` },
-            { name: 'fk_items_pincode', sql: `ALTER TABLE items ADD CONSTRAINT fk_items_pincode FOREIGN KEY (pincode) REFERENCES postal_codes(pincode) ON DELETE SET NULL` },
-            { name: 'fk_requests_pincode', sql: `ALTER TABLE requests ADD CONSTRAINT fk_requests_pincode FOREIGN KEY (pincode) REFERENCES postal_codes(pincode) ON DELETE SET NULL` }
+            { name: 'fk_messages_sender', sql: `ALTER TABLE messages ADD CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE` }
         ];
         for (const c of relationalConstraints) {
             const check = await client.query(`
@@ -559,7 +515,7 @@ const runMigrations = async () => {
         // 4.8. ROW LEVEL SECURITY (RLS) FOR PUBLIC TABLES (Security Policy)
         const publicTables = [
             'bookings', 'item_images', 'items', 'messages', 'notifications',
-            'postal_codes', 'push_subscriptions', 'requests', 'reviews',
+            'push_subscriptions', 'requests', 'reviews',
             'support_tickets', 'user_blocks', 'user_follows', 'users'
         ];
         for (const tbl of publicTables) {

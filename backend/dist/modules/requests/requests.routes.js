@@ -281,10 +281,6 @@ router.post('/', auth_1.authMiddleware, async (req, res, next) => {
         ]).catch(() => { });
         let finalLocality = validated.locality?.trim() || '';
         const cleanPincode = validated.pincode?.trim() || null;
-        // 3NF: Upsert into postal_codes table before referencing it
-        if (cleanPincode && finalLocality) {
-            await (0, db_1.query)(`INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`, [cleanPincode, finalLocality]).catch(() => { });
-        }
         const userEmail = req.user?.email?.toLowerCase().trim();
         const isAdminUser = req.user?.role === 'ADMIN' || Boolean(userEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(userEmail));
         const initialApproval = isAdminUser ? 'APPROVED' : 'PENDING';

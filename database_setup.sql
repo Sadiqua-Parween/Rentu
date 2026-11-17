@@ -27,18 +27,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- 3. POSTAL CODES TABLE (3NF: Eliminates transitive dependency pincode -> locality)
-CREATE TABLE IF NOT EXISTS postal_codes (
-    pincode VARCHAR(10) PRIMARY KEY,
-    locality VARCHAR(120) NOT NULL,
-    city VARCHAR(120),
-    state VARCHAR(120),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_postal_codes_locality ON postal_codes(locality);
-
--- 4. USERS TABLE (Linked with Firebase/Auth IDs)
+-- 3. USERS TABLE (Linked with Firebase/Auth IDs)
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,                 -- Auth User ID (e.g. Firebase UID)
     firebase_uid VARCHAR(255),
@@ -50,7 +39,7 @@ CREATE TABLE IF NOT EXISTS users (
     banner_url TEXT,
     address_text TEXT,                   -- Building / House / Street number
     locality VARCHAR(120),               -- Area / Neighborhood name
-    pincode VARCHAR(10) REFERENCES postal_codes(pincode) ON DELETE SET NULL,
+    pincode VARCHAR(10),
     latitude DOUBLE PRECISION,           -- Background GPS for distance matching
     longitude DOUBLE PRECISION,          -- Background GPS for distance matching
     rating NUMERIC(3, 2) DEFAULT NULL,   -- Cached overall rating (dynamically computed from reviews)
@@ -83,7 +72,7 @@ CREATE TABLE IF NOT EXISTS items (
     sticker_badge VARCHAR(50) DEFAULT '✨ Weekend Flex',
     locality VARCHAR(120),
     address_text TEXT,
-    pincode VARCHAR(10) REFERENCES postal_codes(pincode) ON DELETE SET NULL,
+    pincode VARCHAR(10),
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     status item_status DEFAULT 'AVAILABLE',
@@ -126,7 +115,7 @@ CREATE TABLE IF NOT EXISTS requests (
     offered_amount NUMERIC(10, 2) NOT NULL CHECK (offered_amount >= 0),
     locality VARCHAR(120),
     address_text TEXT,
-    pincode VARCHAR(10) REFERENCES postal_codes(pincode) ON DELETE SET NULL,
+    pincode VARCHAR(10),
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     status request_status DEFAULT 'OPEN',
@@ -237,7 +226,6 @@ CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
 DROP VIEW IF EXISTS bookings_3nf_v, messages_3nf_v, user_scores_3nf_v CASCADE;
 
 -- 14. ROW LEVEL SECURITY (RLS) FOR PUBLIC TABLES (Security Policy)
-ALTER TABLE IF EXISTS postal_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS item_images ENABLE ROW LEVEL SECURITY;
@@ -251,11 +239,8 @@ ALTER TABLE IF EXISTS support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS user_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS user_follows ENABLE ROW LEVEL SECURITY;
 
--- 14.2 PUBLIC CATALOG POLICIES (Safe read-only access for PostgREST)
+-- 14.2 PUBLIC CATALOG POLICIES
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'postal_codes' AND policyname = 'Allow public read postal_codes') THEN
-        CREATE POLICY "Allow public read postal_codes" ON public.postal_codes FOR SELECT TO public USING (true);
-    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'items' AND policyname = 'Allow public read available items') THEN
         CREATE POLICY "Allow public read available items" ON public.items FOR SELECT TO public USING (status = 'AVAILABLE' AND COALESCE(is_deleted, false) = false);
     END IF;
@@ -269,42 +254,3 @@ DO $$ BEGIN
         CREATE POLICY "Allow public read open requests" ON public.requests FOR SELECT TO public USING (status = 'OPEN');
     END IF;
 END $$;
-
--- 15. SEED DATA
-INSERT INTO postal_codes (pincode, locality, city, state)
-VALUES 
-    ('560001', 'MG Road / Central', 'Bangalore', 'Karnataka'),
-    ('560038', 'Indiranagar', 'Bangalore', 'Karnataka'),
-    ('560034', 'Koramangala', 'Bangalore', 'Karnataka'),
-    ('560059', 'Mylasandra / Global Village', 'Bangalore', 'Karnataka'),
-    ('560060', 'Kengeri Satellite Town', 'Bangalore', 'Karnataka'),
-    ('110017', 'Saket', 'New Delhi', 'Delhi'),
-    ('110016', 'Hauz Khas', 'New Delhi', 'Delhi'),
-    ('400050', 'Bandra West', 'Mumbai', 'Maharashtra'),
-    ('400076', 'Powai', 'Mumbai', 'Maharashtra')
-ON CONFLICT (pincode) DO NOTHING;
-
-INSERT INTO users (id, name, phone, bio, avatar_url, address_text, locality, pincode, latitude, longitude, role)
-VALUES 
-    ('user_demo_rohit', 'Rohit Verma', '+919876543210', 'Tech enthusiast • DSLR hobbyist', 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80', 'Flat 402, Tower B', 'Indiranagar', '560038', 12.9716, 77.5946, 'USER'),
-    ('user_demo_zoya', 'Zoya Khan', '+919876543211', 'Outdoor camper & acoustic music lover', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80', 'House 12, 4th Cross', 'Koramangala', '560034', 12.9352, 77.6245, 'USER')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO items (id, owner_id, title, description, category, price_per_day, max_duration_days, sticker_badge, locality, address_text, pincode, latitude, longitude, status)
-VALUES
-    ('a147fdbe-2349-49cc-ae16-f1067974efe2', 'user_demo_rohit', 'Canon EOS 250D DSLR + 18-55mm STM', 'Ultra-crisp 4K video, pristine sensor, lightweight body with flip touchscreen.', 'Electronics & Tech', 350.00, 5, '✨ Weekend Flex', 'Indiranagar', 'Flat 402, Tower B', '560038', 12.9716, 77.5946, 'AVAILABLE'),
-    ('e48e1792-32f5-4adb-8adb-678411226468', 'user_demo_rohit', 'Fujifilm X-T30 II Retro Mirrorless', 'Classic film simulations, super compact street photography dream.', 'Electronics & Tech', 450.00, 4, '✨ Weekend Flex', 'Indiranagar', 'Flat 402, Tower B', '560038', 12.9716, 77.5946, 'AVAILABLE')
-ON CONFLICT (id) DO NOTHING;
-
--- Seed atomic photos into 1NF item_images table
-INSERT INTO item_images (item_id, image_url, display_order)
-VALUES 
-    ('a147fdbe-2349-49cc-ae16-f1067974efe2', 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80', 0),
-    ('e48e1792-32f5-4adb-8adb-678411226468', 'https://images.unsplash.com/photo-1512790182412-b19e6d62bc39?auto=format&fit=crop&w=800&q=80', 0)
-ON CONFLICT DO NOTHING;
-
--- Verification Query
-SELECT 'ALL_TABLES_1NF_2NF_3NF_NORMALIZED' AS status,
-       (SELECT count(*) FROM postal_codes) AS postal_codes_count,
-       (SELECT count(*) FROM item_images) AS item_images_count,
-       (SELECT count(*) FROM reviews) AS reviews_count;

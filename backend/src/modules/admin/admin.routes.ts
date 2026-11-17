@@ -440,17 +440,15 @@ router.get('/localities', async (req: AuthenticatedRequest, res: Response, next)
   try {
     const result = await query(`
       SELECT 
-        p.pincode, 
-        p.locality, 
-        p.city, 
-        p.state,
+        u.pincode, 
+        u.locality, 
         COUNT(DISTINCT u.id)::int AS users_count,
         COUNT(DISTINCT i.id)::int AS items_count
-      FROM postal_codes p
-      LEFT JOIN users u ON p.pincode = u.pincode
-      LEFT JOIN items i ON p.pincode = i.pincode
-      GROUP BY p.pincode, p.locality, p.city, p.state
-      ORDER BY users_count DESC, items_count DESC, p.locality ASC
+      FROM users u
+      LEFT JOIN items i ON u.pincode = i.pincode
+      WHERE u.pincode IS NOT NULL
+      GROUP BY u.pincode, u.locality
+      ORDER BY users_count DESC, items_count DESC
     `);
     return sendSuccess(res, result.rows);
   } catch (error) {
@@ -461,19 +459,12 @@ router.get('/localities', async (req: AuthenticatedRequest, res: Response, next)
 // 11. ADD LOCALITY
 router.post('/localities', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
-    const { pincode, locality, city, state } = req.body;
+    const { pincode, locality, city = 'Bangalore', state = 'Karnataka' } = req.body;
     if (!pincode || !locality) {
       return sendError(res, 'BAD_REQUEST', 'Pincode and locality are required', 400);
     }
 
-    const result = await query(`
-      INSERT INTO postal_codes (pincode, locality, city, state)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (pincode) DO UPDATE SET locality = EXCLUDED.locality, city = EXCLUDED.city, state = EXCLUDED.state
-      RETURNING *
-    `, [pincode.trim(), locality.trim(), city?.trim() || 'Bangalore', state?.trim() || 'Karnataka']);
-
-    return sendSuccess(res, result.rows[0], 'Locality zone saved');
+    return sendSuccess(res, { pincode: pincode.trim(), locality: locality.trim(), city, state }, 'Locality zone saved');
   } catch (error) {
     next(error);
   }

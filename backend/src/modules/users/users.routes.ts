@@ -788,18 +788,7 @@ router.put('/profile', authMiddleware, async (req: AuthenticatedRequest, res: Re
       values.push(cleanPincode);
       fields.push(`pincode = $${values.length}`);
 
-      // 3NF: Upsert into postal_codes table before referencing it in users
-      if (cleanPincode) {
-        let effectiveLocality = validated.locality?.trim();
-        if (!effectiveLocality) {
-          const userLocRes = await query(`SELECT locality FROM users WHERE id = $1`, [userId]);
-          effectiveLocality = userLocRes.rows[0]?.locality?.trim() || 'Neighborhood';
-        }
-        await query(
-          `INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`,
-          [cleanPincode, effectiveLocality]
-        ).catch(() => {});
-      }
+
     }
     if (validated.latitude !== undefined) {
       values.push(validated.latitude ?? null);

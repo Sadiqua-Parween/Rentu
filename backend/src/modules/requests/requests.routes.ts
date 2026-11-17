@@ -307,13 +307,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     let finalLocality = validated.locality?.trim() || '';
     const cleanPincode = validated.pincode?.trim() || null;
 
-    // 3NF: Upsert into postal_codes table before referencing it
-    if (cleanPincode && finalLocality) {
-      await query(
-        `INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`,
-        [cleanPincode, finalLocality]
-      ).catch(() => {});
-    }
+
 
     const userEmail = req.user?.email?.toLowerCase().trim();
     const isAdminUser = req.user?.role === 'ADMIN' || Boolean(userEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(userEmail));

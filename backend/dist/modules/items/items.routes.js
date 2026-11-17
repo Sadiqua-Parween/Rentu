@@ -524,10 +524,6 @@ router.post('/', auth_1.authMiddleware, async (req, res, next) => {
                 itemLon = 77.6446;
             }
         }
-        // 3NF: Upsert into postal_codes table before referencing it
-        if (cleanPincode && finalLocality) {
-            await (0, db_1.query)(`INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`, [cleanPincode, finalLocality]).catch(() => { });
-        }
         const userEmail = req.user?.email?.toLowerCase().trim();
         const isAdminUser = req.user?.role === 'ADMIN' || Boolean(userEmail && ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'].includes(userEmail));
         const initialApproval = isAdminUser ? 'APPROVED' : 'PENDING';
@@ -674,12 +670,6 @@ router.put('/:id', auth_1.authMiddleware, async (req, res, next) => {
       RETURNING *
     `;
         const result = await (0, db_1.query)(updateSql, values);
-        if (validated.pincode && validated.locality) {
-            const cleanPincode = validated.pincode.replace(/\D/g, '').slice(0, 6);
-            if (cleanPincode) {
-                await (0, db_1.query)(`INSERT INTO postal_codes (pincode, locality) VALUES ($1, $2) ON CONFLICT (pincode) DO NOTHING`, [cleanPincode, validated.locality]).catch(() => { });
-            }
-        }
         // If images were updated, clean up old storage photos that were removed
         if (validated.image_urls !== undefined) {
             const oldRawImages = check.rows[0].image_urls;
