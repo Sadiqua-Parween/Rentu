@@ -2,29 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
-const supabase_js_1 = require("@supabase/supabase-js");
 const db_1 = require("../../config/db");
-const env_1 = require("../../config/env");
 const response_1 = require("../../middleware/response");
 const auth_1 = require("../../middleware/auth");
 const city_1 = require("../../utils/city");
 const notifications_service_1 = require("../notifications/notifications.service");
 const user_1 = require("../../utils/user");
 const router = (0, express_1.Router)();
-const storageClient = (0, supabase_js_1.createClient)(env_1.ENV.SUPABASE_URL || 'https://mkvpscrnqvkaddpmqtbm.supabase.co', env_1.ENV.SUPABASE_SERVICE_ROLE_KEY || env_1.ENV.SUPABASE_ANON_KEY || 'sb_publishable_4vho7OeDJupwXGGZn7TDFQ_Uryz7NwR');
 const deleteStoragePhoto = async (url) => {
-    try {
-        if (!url || typeof url !== 'string' || !url.includes('/storage/v1/object/public/item-photos/'))
-            return;
-        const path = url.split('/storage/v1/object/public/item-photos/')[1];
-        if (path) {
-            const decoded = decodeURIComponent(path.split('?')[0]);
-            await storageClient.storage.from('item-photos').remove([decoded]);
-        }
-    }
-    catch (e) {
-        console.warn('Storage photo cleanup notice:', e);
-    }
+    // Photos are hosted on Cloudinary / external CDN
 };
 const createItemSchema = zod_1.z.object({
     title: zod_1.z.string().min(3, 'Title must be at least 3 characters'),

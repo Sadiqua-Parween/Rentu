@@ -11,7 +11,7 @@ import { useAuth } from '../lib/authContext';
 import { api } from '../lib/api';
 import { Conversation, Message, MessageProposalData } from '../lib/types';
 import { PersonalProposalModal } from './PersonalProposalModal';
-import { uploadItemPhoto } from '../lib/supabase';
+import { uploadItemPhoto } from '../lib/upload';
 import { 
   detectCurrentLocation, 
   getEffectiveSavedLocations, 

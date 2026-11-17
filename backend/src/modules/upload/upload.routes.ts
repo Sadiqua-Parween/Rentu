@@ -1,12 +1,10 @@
 import crypto from 'crypto';
 import { Router, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { ENV } from '../../config/env';
 import { sendError, sendSuccess } from '../../middleware/response';
 import { authMiddleware, AuthenticatedRequest } from '../../middleware/auth';
 
 const router = Router();
-const BUCKET_NAME = 'item-photos';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB max upload limit matching chat attachments
 
 const ALLOWED_MIME_TYPES = [
@@ -20,11 +18,6 @@ const ALLOWED_MIME_TYPES = [
   'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/zip', 'application/x-zip-compressed', 'application/octet-stream',
 ];
-
-const supabase = createClient(
-  ENV.SUPABASE_URL || 'https://mkvpscrnqvkaddpmqtbm.supabase.co',
-  ENV.SUPABASE_SERVICE_ROLE_KEY || ENV.SUPABASE_ANON_KEY || 'sb_publishable_4vho7OeDJupwXGGZn7TDFQ_Uryz7NwR'
-);
 
 router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -69,70 +62,40 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
       }
     }
 
-    const extMatch = cleanContentType.split('/')[1] || 'jpg';
-    const cleanExt = extMatch.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
-    const safeName = filename
-      ? filename.replace(/[^a-zA-Z0-9.-]/g, '_')
-      : `file-${Date.now()}.${cleanExt}`;
-
     const safeFolder = ['items', 'avatars', 'banners', 'requests', 'chat', 'chat_videos', 'chat_photos', 'chat_files', 'chat_docs'].includes(folder) ? folder : 'items';
-    const storagePath = `${safeFolder}/${req.user?.id || 'member'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${safeName}`;
 
-    // Cloudinary Upload (Preferred primary media storage)
-    if (ENV.CLOUDINARY_CLOUD_NAME && ENV.CLOUDINARY_API_KEY && ENV.CLOUDINARY_API_SECRET) {
-      try {
-        const timestamp = Math.floor(Date.now() / 1000);
-        const strToSign = `folder=${safeFolder}&timestamp=${timestamp}${ENV.CLOUDINARY_API_SECRET}`;
-        const signature = crypto.createHash('sha1').update(strToSign).digest('hex');
-
-        const formData = new URLSearchParams();
-        formData.append('file', `data:${cleanContentType};base64,${cleanBase64}`);
-        formData.append('api_key', ENV.CLOUDINARY_API_KEY);
-        formData.append('timestamp', timestamp.toString());
-        formData.append('signature', signature);
-        formData.append('folder', safeFolder);
-
-        const resCloudinary = await fetch(`https://api.cloudinary.com/v1_1/${ENV.CLOUDINARY_CLOUD_NAME}/auto/upload`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        const dataCloudinary = await resCloudinary.json();
-        if (dataCloudinary.secure_url) {
-          return sendSuccess(res, {
-            publicUrl: dataCloudinary.secure_url,
-            url: dataCloudinary.secure_url,
-            path: dataCloudinary.public_id,
-          });
-        }
-        console.warn('Cloudinary upload warning, falling back to Supabase:', dataCloudinary.error?.message || dataCloudinary);
-      } catch (cloudErr: any) {
-        console.warn('Cloudinary upload threw error, falling back to Supabase:', cloudErr?.message || cloudErr);
-      }
+    // Cloudinary Upload
+    if (!ENV.CLOUDINARY_CLOUD_NAME || !ENV.CLOUDINARY_API_KEY || !ENV.CLOUDINARY_API_SECRET) {
+      return sendError(res, 'INTERNAL_SERVER_ERROR', 'Cloudinary media storage is not configured', 500);
     }
 
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(storagePath, buffer, {
-        contentType: cleanContentType,
-        upsert: true,
-      });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const strToSign = `folder=${safeFolder}&timestamp=${timestamp}${ENV.CLOUDINARY_API_SECRET}`;
+    const signature = crypto.createHash('sha1').update(strToSign).digest('hex');
 
-    if (error) {
-      console.error('Backend Supabase storage upload error:', error);
-      const isProd = ENV.NODE_ENV === 'production';
-      return sendError(res, 'UPLOAD_FAILED', isProd ? 'File storage upload failed. Please try again.' : (error.message || 'Storage upload failed'), 500);
-    }
+    const formData = new URLSearchParams();
+    formData.append('file', `data:${cleanContentType};base64,${cleanBase64}`);
+    formData.append('api_key', ENV.CLOUDINARY_API_KEY);
+    formData.append('timestamp', timestamp.toString());
+    formData.append('signature', signature);
+    formData.append('folder', safeFolder);
 
-    const { data: publicData } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(data.path);
-
-    return sendSuccess(res, {
-      publicUrl: publicData.publicUrl,
-      url: publicData.publicUrl,
-      path: data.path,
+    const resCloudinary = await fetch(`https://api.cloudinary.com/v1_1/${ENV.CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+      method: 'POST',
+      body: formData,
     });
+
+    const dataCloudinary = await resCloudinary.json();
+    if (dataCloudinary.secure_url) {
+      return sendSuccess(res, {
+        publicUrl: dataCloudinary.secure_url,
+        url: dataCloudinary.secure_url,
+        path: dataCloudinary.public_id,
+      });
+    }
+
+    console.error('Cloudinary upload failure:', dataCloudinary.error?.message || dataCloudinary);
+    return sendError(res, 'UPLOAD_FAILED', dataCloudinary.error?.message || 'Media upload failed', 500);
   } catch (err: any) {
     console.error('Backend upload handler error:', err);
     const isProd = ENV.NODE_ENV === 'production';

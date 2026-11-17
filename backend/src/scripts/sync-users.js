@@ -1,5 +1,5 @@
 /**
- * Quick User Sync Utility: Synchronize Firebase Auth users with Supabase PostgreSQL
+ * Quick User Sync Utility: Synchronize Firebase Auth users with PostgreSQL database
  * Usage: node backend/src/scripts/sync-users.js
  */
 const { Pool } = require('pg');
@@ -38,7 +38,7 @@ async function syncUser({ uid, email, name, avatarUrl }) {
 async function run() {
   console.log('--- Rentu User Sync Utility ---');
   const current = await pool.query('SELECT id, email, name FROM users ORDER BY created_at ASC');
-  console.log(`Current users in Supabase (${current.rows.length}):`);
+  console.log(`Current users in database (${current.rows.length}):`);
   console.table(current.rows);
   await pool.end();
 }

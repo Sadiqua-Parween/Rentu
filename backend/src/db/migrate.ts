@@ -1,7 +1,7 @@
 import { pool } from '../config/db';
 
 export const runMigrations = async () => {
-  console.log('Running database migrations (Supabase Compatible)...');
+  console.log('Running database migrations...');
   const client = await pool.connect();
   try {
     // 1. Extensions (executed outside transaction block)
@@ -48,7 +48,7 @@ export const runMigrations = async () => {
       END $$;
     `);
 
-    // 3. Tables (Supporting Clerk IDs and Supabase GPS Radar)
+    // 3. Tables (Supporting Clerk IDs and GPS Radar)
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -577,7 +577,7 @@ export const runMigrations = async () => {
       }
     }
 
-    // 4.8. ROW LEVEL SECURITY (RLS) FOR PUBLIC TABLES (Clears Supabase Security Advisor Critical Alerts)
+    // 4.8. ROW LEVEL SECURITY (RLS) FOR PUBLIC TABLES (Security Policy)
     const publicTables = [
       'bookings', 'item_images', 'items', 'messages', 'notifications',
       'postal_codes', 'push_subscriptions', 'requests', 'reviews',

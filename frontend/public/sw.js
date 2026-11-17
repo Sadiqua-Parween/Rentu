@@ -49,7 +49,6 @@ self.addEventListener('fetch', (event) => {
   // Bypass API requests and auth handlers to ensure real-time freshness
   if (
     request.url.includes('/api/') || 
-    request.url.includes('/supabase') || 
     request.url.includes('/auth/') || 
     request.url.includes('/__/auth')
   ) {

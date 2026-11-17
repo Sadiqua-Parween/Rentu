@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { createClient } from '@supabase/supabase-js';
 import { query } from '../../config/db';
 import { ENV } from '../../config/env';
 import { sendError, sendSuccess } from '../../middleware/response';
@@ -10,22 +9,9 @@ import { createNotification } from '../notifications/notifications.service';
 import { resolveUserIds } from '../../utils/user';
 
 const router = Router();
-const storageClient = createClient(
-  ENV.SUPABASE_URL || 'https://mkvpscrnqvkaddpmqtbm.supabase.co',
-  ENV.SUPABASE_SERVICE_ROLE_KEY || ENV.SUPABASE_ANON_KEY || 'sb_publishable_4vho7OeDJupwXGGZn7TDFQ_Uryz7NwR'
-);
 
 const deleteStoragePhoto = async (url: string) => {
-  try {
-    if (!url || typeof url !== 'string' || !url.includes('/storage/v1/object/public/item-photos/')) return;
-    const path = url.split('/storage/v1/object/public/item-photos/')[1];
-    if (path) {
-      const decoded = decodeURIComponent(path.split('?')[0]);
-      await storageClient.storage.from('item-photos').remove([decoded]);
-    }
-  } catch (e) {
-    console.warn('Storage photo cleanup notice:', e);
-  }
+  // Photos are hosted on Cloudinary / external CDN
 };
 
 const createItemSchema = z.object({

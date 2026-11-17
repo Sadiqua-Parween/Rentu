@@ -5,12 +5,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const crypto_1 = __importDefault(require("crypto"));
 const express_1 = require("express");
-const supabase_js_1 = require("@supabase/supabase-js");
 const env_1 = require("../../config/env");
 const response_1 = require("../../middleware/response");
 const auth_1 = require("../../middleware/auth");
 const router = (0, express_1.Router)();
-const BUCKET_NAME = 'item-photos';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB max upload limit matching chat attachments
 const ALLOWED_MIME_TYPES = [
     // Images
@@ -23,7 +21,6 @@ const ALLOWED_MIME_TYPES = [
     'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/zip', 'application/x-zip-compressed', 'application/octet-stream',
 ];
-const supabase = (0, supabase_js_1.createClient)(env_1.ENV.SUPABASE_URL || 'https://mkvpscrnqvkaddpmqtbm.supabase.co', env_1.ENV.SUPABASE_SERVICE_ROLE_KEY || env_1.ENV.SUPABASE_ANON_KEY || 'sb_publishable_4vho7OeDJupwXGGZn7TDFQ_Uryz7NwR');
 router.post('/', auth_1.authMiddleware, async (req, res) => {
     try {
         const { data: base64Data, filename, contentType = 'image/jpeg', folder = 'items' } = req.body;
@@ -59,62 +56,34 @@ router.post('/', auth_1.authMiddleware, async (req, res) => {
                 }
             }
         }
-        const extMatch = cleanContentType.split('/')[1] || 'jpg';
-        const cleanExt = extMatch.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
-        const safeName = filename
-            ? filename.replace(/[^a-zA-Z0-9.-]/g, '_')
-            : `file-${Date.now()}.${cleanExt}`;
         const safeFolder = ['items', 'avatars', 'banners', 'requests', 'chat', 'chat_videos', 'chat_photos', 'chat_files', 'chat_docs'].includes(folder) ? folder : 'items';
-        const storagePath = `${safeFolder}/${req.user?.id || 'member'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${safeName}`;
-        // Cloudinary Upload (Preferred primary media storage)
-        if (env_1.ENV.CLOUDINARY_CLOUD_NAME && env_1.ENV.CLOUDINARY_API_KEY && env_1.ENV.CLOUDINARY_API_SECRET) {
-            try {
-                const timestamp = Math.floor(Date.now() / 1000);
-                const strToSign = `folder=${safeFolder}&timestamp=${timestamp}${env_1.ENV.CLOUDINARY_API_SECRET}`;
-                const signature = crypto_1.default.createHash('sha1').update(strToSign).digest('hex');
-                const formData = new URLSearchParams();
-                formData.append('file', `data:${cleanContentType};base64,${cleanBase64}`);
-                formData.append('api_key', env_1.ENV.CLOUDINARY_API_KEY);
-                formData.append('timestamp', timestamp.toString());
-                formData.append('signature', signature);
-                formData.append('folder', safeFolder);
-                const resCloudinary = await fetch(`https://api.cloudinary.com/v1_1/${env_1.ENV.CLOUDINARY_CLOUD_NAME}/auto/upload`, {
-                    method: 'POST',
-                    body: formData,
-                });
-                const dataCloudinary = await resCloudinary.json();
-                if (dataCloudinary.secure_url) {
-                    return (0, response_1.sendSuccess)(res, {
-                        publicUrl: dataCloudinary.secure_url,
-                        url: dataCloudinary.secure_url,
-                        path: dataCloudinary.public_id,
-                    });
-                }
-                console.warn('Cloudinary upload warning, falling back to Supabase:', dataCloudinary.error?.message || dataCloudinary);
-            }
-            catch (cloudErr) {
-                console.warn('Cloudinary upload threw error, falling back to Supabase:', cloudErr?.message || cloudErr);
-            }
+        // Cloudinary Upload
+        if (!env_1.ENV.CLOUDINARY_CLOUD_NAME || !env_1.ENV.CLOUDINARY_API_KEY || !env_1.ENV.CLOUDINARY_API_SECRET) {
+            return (0, response_1.sendError)(res, 'INTERNAL_SERVER_ERROR', 'Cloudinary media storage is not configured', 500);
         }
-        const { data, error } = await supabase.storage
-            .from(BUCKET_NAME)
-            .upload(storagePath, buffer, {
-            contentType: cleanContentType,
-            upsert: true,
+        const timestamp = Math.floor(Date.now() / 1000);
+        const strToSign = `folder=${safeFolder}&timestamp=${timestamp}${env_1.ENV.CLOUDINARY_API_SECRET}`;
+        const signature = crypto_1.default.createHash('sha1').update(strToSign).digest('hex');
+        const formData = new URLSearchParams();
+        formData.append('file', `data:${cleanContentType};base64,${cleanBase64}`);
+        formData.append('api_key', env_1.ENV.CLOUDINARY_API_KEY);
+        formData.append('timestamp', timestamp.toString());
+        formData.append('signature', signature);
+        formData.append('folder', safeFolder);
+        const resCloudinary = await fetch(`https://api.cloudinary.com/v1_1/${env_1.ENV.CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+            method: 'POST',
+            body: formData,
         });
-        if (error) {
-            console.error('Backend Supabase storage upload error:', error);
-            const isProd = env_1.ENV.NODE_ENV === 'production';
-            return (0, response_1.sendError)(res, 'UPLOAD_FAILED', isProd ? 'File storage upload failed. Please try again.' : (error.message || 'Storage upload failed'), 500);
+        const dataCloudinary = await resCloudinary.json();
+        if (dataCloudinary.secure_url) {
+            return (0, response_1.sendSuccess)(res, {
+                publicUrl: dataCloudinary.secure_url,
+                url: dataCloudinary.secure_url,
+                path: dataCloudinary.public_id,
+            });
         }
-        const { data: publicData } = supabase.storage
-            .from(BUCKET_NAME)
-            .getPublicUrl(data.path);
-        return (0, response_1.sendSuccess)(res, {
-            publicUrl: publicData.publicUrl,
-            url: publicData.publicUrl,
-            path: data.path,
-        });
+        console.error('Cloudinary upload failure:', dataCloudinary.error?.message || dataCloudinary);
+        return (0, response_1.sendError)(res, 'UPLOAD_FAILED', dataCloudinary.error?.message || 'Media upload failed', 500);
     }
     catch (err) {
         console.error('Backend upload handler error:', err);

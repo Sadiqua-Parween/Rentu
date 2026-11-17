@@ -21,7 +21,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
 import { api } from '../lib/api';
-import { uploadItemPhoto, supabase } from '../lib/supabase';
+import { uploadItemPhoto } from '../lib/upload';
 import { detectCurrentLocation, formatSavedLocationFull, parseAddressText, buildAddressString } from '../lib/location';
 import { resolveCoords } from '../lib/distance';
 import { AddLocationModal } from './AddLocationModal';

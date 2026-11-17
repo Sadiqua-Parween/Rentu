@@ -40,7 +40,7 @@ import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
 import { formatFullAddress } from '../lib/location';
 import { api } from '../lib/api';
-import { uploadItemPhoto } from '../lib/supabase';
+import { uploadItemPhoto } from '../lib/upload';
 import { Item, Booking, CommunityRequest, UserReview } from '../lib/types';
 import { ItemCard } from './ItemCard';
 import { RequestCard } from './RequestCard';

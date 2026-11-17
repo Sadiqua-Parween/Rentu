@@ -17,7 +17,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
 import { api } from '../lib/api';
-import { uploadItemPhoto } from '../lib/supabase';
+import { uploadItemPhoto } from '../lib/upload';
 import { getEffectiveSavedLocations, formatSavedLocationFull } from '../lib/location';
 import { Item, SavedLocation } from '../lib/types';
 import { AddLocationModal } from './AddLocationModal';

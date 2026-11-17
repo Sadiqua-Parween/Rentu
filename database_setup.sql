@@ -1,7 +1,7 @@
 -- ==============================================================================
--- 🚀 Rentu⁺ Supabase Setup Script (1NF, 2NF & 3NF Normalized Schema)
--- Relational Tables, Atomic Child Tables, 3NF Views & Supabase Storage
--- Run directly in: Supabase Dashboard -> SQL Editor -> New query -> RUN
+-- 🚀 Rentu⁺ PostgreSQL Database Setup Script (1NF, 2NF & 3NF Normalized Schema)
+-- Relational Tables, Atomic Child Tables, 3NF Views & PostGIS Configuration
+-- Run directly in: Neon Console -> SQL Editor -> RUN
 -- ==============================================================================
 
 -- 1. EXTENSIONS (Installed cleanly in dedicated extensions schema)
@@ -236,46 +236,7 @@ CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
 -- 13. CLEANUP UNNECESSARY VIEWS (Ensures only pure physical tables are displayed in Tables dashboard)
 DROP VIEW IF EXISTS bookings_3nf_v, messages_3nf_v, user_scores_3nf_v CASCADE;
 
--- 14. SUPABASE STORAGE BUCKET FOR ITEM PHOTOS
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('item-photos', 'item-photos', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
-
--- Drop any legacy/conflicting policies to ensure clean state
-DROP POLICY IF EXISTS "Allow public uploads to item-photos" ON storage.objects;
-DROP POLICY IF EXISTS "Allow Public Uploads" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public uploads" ON storage.objects;
-
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'objects' AND policyname = 'Allow public viewing of item-photos'
-    ) THEN
-        CREATE POLICY "Allow public viewing of item-photos" 
-        ON storage.objects FOR SELECT TO public 
-        USING (bucket_id = 'item-photos');
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'objects' AND policyname = 'Allow authenticated uploads to item-photos'
-    ) THEN
-        CREATE POLICY "Allow authenticated uploads to item-photos" 
-        ON storage.objects FOR INSERT TO authenticated 
-        WITH CHECK (bucket_id = 'item-photos');
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'objects' AND policyname = 'Allow public and anon uploads to item-photos'
-    ) THEN
-        CREATE POLICY "Allow public and anon uploads to item-photos" 
-        ON storage.objects FOR INSERT TO public 
-        WITH CHECK (bucket_id = 'item-photos');
-    END IF;
-END $$;
-
--- 14.1 ROW LEVEL SECURITY (RLS) FOR PUBLIC TABLES (Clears Supabase Security Advisor Critical Warnings)
+-- 14. ROW LEVEL SECURITY (RLS) FOR PUBLIC TABLES (Security Policy)
 ALTER TABLE IF EXISTS postal_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS items ENABLE ROW LEVEL SECURITY;

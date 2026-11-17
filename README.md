@@ -11,7 +11,8 @@
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS_3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Express](https://img.shields.io/badge/Express.js_4-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_14+-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Neon](https://img.shields.io/badge/Neon-00E599?style=for-the-badge&logo=postgresql&logoColor=black)](https://neon.tech/)
+[![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=for-the-badge&logo=cloudinary&logoColor=white)](https://cloudinary.com/)
 [![Gemini](https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Vercel](https://img.shields.io/badge/Vercel_Deployment-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
 
@@ -327,7 +328,7 @@ Rento/
 ├── README.md                # Project documentation & local setup guide
 ├── package.json             # Root workspace scripts & monorepo orchestration
 ├── vercel.json              # Vercel multi-service routing & serverless build config
-├── supabase_setup.sql       # PostgreSQL DDL with RLS & PostGIS configuration
+├── database_setup.sql       # PostgreSQL DDL with RLS & PostGIS configuration
 │
 ├── backend/                 # Headless Express REST API
 │   ├── src/
@@ -393,7 +394,7 @@ Rento/
 ### Prerequisites
 - **Node.js:** v18.0.0 or later (tested on v20 and v22 LTS)
 - **npm:** v9.0.0 or later
-- **PostgreSQL:** v14+ (or a cloud [Supabase](https://supabase.com) project)
+- **PostgreSQL:** v14+ (or a cloud [Neon](https://neon.tech) serverless database)
 
 ---
 
@@ -415,13 +416,13 @@ Create `.env` inside `backend/`:
 ```env
 PORT=5001
 NODE_ENV=development
-DATABASE_URL=postgresql://postgres.your-project:your-password@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://[user]:[password]@[endpoint].aws.neon.tech/neondb?sslmode=require
 JWT_SECRET=super-secret-rentu-jwt-token-key-2026
 
-# Optional: Supabase Storage & Push
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+# Cloudinary Media Storage
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
 # Optional: Google Gemini AI
 GEMINI_API_KEY=your-gemini-api-key
@@ -430,8 +431,6 @@ GEMINI_API_KEY=your-gemini-api-key
 Create `.env` inside `frontend/` (optional for local proxy):
 ```env
 VITE_API_URL=http://localhost:5001
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 ---
@@ -442,7 +441,7 @@ Run the complete 3NF schema and seed script via your terminal:
 ```bash
 npm run seed
 ```
-*Alternatively, paste the contents of [`supabase_setup.sql`](supabase_setup.sql) directly into your Supabase Dashboard SQL Editor and click **Run**.*
+*Alternatively, paste the contents of [`database_setup.sql`](database_setup.sql) directly into your PostgreSQL / Neon SQL Editor and click **Run**.*
 
 ---
 

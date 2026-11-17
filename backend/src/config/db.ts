@@ -1,7 +1,7 @@
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import { ENV } from './env';
 
-const isRemote = ENV.DATABASE_URL.includes('supabase.co') || ENV.DATABASE_URL.includes('pooler') || ENV.NODE_ENV === 'production';
+const isRemote = ENV.DATABASE_URL.includes('neon.tech') || ENV.DATABASE_URL.includes('pooler') || ENV.NODE_ENV === 'production';
 
 const getSslConfig = () => {
   if (!isRemote) return undefined;

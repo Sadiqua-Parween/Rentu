@@ -20,7 +20,7 @@ export interface BlacklistCheckResult {
 }
 
 /**
- * Ensures table and columns exist in PostgreSQL/Supabase
+ * Ensures table and columns exist in PostgreSQL
  */
 export const ensureBlacklistTable = async (): Promise<void> => {
   try {

@@ -3,7 +3,7 @@ import { X, MapPin, Loader2, Trash2, Calendar, Target, Upload, Camera, ImageIcon
 import { CommunityRequest } from '../lib/types';
 import { api } from '../lib/api';
 import { detectCurrentLocation, parseAddressText, buildAddressString } from '../lib/location';
-import { uploadItemPhoto } from '../lib/supabase';
+import { uploadItemPhoto } from '../lib/upload';
 
 interface EditWishModalProps {
   request: CommunityRequest | null;

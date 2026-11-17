@@ -84,7 +84,7 @@ Rento/
 ├── README.md                # Project overview, setup instructions & quickstart
 ├── package.json             # Root monorepo scripts & workspaces
 ├── vercel.json              # Vercel Services multi-service configuration
-├── supabase_setup.sql       # 1NF, 2NF, 3NF PostgreSQL DDL setup script
+├── database_setup.sql       # 1NF, 2NF, 3NF PostgreSQL DDL setup script
 │
 ├── backend/                 # Decoupled Headless REST API
 │   ├── src/

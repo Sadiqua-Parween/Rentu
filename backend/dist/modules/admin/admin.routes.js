@@ -195,7 +195,7 @@ router.delete('/blacklist/:email', async (req, res, next) => {
         next(error);
     }
 });
-// 2.2 SYNC FIREBASE USER TO SUPABASE (Admin tool to manually add or sync any Firebase user)
+// 2.2 SYNC FIREBASE USER TO DATABASE (Admin tool to manually add or sync any Firebase user)
 router.post('/sync-user', async (req, res, next) => {
     try {
         const { uid, email, name, avatar_url } = req.body;
@@ -216,7 +216,7 @@ router.post('/sync-user', async (req, res, next) => {
         avatar_url = COALESCE(users.avatar_url, EXCLUDED.avatar_url)
       RETURNING id, firebase_uid, email, name, username, role, created_at;
     `, [uid, uid, cleanEmail, cleanName, username, avatar]);
-        return (0, response_1.sendSuccess)(res, result.rows[0], 'User synchronized to Supabase successfully');
+        return (0, response_1.sendSuccess)(res, result.rows[0], 'User synchronized to database successfully');
     }
     catch (error) {
         next(error);

@@ -4,7 +4,7 @@ exports.removeEmailBlacklist = exports.blacklistEmail = exports.checkEmailBlackl
 const db_1 = require("../config/db");
 const auth_1 = require("../middleware/auth");
 /**
- * Ensures table and columns exist in PostgreSQL/Supabase
+ * Ensures table and columns exist in PostgreSQL
  */
 const ensureBlacklistTable = async () => {
     try {

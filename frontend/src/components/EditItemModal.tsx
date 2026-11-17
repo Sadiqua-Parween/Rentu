@@ -3,7 +3,7 @@ import { X, Upload, MapPin, Loader2, Trash2, CheckCircle2, Sparkles, Plus, Check
 import { Item, SavedLocation } from '../lib/types';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/authContext';
-import { uploadItemPhoto } from '../lib/supabase';
+import { uploadItemPhoto } from '../lib/upload';
 import { detectCurrentLocation, getEffectiveSavedLocations, formatSavedLocationFull } from '../lib/location';
 import { AddLocationModal } from './AddLocationModal';
 

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
-import { uploadItemPhoto } from '../lib/supabase';
+import { uploadItemPhoto } from '../lib/upload';
 import { detectCurrentLocation, getEffectiveSavedLocations, formatSavedLocationFull, parseAddressText, buildAddressString } from '../lib/location';
 import { MessageProposalData, SavedLocation } from '../lib/types';
 import { AddLocationModal } from './AddLocationModal';
