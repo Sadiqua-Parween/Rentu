@@ -182,18 +182,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     if (!file) return;
 
     setIsUploadingAvatar(true);
-    setAvatarUploadStatus('Uploading avatar to Supabase...');
+    setAvatarUploadStatus('Uploading avatar...');
     setErrorMsg('');
 
     try {
-      if (supabase) {
-        const publicUrl = await uploadItemPhoto(file, 'avatars');
-        setAvatarUrl(publicUrl);
-        setAvatarUploadStatus('Profile picture uploaded successfully.');
-      } else {
-        setErrorMsg('Photo storage service is unavailable. Please check your connection.');
-        setAvatarUploadStatus('Storage service unavailable.');
-      }
+      const publicUrl = await uploadItemPhoto(file, 'avatars');
+      setAvatarUrl(publicUrl);
+      setAvatarUploadStatus('Profile picture uploaded successfully.');
     } catch (err: any) {
       console.error('Avatar upload failed:', err);
       setErrorMsg(err.message || 'Failed to upload profile picture. Please try again.');
@@ -209,18 +204,13 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     if (!file) return;
 
     setIsUploadingBanner(true);
-    setBannerUploadStatus('Uploading banner to Supabase...');
+    setBannerUploadStatus('Uploading banner...');
     setErrorMsg('');
 
     try {
-      if (supabase) {
-        const publicUrl = await uploadItemPhoto(file, 'banners');
-        setBannerUrl(publicUrl);
-        setBannerUploadStatus('Background banner uploaded successfully.');
-      } else {
-        setErrorMsg('Photo storage service is unavailable. Please check your connection.');
-        setBannerUploadStatus('Storage service unavailable.');
-      }
+      const publicUrl = await uploadItemPhoto(file, 'banners');
+      setBannerUrl(publicUrl);
+      setBannerUploadStatus('Background banner uploaded successfully.');
     } catch (err: any) {
       console.error('Banner upload failed:', err);
       setErrorMsg(err.message || 'Failed to upload background banner. Please try again.');

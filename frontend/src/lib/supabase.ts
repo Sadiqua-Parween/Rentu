@@ -72,11 +72,18 @@ async function uploadViaBackend(file: File, folder: string): Promise<string> {
 }
 
 /**
- * Upload an image file from the browser directly to Supabase Storage bucket,
- * with automatic fallback to server-side backend upload proxy if direct upload fails.
+ * Upload an image file directly to Cloudinary via backend proxy (/api/upload),
+ * with automatic fallback to Supabase Storage if backend proxy fails.
  */
 export async function uploadItemPhoto(file: File, folder: string = 'items'): Promise<string> {
-  // Strategy 1: Client-side direct Supabase Storage upload
+  // Strategy 1: Primary Cloudinary upload via backend proxy
+  try {
+    return await uploadViaBackend(file, folder);
+  } catch (backendErr: any) {
+    console.warn('Backend Cloudinary upload notice, checking fallback storage:', backendErr);
+  }
+
+  // Strategy 2: Fallback to Supabase Storage if configured
   if (supabase) {
     try {
       const fileExt = file.name.split('.').pop() || 'jpg';
@@ -99,19 +106,11 @@ export async function uploadItemPhoto(file: File, folder: string = 'items'): Pro
         if (publicData?.publicUrl) {
           return publicData.publicUrl;
         }
-      } else if (error) {
-        console.warn('Direct browser Supabase upload failed, trying server-side proxy:', error);
       }
     } catch (clientErr) {
-      console.warn('Direct Supabase upload error caught, trying server-side proxy:', clientErr);
+      console.warn('Fallback storage upload failed:', clientErr);
     }
   }
 
-  // Strategy 2: Server-side backend upload fallback
-  try {
-    return await uploadViaBackend(file, folder);
-  } catch (backendErr: any) {
-    console.error('All upload strategies failed:', backendErr);
-    throw new Error('Failed to upload photo. Please check your connection and try again.');
-  }
+  throw new Error('Failed to upload photo. Please check your connection and try again.');
 }
