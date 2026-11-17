@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requireRole = exports.adminMiddleware = exports.isAdminEmail = exports.AUTHORIZED_ADMIN_EMAILS = exports.optionalAuthMiddleware = exports.authMiddleware = void 0;
+exports.requireRole = exports.adminMiddleware = exports.isAdminEmail = exports.AUTHORIZED_ADMIN_EMAILS = exports.getAuthorizedAdminEmails = exports.optionalAuthMiddleware = exports.authMiddleware = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const app_1 = require("firebase-admin/app");
 const auth_1 = require("firebase-admin/auth");
@@ -72,8 +72,8 @@ async function resolveUserFromToken(token) {
     try {
         const decoded = jsonwebtoken_1.default.verify(token, env_1.ENV.JWT_SECRET);
         if (decoded && decoded.id) {
-            // Verify user in database or match by email
-            const checkRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE id = $1 OR (email = $2 AND email IS NOT NULL)', [decoded.id, decoded.email || '']);
+            // Verify user in database by strict ID
+            const checkRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE id = $1', [decoded.id]);
             if (checkRes.rows.length > 0) {
                 const u = checkRes.rows[0];
                 return { id: u.id, email: u.email, role: u.role, name: u.name };
@@ -90,22 +90,36 @@ async function resolveUserFromToken(token) {
         const decodedToken = await (0, auth_1.getAuth)().verifyIdToken(token);
         if (decodedToken && decodedToken.uid) {
             const firebaseUid = decodedToken.uid;
-            const email = decodedToken.email || `${firebaseUid}@firebase.rentu.internal`;
-            const userRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2 OR (email = $3 AND email IS NOT NULL)', [firebaseUid, firebaseUid, email]);
+            const isEmailVerified = Boolean(decodedToken.email_verified);
+            const tokenEmail = decodedToken.email ? decodedToken.email.toLowerCase().trim() : null;
+            // 1. Match by verified firebase_uid
+            let userRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $1', [firebaseUid]);
+            // 2. Only match by email IF the email is cryptographically verified by Firebase
+            if (userRes.rows.length === 0 && tokenEmail && isEmailVerified) {
+                userRes = await (0, db_1.query)('SELECT id, email, role, name FROM users WHERE LOWER(email) = LOWER($1)', [tokenEmail]);
+            }
             // If user exists in database, return authenticated user
             if (userRes.rows.length > 0) {
                 const u = userRes.rows[0];
                 return { id: u.id, email: u.email, role: u.role, name: u.name };
             }
+            // Anti-Account-Takeover: Block unverified email from colliding with an existing account
+            if (tokenEmail && !isEmailVerified) {
+                const conflict = await (0, db_1.query)('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [tokenEmail]);
+                if (conflict.rows.length > 0) {
+                    console.warn(`Blocked unverified email collision attempt for ${tokenEmail}`);
+                    return null;
+                }
+            }
             // Auto-provision verified Firebase user in database
             try {
+                const email = tokenEmail || `${firebaseUid}@firebase.rentu.internal`;
                 const displayName = decodedToken.name || email.split('@')[0] || 'Rentu Member';
                 const rawUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '');
                 const autoUsername = `${rawUsername.slice(0, 18)}_${Date.now().toString().slice(-4)}`;
                 const defaultAvatar = decodedToken.picture || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(displayName)}`;
                 const created = await (0, db_1.query)(`INSERT INTO users (id, firebase_uid, email, name, username, locality, avatar_url, bio, role)
            VALUES ($1, $2, $3, $4, $5, '', $6, 'Member of the Rentu gear sharing community', 'USER')
-           ON CONFLICT (email) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid
            RETURNING id, email, role, name`, [firebaseUid, firebaseUid, email, displayName, autoUsername, defaultAvatar]);
                 if (created.rows.length > 0) {
                     const u = created.rows[0];
@@ -165,14 +179,20 @@ const optionalAuthMiddleware = async (req, res, next) => {
     next();
 };
 exports.optionalAuthMiddleware = optionalAuthMiddleware;
-exports.AUTHORIZED_ADMIN_EMAILS = [
-    'falaksadiqua786@gmail.com',
-    'rajsamriddhi60@gmail.com',
-];
+const getAuthorizedAdminEmails = () => {
+    const defaults = ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'];
+    const envAdmins = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+    return Array.from(new Set([...defaults, ...envAdmins]));
+};
+exports.getAuthorizedAdminEmails = getAuthorizedAdminEmails;
+exports.AUTHORIZED_ADMIN_EMAILS = (0, exports.getAuthorizedAdminEmails)();
 const isAdminEmail = (email) => {
     if (!email)
         return false;
-    return exports.AUTHORIZED_ADMIN_EMAILS.includes(email.trim().toLowerCase());
+    return (0, exports.getAuthorizedAdminEmails)().includes(email.trim().toLowerCase());
 };
 exports.isAdminEmail = isAdminEmail;
 const adminMiddleware = async (req, res, next) => {

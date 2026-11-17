@@ -73415,8 +73415,8 @@ async function resolveUserFromToken(token) {
     const decoded = import_jsonwebtoken.default.verify(token, ENV.JWT_SECRET);
     if (decoded && decoded.id) {
       const checkRes = await query(
-        "SELECT id, email, role, name FROM users WHERE id = $1 OR (email = $2 AND email IS NOT NULL)",
-        [decoded.id, decoded.email || ""]
+        "SELECT id, email, role, name FROM users WHERE id = $1",
+        [decoded.id]
       );
       if (checkRes.rows.length > 0) {
         const u = checkRes.rows[0];
@@ -73430,16 +73430,34 @@ async function resolveUserFromToken(token) {
     const decodedToken = await getAuth().verifyIdToken(token);
     if (decodedToken && decodedToken.uid) {
       const firebaseUid = decodedToken.uid;
-      const email = decodedToken.email || `${firebaseUid}@firebase.rentu.internal`;
-      const userRes = await query(
-        "SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2 OR (email = $3 AND email IS NOT NULL)",
-        [firebaseUid, firebaseUid, email]
+      const isEmailVerified = Boolean(decodedToken.email_verified);
+      const tokenEmail = decodedToken.email ? decodedToken.email.toLowerCase().trim() : null;
+      let userRes = await query(
+        "SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $1",
+        [firebaseUid]
       );
+      if (userRes.rows.length === 0 && tokenEmail && isEmailVerified) {
+        userRes = await query(
+          "SELECT id, email, role, name FROM users WHERE LOWER(email) = LOWER($1)",
+          [tokenEmail]
+        );
+      }
       if (userRes.rows.length > 0) {
         const u = userRes.rows[0];
         return { id: u.id, email: u.email, role: u.role, name: u.name };
       }
+      if (tokenEmail && !isEmailVerified) {
+        const conflict = await query(
+          "SELECT id FROM users WHERE LOWER(email) = LOWER($1)",
+          [tokenEmail]
+        );
+        if (conflict.rows.length > 0) {
+          console.warn(`Blocked unverified email collision attempt for ${tokenEmail}`);
+          return null;
+        }
+      }
       try {
+        const email = tokenEmail || `${firebaseUid}@firebase.rentu.internal`;
         const displayName = decodedToken.name || email.split("@")[0] || "Rentu Member";
         const rawUsername = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
         const autoUsername = `${rawUsername.slice(0, 18)}_${Date.now().toString().slice(-4)}`;
@@ -73447,7 +73465,6 @@ async function resolveUserFromToken(token) {
         const created = await query(
           `INSERT INTO users (id, firebase_uid, email, name, username, locality, avatar_url, bio, role)
            VALUES ($1, $2, $3, $4, $5, '', $6, 'Member of the Rentu gear sharing community', 'USER')
-           ON CONFLICT (email) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid
            RETURNING id, email, role, name`,
           [firebaseUid, firebaseUid, email, displayName, autoUsername, defaultAvatar]
         );
@@ -73501,13 +73518,15 @@ var optionalAuthMiddleware = async (req, res, next) => {
   }
   next();
 };
-var AUTHORIZED_ADMIN_EMAILS = [
-  "falaksadiqua786@gmail.com",
-  "rajsamriddhi60@gmail.com"
-];
+var getAuthorizedAdminEmails = () => {
+  const defaults2 = ["falaksadiqua786@gmail.com", "rajsamriddhi60@gmail.com"];
+  const envAdmins = (process.env.ADMIN_EMAILS || "").split(",").map((e2) => e2.trim().toLowerCase()).filter(Boolean);
+  return Array.from(/* @__PURE__ */ new Set([...defaults2, ...envAdmins]));
+};
+var AUTHORIZED_ADMIN_EMAILS = getAuthorizedAdminEmails();
 var isAdminEmail = (email) => {
   if (!email) return false;
-  return AUTHORIZED_ADMIN_EMAILS.includes(email.trim().toLowerCase());
+  return getAuthorizedAdminEmails().includes(email.trim().toLowerCase());
 };
 var adminMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -73719,7 +73738,9 @@ var handleSyncUser = async (req, res, next) => {
       return sendError(res, "UNAUTHORIZED", "Invalid or expired authentication token", 401);
     }
     const uid = decodedToken.uid;
-    const email = (decodedToken.email || validated.email).toLowerCase();
+    const isEmailVerified = Boolean(decodedToken.email_verified);
+    const tokenEmail = decodedToken.email ? decodedToken.email.toLowerCase().trim() : null;
+    const email = tokenEmail || (validated.email ? validated.email.toLowerCase().trim() : `${uid}@firebase.rentu.internal`);
     const blacklist = await checkEmailBlacklist(email);
     if (blacklist.isBlacklisted) {
       return sendError(res, "ACCOUNT_BLACKLISTED", blacklist.message || "This email address has been blacklisted.", 403);
@@ -73731,19 +73752,43 @@ var handleSyncUser = async (req, res, next) => {
     try {
       existing = await query(
         `SELECT id, username, email, name, phone, locality, address_text, pincode, latitude, longitude, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
-         FROM users WHERE firebase_uid = $1 OR (email = $2 AND $2 IS NOT NULL)`,
-        [uid, email]
+         FROM users WHERE firebase_uid = $1 OR id = $1`,
+        [uid]
       );
     } catch (err) {
       if (err?.message?.includes("saved_locations") || err?.message?.includes("does not exist")) {
         await ensureUserColumns();
         existing = await query(
           `SELECT id, username, email, name, phone, locality, address_text, pincode, latitude, longitude, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, COALESCE(is_verified, FALSE) AS is_verified, '[]'::jsonb AS saved_locations, created_at
-           FROM users WHERE firebase_uid = $1 OR (email = $2 AND $2 IS NOT NULL)`,
-          [uid, email]
+           FROM users WHERE firebase_uid = $1 OR id = $1`,
+          [uid]
         );
       } else {
         throw err;
+      }
+    }
+    if (existing.rows.length === 0 && tokenEmail) {
+      const emailMatch = await query(
+        `SELECT id, username, email, name, phone, locality, address_text, pincode, latitude, longitude, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
+         FROM users WHERE LOWER(email) = LOWER($1)`,
+        [tokenEmail]
+      );
+      if (emailMatch.rows.length > 0) {
+        if (!isEmailVerified) {
+          return sendError(
+            res,
+            "EMAIL_NOT_VERIFIED",
+            "An account already exists with this email address. Please verify your email with your identity provider or sign in with your original method.",
+            403
+          );
+        }
+        existing = emailMatch;
+      }
+    }
+    if (existing.rows.length === 0 && !tokenEmail && validated.email) {
+      const collision = await query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [validated.email.toLowerCase().trim()]);
+      if (collision.rows.length > 0) {
+        return sendError(res, "FORBIDDEN", "Email address is already in use by another account.", 403);
       }
     }
     let user;
@@ -73803,8 +73848,8 @@ var handleSyncUser = async (req, res, next) => {
       } catch (err) {
         const retry = await query(
           `SELECT id, username, email, name, phone, locality, address_text, pincode, latitude, longitude, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
-           FROM users WHERE firebase_uid = $1 OR email = $2`,
-          [uid, email]
+           FROM users WHERE firebase_uid = $1 ${isEmailVerified && tokenEmail ? "OR LOWER(email) = LOWER($2)" : ""}`,
+          isEmailVerified && tokenEmail ? [uid, tokenEmail] : [uid]
         );
         if (retry.rows.length > 0) {
           user = retry.rows[0];
@@ -79528,31 +79573,14 @@ var import_express8 = __toESM(require_express2());
 var router8 = (0, import_express8.Router)();
 var MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 var ALLOWED_MIME_TYPES = [
-  // Images
+  // Images (Standard web image formats for listings, avatars, and proof photos)
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
   "image/svg+xml",
-  "image/bmp",
-  // Videos
-  "video/mp4",
-  "video/webm",
-  "video/quicktime",
-  "video/x-msvideo",
-  "video/mpeg",
-  "video/ogg",
-  // Documents & Files
-  "application/pdf",
-  "text/plain",
-  "text/csv",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/zip",
-  "application/x-zip-compressed",
-  "application/octet-stream"
+  // Documents (Safe rental agreements, receipts, or verification documents)
+  "application/pdf"
 ];
 router8.post("/", authMiddleware, async (req, res) => {
   try {
@@ -81697,6 +81725,14 @@ router12.get("/reports", async (req, res, next) => {
 });
 router12.post("/reset-system", async (req, res, next) => {
   try {
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL || process.env.ALLOW_FACTORY_RESET !== "true") {
+      return sendError(
+        res,
+        "FORBIDDEN",
+        "Factory reset is permanently disabled in production environments for data safety.",
+        403
+      );
+    }
     const { confirm_phrase } = req.body;
     if (!confirm_phrase || String(confirm_phrase).trim().toUpperCase() !== "RESET_ENTIRE_DATABASE") {
       return sendError(

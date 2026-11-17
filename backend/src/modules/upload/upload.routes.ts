@@ -8,15 +8,10 @@ const router = Router();
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB max upload limit matching chat attachments
 
 const ALLOWED_MIME_TYPES = [
-  // Images
-  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/bmp',
-  // Videos
-  'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/mpeg', 'video/ogg',
-  // Documents & Files
-  'application/pdf', 'text/plain', 'text/csv',
-  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/zip', 'application/x-zip-compressed', 'application/octet-stream',
+  // Images (Standard web image formats for listings, avatars, and proof photos)
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml',
+  // Documents (Safe rental agreements, receipts, or verification documents)
+  'application/pdf',
 ];
 
 router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {

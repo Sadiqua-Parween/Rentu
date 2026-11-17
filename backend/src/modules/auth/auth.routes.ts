@@ -245,7 +245,9 @@ const handleSyncUser = async (req: Request, res: Response, next: any) => {
 
     // Rely strictly on verified identity claims from Google / Firebase
     const uid = decodedToken.uid;
-    const email = (decodedToken.email || validated.email).toLowerCase();
+    const isEmailVerified = Boolean(decodedToken.email_verified);
+    const tokenEmail = decodedToken.email ? decodedToken.email.toLowerCase().trim() : null;
+    const email = tokenEmail || (validated.email ? validated.email.toLowerCase().trim() : `${uid}@firebase.rentu.internal`);
 
     // Check if email is blacklisted
     const blacklist = await checkEmailBlacklist(email);
@@ -256,24 +258,53 @@ const handleSyncUser = async (req: Request, res: Response, next: any) => {
     const avatar = decodedToken.picture || validated.avatarUrl || `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(name)}`;
     const locality = validated.locality || '';
 
-    // 1. Look for existing user by firebase_uid or matching email
+    // 1. Look for existing user by strict firebase_uid
     let existing;
     try {
       existing = await query(
         `SELECT id, username, email, name, phone, locality, address_text, pincode, latitude, longitude, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
-         FROM users WHERE firebase_uid = $1 OR (email = $2 AND $2 IS NOT NULL)`,
-        [uid, email]
+         FROM users WHERE firebase_uid = $1 OR id = $1`,
+        [uid]
       );
     } catch (err: any) {
       if (err?.message?.includes('saved_locations') || err?.message?.includes('does not exist')) {
         await ensureUserColumns();
         existing = await query(
           `SELECT id, username, email, name, phone, locality, address_text, pincode, latitude, longitude, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, COALESCE(is_verified, FALSE) AS is_verified, '[]'::jsonb AS saved_locations, created_at
-           FROM users WHERE firebase_uid = $1 OR (email = $2 AND $2 IS NOT NULL)`,
-          [uid, email]
+           FROM users WHERE firebase_uid = $1 OR id = $1`,
+          [uid]
         );
       } else {
         throw err;
+      }
+    }
+
+    // 2. Anti-Account-Takeover: Only link existing account by email IF cryptographically verified
+    if (existing.rows.length === 0 && tokenEmail) {
+      const emailMatch = await query(
+        `SELECT id, username, email, name, phone, locality, address_text, pincode, latitude, longitude, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
+         FROM users WHERE LOWER(email) = LOWER($1)`,
+        [tokenEmail]
+      );
+
+      if (emailMatch.rows.length > 0) {
+        if (!isEmailVerified) {
+          return sendError(
+            res,
+            'EMAIL_NOT_VERIFIED',
+            'An account already exists with this email address. Please verify your email with your identity provider or sign in with your original method.',
+            403
+          );
+        }
+        existing = emailMatch;
+      }
+    }
+
+    // If no existing user, block unverified collision with another user's email
+    if (existing.rows.length === 0 && !tokenEmail && validated.email) {
+      const collision = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [validated.email.toLowerCase().trim()]);
+      if (collision.rows.length > 0) {
+        return sendError(res, 'FORBIDDEN', 'Email address is already in use by another account.', 403);
       }
     }
 
@@ -337,8 +368,8 @@ const handleSyncUser = async (req: Request, res: Response, next: any) => {
         // If user already exists (e.g. concurrent request or unique email constraint), fetch and update existing
         const retry = await query(
           `SELECT id, username, email, name, phone, locality, address_text, pincode, latitude, longitude, rating, avatar_url, banner_url, bio, trust_score, role, firebase_uid, COALESCE(is_verified, FALSE) AS is_verified, COALESCE(saved_locations, '[]'::jsonb) AS saved_locations, created_at
-           FROM users WHERE firebase_uid = $1 OR email = $2`,
-          [uid, email]
+           FROM users WHERE firebase_uid = $1 ${isEmailVerified && tokenEmail ? 'OR LOWER(email) = LOWER($2)' : ''}`,
+          isEmailVerified && tokenEmail ? [uid, tokenEmail] : [uid]
         );
         if (retry.rows.length > 0) {
           user = retry.rows[0];

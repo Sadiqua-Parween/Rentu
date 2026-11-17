@@ -76,10 +76,10 @@ async function resolveUserFromToken(token: string): Promise<AuthUser | null> {
   try {
     const decoded = jwt.verify(token, ENV.JWT_SECRET) as AuthUser;
     if (decoded && decoded.id) {
-      // Verify user in database or match by email
+      // Verify user in database by strict ID
       const checkRes = await query(
-        'SELECT id, email, role, name FROM users WHERE id = $1 OR (email = $2 AND email IS NOT NULL)',
-        [decoded.id, decoded.email || '']
+        'SELECT id, email, role, name FROM users WHERE id = $1',
+        [decoded.id]
       );
       if (checkRes.rows.length > 0) {
         const u = checkRes.rows[0];
@@ -99,12 +99,22 @@ async function resolveUserFromToken(token: string): Promise<AuthUser | null> {
 
     if (decodedToken && decodedToken.uid) {
       const firebaseUid = decodedToken.uid;
-      const email = decodedToken.email || `${firebaseUid}@firebase.rentu.internal`;
+      const isEmailVerified = Boolean(decodedToken.email_verified);
+      const tokenEmail = decodedToken.email ? decodedToken.email.toLowerCase().trim() : null;
 
-      const userRes = await query(
-        'SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $2 OR (email = $3 AND email IS NOT NULL)',
-        [firebaseUid, firebaseUid, email]
+      // 1. Match by verified firebase_uid
+      let userRes = await query(
+        'SELECT id, email, role, name FROM users WHERE firebase_uid = $1 OR id = $1',
+        [firebaseUid]
       );
+
+      // 2. Only match by email IF the email is cryptographically verified by Firebase
+      if (userRes.rows.length === 0 && tokenEmail && isEmailVerified) {
+        userRes = await query(
+          'SELECT id, email, role, name FROM users WHERE LOWER(email) = LOWER($1)',
+          [tokenEmail]
+        );
+      }
 
       // If user exists in database, return authenticated user
       if (userRes.rows.length > 0) {
@@ -112,8 +122,21 @@ async function resolveUserFromToken(token: string): Promise<AuthUser | null> {
         return { id: u.id, email: u.email, role: u.role, name: u.name };
       }
 
+      // Anti-Account-Takeover: Block unverified email from colliding with an existing account
+      if (tokenEmail && !isEmailVerified) {
+        const conflict = await query(
+          'SELECT id FROM users WHERE LOWER(email) = LOWER($1)',
+          [tokenEmail]
+        );
+        if (conflict.rows.length > 0) {
+          console.warn(`Blocked unverified email collision attempt for ${tokenEmail}`);
+          return null;
+        }
+      }
+
       // Auto-provision verified Firebase user in database
       try {
+        const email = tokenEmail || `${firebaseUid}@firebase.rentu.internal`;
         const displayName = (decodedToken as any).name || email.split('@')[0] || 'Rentu Member';
         const rawUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '');
         const autoUsername = `${rawUsername.slice(0, 18)}_${Date.now().toString().slice(-4)}`;
@@ -122,7 +145,6 @@ async function resolveUserFromToken(token: string): Promise<AuthUser | null> {
         const created = await query(
           `INSERT INTO users (id, firebase_uid, email, name, username, locality, avatar_url, bio, role)
            VALUES ($1, $2, $3, $4, $5, '', $6, 'Member of the Rentu gear sharing community', 'USER')
-           ON CONFLICT (email) DO UPDATE SET firebase_uid = EXCLUDED.firebase_uid
            RETURNING id, email, role, name`,
           [firebaseUid, firebaseUid, email, displayName, autoUsername, defaultAvatar]
         );
@@ -192,14 +214,20 @@ export const optionalAuthMiddleware = async (
   next();
 };
 
-export const AUTHORIZED_ADMIN_EMAILS = [
-  'falaksadiqua786@gmail.com',
-  'rajsamriddhi60@gmail.com',
-];
+export const getAuthorizedAdminEmails = (): string[] => {
+  const defaults = ['falaksadiqua786@gmail.com', 'rajsamriddhi60@gmail.com'];
+  const envAdmins = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return Array.from(new Set([...defaults, ...envAdmins]));
+};
+
+export const AUTHORIZED_ADMIN_EMAILS = getAuthorizedAdminEmails();
 
 export const isAdminEmail = (email?: string | null): boolean => {
   if (!email) return false;
-  return AUTHORIZED_ADMIN_EMAILS.includes(email.trim().toLowerCase());
+  return getAuthorizedAdminEmails().includes(email.trim().toLowerCase());
 };
 
 export const adminMiddleware = async (

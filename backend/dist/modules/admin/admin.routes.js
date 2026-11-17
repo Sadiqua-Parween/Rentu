@@ -483,6 +483,10 @@ router.get('/reports', async (req, res, next) => {
 // 13. DANGER ZONE: FACTORY RESET SYSTEM (Wipe all database records and Firebase Auth users)
 router.post('/reset-system', async (req, res, next) => {
     try {
+        // Permanently protect production data against catastrophic wipes
+        if (process.env.NODE_ENV === 'production' || process.env.VERCEL || process.env.ALLOW_FACTORY_RESET !== 'true') {
+            return (0, response_1.sendError)(res, 'FORBIDDEN', 'Factory reset is permanently disabled in production environments for data safety.', 403);
+        }
         const { confirm_phrase } = req.body;
         if (!confirm_phrase || String(confirm_phrase).trim().toUpperCase() !== 'RESET_ENTIRE_DATABASE') {
             return (0, response_1.sendError)(res, 'BAD_REQUEST', 'Confirmation phrase RESET_ENTIRE_DATABASE is required to execute factory reset.', 400);
