@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Router, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { ENV } from '../../config/env';
@@ -76,6 +77,39 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
     const safeFolder = ['items', 'avatars', 'banners', 'requests', 'chat', 'chat_videos', 'chat_photos', 'chat_files', 'chat_docs'].includes(folder) ? folder : 'items';
     const storagePath = `${safeFolder}/${req.user?.id || 'member'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${safeName}`;
+
+    // Cloudinary Upload (Preferred primary media storage)
+    if (ENV.CLOUDINARY_CLOUD_NAME && ENV.CLOUDINARY_API_KEY && ENV.CLOUDINARY_API_SECRET) {
+      try {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const strToSign = `folder=${safeFolder}&timestamp=${timestamp}${ENV.CLOUDINARY_API_SECRET}`;
+        const signature = crypto.createHash('sha1').update(strToSign).digest('hex');
+
+        const formData = new URLSearchParams();
+        formData.append('file', `data:${cleanContentType};base64,${cleanBase64}`);
+        formData.append('api_key', ENV.CLOUDINARY_API_KEY);
+        formData.append('timestamp', timestamp.toString());
+        formData.append('signature', signature);
+        formData.append('folder', safeFolder);
+
+        const resCloudinary = await fetch(`https://api.cloudinary.com/v1_1/${ENV.CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const dataCloudinary = await resCloudinary.json();
+        if (dataCloudinary.secure_url) {
+          return sendSuccess(res, {
+            publicUrl: dataCloudinary.secure_url,
+            url: dataCloudinary.secure_url,
+            path: dataCloudinary.public_id,
+          });
+        }
+        console.warn('Cloudinary upload warning, falling back to Supabase:', dataCloudinary.error?.message || dataCloudinary);
+      } catch (cloudErr: any) {
+        console.warn('Cloudinary upload threw error, falling back to Supabase:', cloudErr?.message || cloudErr);
+      }
+    }
 
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)

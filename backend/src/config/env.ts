@@ -48,4 +48,7 @@ export const ENV = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   GEMINI_API_KEY: isPlaceholderKey ? '' : rawGeminiKey,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
 };

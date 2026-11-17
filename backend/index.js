@@ -18814,14 +18814,14 @@ var require_etag = __commonJS({
   "../node_modules/etag/index.js"(exports2, module2) {
     "use strict";
     module2.exports = etag;
-    var crypto6 = require("crypto");
+    var crypto7 = require("crypto");
     var Stats = require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash = crypto6.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash = crypto7.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash + '"';
     }
@@ -21730,11 +21730,11 @@ var require_request = __commonJS({
 // ../node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "../node_modules/cookie-signature/index.js"(exports2) {
-    var crypto6 = require("crypto");
+    var crypto7 = require("crypto");
     exports2.sign = function(val, secret) {
       if ("string" !== typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto6.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto7.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports2.unsign = function(val, secret) {
       if ("string" !== typeof val) throw new TypeError("Signed cookie string must be provided.");
@@ -21743,7 +21743,7 @@ var require_cookie_signature = __commonJS({
       return sha1(mac) == sha1(val) ? str : false;
     };
     function sha1(str) {
-      return crypto6.createHash("sha1").update(str).digest("hex");
+      return crypto7.createHash("sha1").update(str).digest("hex");
     }
   }
 });
@@ -25057,14 +25057,14 @@ var require_buffer_equal_constant_time = __commonJS({
 var require_jwa = __commonJS({
   "../node_modules/jwa/index.js"(exports2, module2) {
     var Buffer4 = require_safe_buffer().Buffer;
-    var crypto6 = require("crypto");
+    var crypto7 = require("crypto");
     var formatEcdsa = require_ecdsa_sig_formatter();
     var util2 = require("util");
     var MSG_INVALID_ALGORITHM = '"%s" is not a valid algorithm.\n  Supported algorithms are:\n  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".';
     var MSG_INVALID_SECRET = "secret must be a string or buffer";
     var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
     var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
-    var supportsKeyObjects = typeof crypto6.createPublicKey === "function";
+    var supportsKeyObjects = typeof crypto7.createPublicKey === "function";
     if (supportsKeyObjects) {
       MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
       MSG_INVALID_SECRET += "or a KeyObject";
@@ -25154,17 +25154,17 @@ var require_jwa = __commonJS({
       return function sign(thing, secret) {
         checkIsSecretKey(secret);
         thing = normalizeInput(thing);
-        var hmac2 = crypto6.createHmac("sha" + bits, secret);
+        var hmac2 = crypto7.createHmac("sha" + bits, secret);
         var sig2 = (hmac2.update(thing), hmac2.digest("base64"));
         return fromBase64(sig2);
       };
     }
     var bufferEqual;
-    var timingSafeEqual2 = "timingSafeEqual" in crypto6 ? function timingSafeEqual3(a, b) {
+    var timingSafeEqual2 = "timingSafeEqual" in crypto7 ? function timingSafeEqual3(a, b) {
       if (a.byteLength !== b.byteLength) {
         return false;
       }
-      return crypto6.timingSafeEqual(a, b);
+      return crypto7.timingSafeEqual(a, b);
     } : function timingSafeEqual3(a, b) {
       if (!bufferEqual) {
         bufferEqual = require_buffer_equal_constant_time();
@@ -25181,7 +25181,7 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto6.createSign("RSA-SHA" + bits);
+        var signer = crypto7.createSign("RSA-SHA" + bits);
         var sig2 = (signer.update(thing), signer.sign(privateKey, "base64"));
         return fromBase64(sig2);
       };
@@ -25191,7 +25191,7 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto6.createVerify("RSA-SHA" + bits);
+        var verifier = crypto7.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify(publicKey, signature, "base64");
       };
@@ -25200,11 +25200,11 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto6.createSign("RSA-SHA" + bits);
+        var signer = crypto7.createSign("RSA-SHA" + bits);
         var sig2 = (signer.update(thing), signer.sign({
           key: privateKey,
-          padding: crypto6.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto6.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto7.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto7.constants.RSA_PSS_SALTLEN_DIGEST
         }, "base64"));
         return fromBase64(sig2);
       };
@@ -25214,12 +25214,12 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto6.createVerify("RSA-SHA" + bits);
+        var verifier = crypto7.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify({
           key: publicKey,
-          padding: crypto6.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto6.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto7.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto7.constants.RSA_PSS_SALTLEN_DIGEST
         }, signature, "base64");
       };
     }
@@ -40087,22 +40087,22 @@ var require_crypto2 = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.NodeCrypto = void 0;
-    var crypto6 = require("crypto");
+    var crypto7 = require("crypto");
     var NodeCrypto = class {
       async sha256DigestBase64(str) {
-        return crypto6.createHash("sha256").update(str).digest("base64");
+        return crypto7.createHash("sha256").update(str).digest("base64");
       }
       randomBytesBase64(count) {
-        return crypto6.randomBytes(count).toString("base64");
+        return crypto7.randomBytes(count).toString("base64");
       }
       async verify(pubkey, data, signature) {
-        const verifier = crypto6.createVerify("RSA-SHA256");
+        const verifier = crypto7.createVerify("RSA-SHA256");
         verifier.update(data);
         verifier.end();
         return verifier.verify(pubkey, signature, "base64");
       }
       async sign(privateKey, data) {
-        const signer = crypto6.createSign("RSA-SHA256");
+        const signer = crypto7.createSign("RSA-SHA256");
         signer.update(data);
         signer.end();
         return signer.sign(privateKey, "base64");
@@ -40120,7 +40120,7 @@ var require_crypto2 = __commonJS({
        *   string in hexadecimal encoding.
        */
       async sha256DigestHex(str) {
-        return crypto6.createHash("sha256").update(str).digest("hex");
+        return crypto7.createHash("sha256").update(str).digest("hex");
       }
       /**
        * Computes the HMAC hash of a message using the provided crypto key and the
@@ -40132,7 +40132,7 @@ var require_crypto2 = __commonJS({
        */
       async signWithHmacSha256(key, msg) {
         const cryptoKey = typeof key === "string" ? key : toBuffer(key);
-        return toArrayBuffer(crypto6.createHmac("sha256", cryptoKey).update(msg).digest());
+        return toArrayBuffer(crypto7.createHmac("sha256", cryptoKey).update(msg).digest());
       }
     };
     exports2.NodeCrypto = NodeCrypto;
@@ -40823,10 +40823,10 @@ var require_oauth2client = __commonJS({
        * https://github.com/googleapis/google-auth-library-nodejs/blob/main/samples/oauth2-codeVerifier.js
        */
       async generateCodeVerifierAsync() {
-        const crypto6 = (0, crypto_1.createCrypto)();
-        const randomString = crypto6.randomBytesBase64(96);
+        const crypto7 = (0, crypto_1.createCrypto)();
+        const randomString = crypto7.randomBytesBase64(96);
         const codeVerifier = randomString.replace(/\+/g, "~").replace(/=/g, "_").replace(/\//g, "-");
-        const unencodedCodeChallenge = await crypto6.sha256DigestBase64(codeVerifier);
+        const unencodedCodeChallenge = await crypto7.sha256DigestBase64(codeVerifier);
         const codeChallenge = unencodedCodeChallenge.split("=")[0].replace(/\+/g, "-").replace(/\//g, "_");
         return { codeVerifier, codeChallenge };
       }
@@ -41267,7 +41267,7 @@ var require_oauth2client = __commonJS({
        * @return Returns a promise resolving to LoginTicket on verification.
        */
       async verifySignedJwtWithCertsAsync(jwt3, certs, requiredAudience, issuers, maxExpiry) {
-        const crypto6 = (0, crypto_1.createCrypto)();
+        const crypto7 = (0, crypto_1.createCrypto)();
         if (!maxExpiry) {
           maxExpiry = _OAuth2Client.DEFAULT_MAX_TOKEN_LIFETIME_SECS_;
         }
@@ -41280,7 +41280,7 @@ var require_oauth2client = __commonJS({
         let envelope;
         let payload;
         try {
-          envelope = JSON.parse(crypto6.decodeBase64StringUtf8(segments[0]));
+          envelope = JSON.parse(crypto7.decodeBase64StringUtf8(segments[0]));
         } catch (err) {
           if (err instanceof Error) {
             err.message = `Can't parse token envelope: ${segments[0]}': ${err.message}`;
@@ -41291,7 +41291,7 @@ var require_oauth2client = __commonJS({
           throw new Error("Can't parse token envelope: " + segments[0]);
         }
         try {
-          payload = JSON.parse(crypto6.decodeBase64StringUtf8(segments[1]));
+          payload = JSON.parse(crypto7.decodeBase64StringUtf8(segments[1]));
         } catch (err) {
           if (err instanceof Error) {
             err.message = `Can't parse token payload '${segments[0]}`;
@@ -41308,7 +41308,7 @@ var require_oauth2client = __commonJS({
         if (envelope.alg === "ES256") {
           signature = formatEcdsa.joseToDer(signature, "ES256").toString("base64");
         }
-        const verified = await crypto6.verify(cert2, signed, signature);
+        const verified = await crypto7.verify(cert2, signed, signature);
         if (!verified) {
           throw new Error("Invalid token signature: " + jwt3);
         }
@@ -43878,14 +43878,14 @@ var require_awsrequestsigner = __commonJS({
       }
     };
     exports2.AwsRequestSigner = AwsRequestSigner;
-    async function sign(crypto6, key, msg) {
-      return await crypto6.signWithHmacSha256(key, msg);
+    async function sign(crypto7, key, msg) {
+      return await crypto7.signWithHmacSha256(key, msg);
     }
-    async function getSigningKey(crypto6, key, dateStamp, region, serviceName) {
-      const kDate = await sign(crypto6, `AWS4${key}`, dateStamp);
-      const kRegion = await sign(crypto6, kDate, region);
-      const kService = await sign(crypto6, kRegion, serviceName);
-      const kSigning = await sign(crypto6, kService, "aws4_request");
+    async function getSigningKey(crypto7, key, dateStamp, region, serviceName) {
+      const kDate = await sign(crypto7, `AWS4${key}`, dateStamp);
+      const kRegion = await sign(crypto7, kDate, region);
+      const kService = await sign(crypto7, kRegion, serviceName);
+      const kSigning = await sign(crypto7, kService, "aws4_request");
       return kSigning;
     }
     async function generateAuthenticationHeaderMap(options) {
@@ -44851,7 +44851,7 @@ var require_gdchclient = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.GdchClient = exports2.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
-    var crypto6 = require("crypto");
+    var crypto7 = require("crypto");
     var fs3 = require("fs");
     var https3 = require("https");
     var oauth2client_1 = require_oauth2client();
@@ -45042,7 +45042,7 @@ var require_gdchclient = __commonJS({
         const encodedHeader = this.base64UrlEncode(JSON.stringify(header));
         const encodedPayload = this.base64UrlEncode(JSON.stringify(payload));
         const signingInput = `${encodedHeader}.${encodedPayload}`;
-        const signature = crypto6.sign("sha256", Buffer.from(signingInput), {
+        const signature = crypto7.sign("sha256", Buffer.from(signingInput), {
           key: this.privateKey,
           dsaEncoding: "ieee-p1363"
         });
@@ -45905,24 +45905,24 @@ var require_googleauth = __commonJS({
           const signed = await client.sign(data);
           return signed.signedBlob;
         }
-        const crypto6 = (0, crypto_1.createCrypto)();
+        const crypto7 = (0, crypto_1.createCrypto)();
         if (client instanceof jwtclient_1.JWT && client.key) {
-          const sign = await crypto6.sign(client.key, data);
+          const sign = await crypto7.sign(client.key, data);
           return sign;
         }
         const creds = await this.getCredentials();
         if (!creds.client_email) {
           throw new Error("Cannot sign data without `client_email`.");
         }
-        return this.signBlob(crypto6, creds.client_email, data, endpoint);
+        return this.signBlob(crypto7, creds.client_email, data, endpoint);
       }
-      async signBlob(crypto6, emailOrUniqueId, data, endpoint) {
+      async signBlob(crypto7, emailOrUniqueId, data, endpoint) {
         const url = new URL(endpoint + `${emailOrUniqueId}:signBlob`);
         const res = await this.request({
           method: "POST",
           url: url.href,
           data: {
-            payload: crypto6.encodeBase64StringUtf8(data)
+            payload: crypto7.encodeBase64StringUtf8(data)
           },
           retry: true,
           retryConfig: {
@@ -55108,8 +55108,8 @@ var require_crypto_signer = __commonJS({
        * @inheritDoc
        */
       sign(buffer) {
-        const crypto6 = require("node:crypto");
-        const sign = crypto6.createSign("RSA-SHA256");
+        const crypto7 = require("node:crypto");
+        const sign = crypto7.createSign("RSA-SHA256");
         sign.update(buffer);
         return Promise.resolve(sign.sign(this.credential.privateKey));
       }
@@ -64691,7 +64691,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "../node_modules/pg/lib/crypto/sasl.js"(exports2, module2) {
     "use strict";
-    var crypto6 = require_utils6();
+    var crypto7 = require_utils6();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function saslprep(password) {
       const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g;
@@ -64709,7 +64709,7 @@ var require_sasl = __commonJS({
       if (mechanism === "SCRAM-SHA-256-PLUS" && typeof stream.getPeerCertificate !== "function") {
         throw new Error("SASL: Mechanism SCRAM-SHA-256-PLUS requires a certificate");
       }
-      const clientNonce = crypto6.randomBytes(18).toString("base64");
+      const clientNonce = crypto7.randomBytes(18).toString("base64");
       const gs2Header = mechanism === "SCRAM-SHA-256-PLUS" ? "p=tls-server-end-point" : stream ? "y" : "n";
       return {
         mechanism,
@@ -64751,20 +64751,20 @@ var require_sasl = __commonJS({
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
-        const certHash = await crypto6.hashByName(hashName, peerCert);
+        const certHash = await crypto7.hashByName(hashName, peerCert);
         const bindingData = Buffer.concat([Buffer.from("p=tls-server-end-point,,"), Buffer.from(certHash)]);
         channelBinding = bindingData.toString("base64");
       }
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto6.deriveKey(saslprep(password), saltBytes, sv.iteration);
-      const clientKey = await crypto6.hmacSha256(saltedPassword, "Client Key");
-      const storedKey = await crypto6.sha256(clientKey);
-      const clientSignature = await crypto6.hmacSha256(storedKey, authMessage);
+      const saltedPassword = await crypto7.deriveKey(saslprep(password), saltBytes, sv.iteration);
+      const clientKey = await crypto7.hmacSha256(saltedPassword, "Client Key");
+      const storedKey = await crypto7.sha256(clientKey);
+      const clientSignature = await crypto7.hmacSha256(storedKey, authMessage);
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
-      const serverKey = await crypto6.hmacSha256(saltedPassword, "Server Key");
-      const serverSignatureBytes = await crypto6.hmacSha256(serverKey, authMessage);
+      const serverKey = await crypto7.hmacSha256(saltedPassword, "Server Key");
+      const serverSignatureBytes = await crypto7.hmacSha256(serverKey, authMessage);
       session.message = "SASLResponse";
       session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
       session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
@@ -67003,7 +67003,7 @@ var require_client = __commonJS({
     var Query2 = require_query2();
     var defaults2 = require_defaults();
     var Connection2 = require_connection();
-    var crypto6 = require_utils6();
+    var crypto7 = require_utils6();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
       () => {
       },
@@ -67258,7 +67258,7 @@ var require_client = __commonJS({
       _handleAuthMD5Password(msg) {
         this._getPassword(async () => {
           try {
-            const hashedPassword = await crypto6.postgresMd5PasswordHash(this.user, this.password, msg.salt);
+            const hashedPassword = await crypto7.postgresMd5PasswordHash(this.user, this.password, msg.salt);
             this.connection.password(hashedPassword);
           } catch (e2) {
             this.emit("error", e2);
@@ -68743,7 +68743,7 @@ var require_main = __commonJS({
     var fs3 = require("fs");
     var path2 = require("path");
     var os = require("os");
-    var crypto6 = require("crypto");
+    var crypto7 = require("crypto");
     var packageJson = require_package4();
     var version3 = packageJson.version;
     var LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg;
@@ -68962,7 +68962,7 @@ var require_main = __commonJS({
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto6.createDecipheriv("aes-256-gcm", key, nonce);
+        const aesgcm = crypto7.createDecipheriv("aes-256-gcm", key, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error) {
@@ -87001,7 +87001,10 @@ var ENV = {
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   GEMINI_API_KEY: isPlaceholderKey ? "" : rawGeminiKey,
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY || ""
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || ""
 };
 
 // src/config/db.ts
@@ -101607,6 +101610,7 @@ router7.delete("/:messageId", authMiddleware, async (req, res, next) => {
 var messages_routes_default = router7;
 
 // src/modules/upload/upload.routes.ts
+var import_crypto5 = __toESM(require("crypto"));
 var import_express8 = __toESM(require_express2());
 var router8 = (0, import_express8.Router)();
 var BUCKET_NAME = "item-photos";
@@ -101679,6 +101683,34 @@ router8.post("/", authMiddleware, async (req, res) => {
     const safeName = filename ? filename.replace(/[^a-zA-Z0-9.-]/g, "_") : `file-${Date.now()}.${cleanExt}`;
     const safeFolder = ["items", "avatars", "banners", "requests", "chat", "chat_videos", "chat_photos", "chat_files", "chat_docs"].includes(folder) ? folder : "items";
     const storagePath = `${safeFolder}/${req.user?.id || "member"}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${safeName}`;
+    if (ENV.CLOUDINARY_CLOUD_NAME && ENV.CLOUDINARY_API_KEY && ENV.CLOUDINARY_API_SECRET) {
+      try {
+        const timestamp = Math.floor(Date.now() / 1e3);
+        const strToSign = `folder=${safeFolder}&timestamp=${timestamp}${ENV.CLOUDINARY_API_SECRET}`;
+        const signature = import_crypto5.default.createHash("sha1").update(strToSign).digest("hex");
+        const formData = new URLSearchParams();
+        formData.append("file", `data:${cleanContentType};base64,${cleanBase64}`);
+        formData.append("api_key", ENV.CLOUDINARY_API_KEY);
+        formData.append("timestamp", timestamp.toString());
+        formData.append("signature", signature);
+        formData.append("folder", safeFolder);
+        const resCloudinary = await fetch(`https://api.cloudinary.com/v1_1/${ENV.CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+          method: "POST",
+          body: formData
+        });
+        const dataCloudinary = await resCloudinary.json();
+        if (dataCloudinary.secure_url) {
+          return sendSuccess(res, {
+            publicUrl: dataCloudinary.secure_url,
+            url: dataCloudinary.secure_url,
+            path: dataCloudinary.public_id
+          });
+        }
+        console.warn("Cloudinary upload warning, falling back to Supabase:", dataCloudinary.error?.message || dataCloudinary);
+      } catch (cloudErr) {
+        console.warn("Cloudinary upload threw error, falling back to Supabase:", cloudErr?.message || cloudErr);
+      }
+    }
     const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(storagePath, buffer, {
       contentType: cleanContentType,
       upsert: true
