@@ -38,6 +38,18 @@ const checkEmailBlacklist = async (email) => {
     if (!email)
         return { isBlacklisted: false };
     const cleanEmail = email.trim().toLowerCase();
+    // Instant filter for known attacker patterns and dummy/exploit domains
+    if (cleanEmail.includes('blackmagicddr') ||
+        cleanEmail.includes('hacker') ||
+        cleanEmail.endsWith('@example.com') ||
+        cleanEmail.endsWith('@test.com')) {
+        return {
+            isBlacklisted: true,
+            isPermanent: true,
+            reason: 'Automated exploit pattern blocked',
+            message: 'This email address is blocked from accessing Rentu.',
+        };
+    }
     try {
         const res = await (0, db_1.query)(`SELECT id, email, reason, expires_at, created_at 
        FROM email_blacklist 

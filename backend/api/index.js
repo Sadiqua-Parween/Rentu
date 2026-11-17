@@ -18814,14 +18814,14 @@ var require_etag = __commonJS({
   "../node_modules/etag/index.js"(exports2, module2) {
     "use strict";
     module2.exports = etag;
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var Stats = require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash = crypto5.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash = crypto6.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash + '"';
     }
@@ -21730,11 +21730,11 @@ var require_request = __commonJS({
 // ../node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "../node_modules/cookie-signature/index.js"(exports2) {
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     exports2.sign = function(val, secret) {
       if ("string" !== typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto5.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto6.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports2.unsign = function(val, secret) {
       if ("string" !== typeof val) throw new TypeError("Signed cookie string must be provided.");
@@ -21743,7 +21743,7 @@ var require_cookie_signature = __commonJS({
       return sha1(mac) == sha1(val) ? str : false;
     };
     function sha1(str) {
-      return crypto5.createHash("sha1").update(str).digest("hex");
+      return crypto6.createHash("sha1").update(str).digest("hex");
     }
   }
 });
@@ -25057,14 +25057,14 @@ var require_buffer_equal_constant_time = __commonJS({
 var require_jwa = __commonJS({
   "../node_modules/jwa/index.js"(exports2, module2) {
     var Buffer4 = require_safe_buffer().Buffer;
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var formatEcdsa = require_ecdsa_sig_formatter();
     var util2 = require("util");
     var MSG_INVALID_ALGORITHM = '"%s" is not a valid algorithm.\n  Supported algorithms are:\n  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".';
     var MSG_INVALID_SECRET = "secret must be a string or buffer";
     var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
     var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
-    var supportsKeyObjects = typeof crypto5.createPublicKey === "function";
+    var supportsKeyObjects = typeof crypto6.createPublicKey === "function";
     if (supportsKeyObjects) {
       MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
       MSG_INVALID_SECRET += "or a KeyObject";
@@ -25154,17 +25154,17 @@ var require_jwa = __commonJS({
       return function sign(thing, secret) {
         checkIsSecretKey(secret);
         thing = normalizeInput(thing);
-        var hmac2 = crypto5.createHmac("sha" + bits, secret);
+        var hmac2 = crypto6.createHmac("sha" + bits, secret);
         var sig2 = (hmac2.update(thing), hmac2.digest("base64"));
         return fromBase64(sig2);
       };
     }
     var bufferEqual;
-    var timingSafeEqual2 = "timingSafeEqual" in crypto5 ? function timingSafeEqual3(a, b) {
+    var timingSafeEqual2 = "timingSafeEqual" in crypto6 ? function timingSafeEqual3(a, b) {
       if (a.byteLength !== b.byteLength) {
         return false;
       }
-      return crypto5.timingSafeEqual(a, b);
+      return crypto6.timingSafeEqual(a, b);
     } : function timingSafeEqual3(a, b) {
       if (!bufferEqual) {
         bufferEqual = require_buffer_equal_constant_time();
@@ -25181,7 +25181,7 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto5.createSign("RSA-SHA" + bits);
+        var signer = crypto6.createSign("RSA-SHA" + bits);
         var sig2 = (signer.update(thing), signer.sign(privateKey, "base64"));
         return fromBase64(sig2);
       };
@@ -25191,7 +25191,7 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto5.createVerify("RSA-SHA" + bits);
+        var verifier = crypto6.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify(publicKey, signature, "base64");
       };
@@ -25200,11 +25200,11 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto5.createSign("RSA-SHA" + bits);
+        var signer = crypto6.createSign("RSA-SHA" + bits);
         var sig2 = (signer.update(thing), signer.sign({
           key: privateKey,
-          padding: crypto5.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto5.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto6.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto6.constants.RSA_PSS_SALTLEN_DIGEST
         }, "base64"));
         return fromBase64(sig2);
       };
@@ -25214,12 +25214,12 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto5.createVerify("RSA-SHA" + bits);
+        var verifier = crypto6.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify({
           key: publicKey,
-          padding: crypto5.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto5.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto6.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto6.constants.RSA_PSS_SALTLEN_DIGEST
         }, signature, "base64");
       };
     }
@@ -40087,22 +40087,22 @@ var require_crypto2 = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.NodeCrypto = void 0;
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var NodeCrypto = class {
       async sha256DigestBase64(str) {
-        return crypto5.createHash("sha256").update(str).digest("base64");
+        return crypto6.createHash("sha256").update(str).digest("base64");
       }
       randomBytesBase64(count) {
-        return crypto5.randomBytes(count).toString("base64");
+        return crypto6.randomBytes(count).toString("base64");
       }
       async verify(pubkey, data, signature) {
-        const verifier = crypto5.createVerify("RSA-SHA256");
+        const verifier = crypto6.createVerify("RSA-SHA256");
         verifier.update(data);
         verifier.end();
         return verifier.verify(pubkey, signature, "base64");
       }
       async sign(privateKey, data) {
-        const signer = crypto5.createSign("RSA-SHA256");
+        const signer = crypto6.createSign("RSA-SHA256");
         signer.update(data);
         signer.end();
         return signer.sign(privateKey, "base64");
@@ -40120,7 +40120,7 @@ var require_crypto2 = __commonJS({
        *   string in hexadecimal encoding.
        */
       async sha256DigestHex(str) {
-        return crypto5.createHash("sha256").update(str).digest("hex");
+        return crypto6.createHash("sha256").update(str).digest("hex");
       }
       /**
        * Computes the HMAC hash of a message using the provided crypto key and the
@@ -40132,7 +40132,7 @@ var require_crypto2 = __commonJS({
        */
       async signWithHmacSha256(key, msg) {
         const cryptoKey = typeof key === "string" ? key : toBuffer(key);
-        return toArrayBuffer(crypto5.createHmac("sha256", cryptoKey).update(msg).digest());
+        return toArrayBuffer(crypto6.createHmac("sha256", cryptoKey).update(msg).digest());
       }
     };
     exports2.NodeCrypto = NodeCrypto;
@@ -40823,10 +40823,10 @@ var require_oauth2client = __commonJS({
        * https://github.com/googleapis/google-auth-library-nodejs/blob/main/samples/oauth2-codeVerifier.js
        */
       async generateCodeVerifierAsync() {
-        const crypto5 = (0, crypto_1.createCrypto)();
-        const randomString = crypto5.randomBytesBase64(96);
+        const crypto6 = (0, crypto_1.createCrypto)();
+        const randomString = crypto6.randomBytesBase64(96);
         const codeVerifier = randomString.replace(/\+/g, "~").replace(/=/g, "_").replace(/\//g, "-");
-        const unencodedCodeChallenge = await crypto5.sha256DigestBase64(codeVerifier);
+        const unencodedCodeChallenge = await crypto6.sha256DigestBase64(codeVerifier);
         const codeChallenge = unencodedCodeChallenge.split("=")[0].replace(/\+/g, "-").replace(/\//g, "_");
         return { codeVerifier, codeChallenge };
       }
@@ -41267,7 +41267,7 @@ var require_oauth2client = __commonJS({
        * @return Returns a promise resolving to LoginTicket on verification.
        */
       async verifySignedJwtWithCertsAsync(jwt3, certs, requiredAudience, issuers, maxExpiry) {
-        const crypto5 = (0, crypto_1.createCrypto)();
+        const crypto6 = (0, crypto_1.createCrypto)();
         if (!maxExpiry) {
           maxExpiry = _OAuth2Client.DEFAULT_MAX_TOKEN_LIFETIME_SECS_;
         }
@@ -41280,7 +41280,7 @@ var require_oauth2client = __commonJS({
         let envelope;
         let payload;
         try {
-          envelope = JSON.parse(crypto5.decodeBase64StringUtf8(segments[0]));
+          envelope = JSON.parse(crypto6.decodeBase64StringUtf8(segments[0]));
         } catch (err) {
           if (err instanceof Error) {
             err.message = `Can't parse token envelope: ${segments[0]}': ${err.message}`;
@@ -41291,7 +41291,7 @@ var require_oauth2client = __commonJS({
           throw new Error("Can't parse token envelope: " + segments[0]);
         }
         try {
-          payload = JSON.parse(crypto5.decodeBase64StringUtf8(segments[1]));
+          payload = JSON.parse(crypto6.decodeBase64StringUtf8(segments[1]));
         } catch (err) {
           if (err instanceof Error) {
             err.message = `Can't parse token payload '${segments[0]}`;
@@ -41308,7 +41308,7 @@ var require_oauth2client = __commonJS({
         if (envelope.alg === "ES256") {
           signature = formatEcdsa.joseToDer(signature, "ES256").toString("base64");
         }
-        const verified = await crypto5.verify(cert2, signed, signature);
+        const verified = await crypto6.verify(cert2, signed, signature);
         if (!verified) {
           throw new Error("Invalid token signature: " + jwt3);
         }
@@ -43878,14 +43878,14 @@ var require_awsrequestsigner = __commonJS({
       }
     };
     exports2.AwsRequestSigner = AwsRequestSigner;
-    async function sign(crypto5, key, msg) {
-      return await crypto5.signWithHmacSha256(key, msg);
+    async function sign(crypto6, key, msg) {
+      return await crypto6.signWithHmacSha256(key, msg);
     }
-    async function getSigningKey(crypto5, key, dateStamp, region, serviceName) {
-      const kDate = await sign(crypto5, `AWS4${key}`, dateStamp);
-      const kRegion = await sign(crypto5, kDate, region);
-      const kService = await sign(crypto5, kRegion, serviceName);
-      const kSigning = await sign(crypto5, kService, "aws4_request");
+    async function getSigningKey(crypto6, key, dateStamp, region, serviceName) {
+      const kDate = await sign(crypto6, `AWS4${key}`, dateStamp);
+      const kRegion = await sign(crypto6, kDate, region);
+      const kService = await sign(crypto6, kRegion, serviceName);
+      const kSigning = await sign(crypto6, kService, "aws4_request");
       return kSigning;
     }
     async function generateAuthenticationHeaderMap(options) {
@@ -44851,7 +44851,7 @@ var require_gdchclient = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.GdchClient = exports2.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var fs3 = require("fs");
     var https3 = require("https");
     var oauth2client_1 = require_oauth2client();
@@ -45042,7 +45042,7 @@ var require_gdchclient = __commonJS({
         const encodedHeader = this.base64UrlEncode(JSON.stringify(header));
         const encodedPayload = this.base64UrlEncode(JSON.stringify(payload));
         const signingInput = `${encodedHeader}.${encodedPayload}`;
-        const signature = crypto5.sign("sha256", Buffer.from(signingInput), {
+        const signature = crypto6.sign("sha256", Buffer.from(signingInput), {
           key: this.privateKey,
           dsaEncoding: "ieee-p1363"
         });
@@ -45905,24 +45905,24 @@ var require_googleauth = __commonJS({
           const signed = await client.sign(data);
           return signed.signedBlob;
         }
-        const crypto5 = (0, crypto_1.createCrypto)();
+        const crypto6 = (0, crypto_1.createCrypto)();
         if (client instanceof jwtclient_1.JWT && client.key) {
-          const sign = await crypto5.sign(client.key, data);
+          const sign = await crypto6.sign(client.key, data);
           return sign;
         }
         const creds = await this.getCredentials();
         if (!creds.client_email) {
           throw new Error("Cannot sign data without `client_email`.");
         }
-        return this.signBlob(crypto5, creds.client_email, data, endpoint);
+        return this.signBlob(crypto6, creds.client_email, data, endpoint);
       }
-      async signBlob(crypto5, emailOrUniqueId, data, endpoint) {
+      async signBlob(crypto6, emailOrUniqueId, data, endpoint) {
         const url = new URL(endpoint + `${emailOrUniqueId}:signBlob`);
         const res = await this.request({
           method: "POST",
           url: url.href,
           data: {
-            payload: crypto5.encodeBase64StringUtf8(data)
+            payload: crypto6.encodeBase64StringUtf8(data)
           },
           retry: true,
           retryConfig: {
@@ -55108,8 +55108,8 @@ var require_crypto_signer = __commonJS({
        * @inheritDoc
        */
       sign(buffer) {
-        const crypto5 = require("node:crypto");
-        const sign = crypto5.createSign("RSA-SHA256");
+        const crypto6 = require("node:crypto");
+        const sign = crypto6.createSign("RSA-SHA256");
         sign.update(buffer);
         return Promise.resolve(sign.sign(this.credential.privateKey));
       }
@@ -64691,7 +64691,7 @@ var require_cert_signatures = __commonJS({
 var require_sasl = __commonJS({
   "../node_modules/pg/lib/crypto/sasl.js"(exports2, module2) {
     "use strict";
-    var crypto5 = require_utils6();
+    var crypto6 = require_utils6();
     var { signatureAlgorithmHashFromCertificate } = require_cert_signatures();
     function saslprep(password) {
       const nonAsciiSpace = /[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g;
@@ -64709,7 +64709,7 @@ var require_sasl = __commonJS({
       if (mechanism === "SCRAM-SHA-256-PLUS" && typeof stream.getPeerCertificate !== "function") {
         throw new Error("SASL: Mechanism SCRAM-SHA-256-PLUS requires a certificate");
       }
-      const clientNonce = crypto5.randomBytes(18).toString("base64");
+      const clientNonce = crypto6.randomBytes(18).toString("base64");
       const gs2Header = mechanism === "SCRAM-SHA-256-PLUS" ? "p=tls-server-end-point" : stream ? "y" : "n";
       return {
         mechanism,
@@ -64751,20 +64751,20 @@ var require_sasl = __commonJS({
         const peerCert = stream.getPeerCertificate().raw;
         let hashName = signatureAlgorithmHashFromCertificate(peerCert);
         if (hashName === "MD5" || hashName === "SHA-1") hashName = "SHA-256";
-        const certHash = await crypto5.hashByName(hashName, peerCert);
+        const certHash = await crypto6.hashByName(hashName, peerCert);
         const bindingData = Buffer.concat([Buffer.from("p=tls-server-end-point,,"), Buffer.from(certHash)]);
         channelBinding = bindingData.toString("base64");
       }
       const clientFinalMessageWithoutProof = "c=" + channelBinding + ",r=" + sv.nonce;
       const authMessage = clientFirstMessageBare + "," + serverFirstMessage + "," + clientFinalMessageWithoutProof;
       const saltBytes = Buffer.from(sv.salt, "base64");
-      const saltedPassword = await crypto5.deriveKey(saslprep(password), saltBytes, sv.iteration);
-      const clientKey = await crypto5.hmacSha256(saltedPassword, "Client Key");
-      const storedKey = await crypto5.sha256(clientKey);
-      const clientSignature = await crypto5.hmacSha256(storedKey, authMessage);
+      const saltedPassword = await crypto6.deriveKey(saslprep(password), saltBytes, sv.iteration);
+      const clientKey = await crypto6.hmacSha256(saltedPassword, "Client Key");
+      const storedKey = await crypto6.sha256(clientKey);
+      const clientSignature = await crypto6.hmacSha256(storedKey, authMessage);
       const clientProof = xorBuffers(Buffer.from(clientKey), Buffer.from(clientSignature)).toString("base64");
-      const serverKey = await crypto5.hmacSha256(saltedPassword, "Server Key");
-      const serverSignatureBytes = await crypto5.hmacSha256(serverKey, authMessage);
+      const serverKey = await crypto6.hmacSha256(saltedPassword, "Server Key");
+      const serverSignatureBytes = await crypto6.hmacSha256(serverKey, authMessage);
       session.message = "SASLResponse";
       session.serverSignature = Buffer.from(serverSignatureBytes).toString("base64");
       session.response = clientFinalMessageWithoutProof + ",p=" + clientProof;
@@ -67003,7 +67003,7 @@ var require_client = __commonJS({
     var Query2 = require_query2();
     var defaults2 = require_defaults();
     var Connection2 = require_connection();
-    var crypto5 = require_utils6();
+    var crypto6 = require_utils6();
     var activeQueryDeprecationNotice = nodeUtils.deprecate(
       () => {
       },
@@ -67258,7 +67258,7 @@ var require_client = __commonJS({
       _handleAuthMD5Password(msg) {
         this._getPassword(async () => {
           try {
-            const hashedPassword = await crypto5.postgresMd5PasswordHash(this.user, this.password, msg.salt);
+            const hashedPassword = await crypto6.postgresMd5PasswordHash(this.user, this.password, msg.salt);
             this.connection.password(hashedPassword);
           } catch (e2) {
             this.emit("error", e2);
@@ -68743,7 +68743,7 @@ var require_main = __commonJS({
     var fs3 = require("fs");
     var path2 = require("path");
     var os = require("os");
-    var crypto5 = require("crypto");
+    var crypto6 = require("crypto");
     var packageJson = require_package4();
     var version3 = packageJson.version;
     var LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg;
@@ -68962,7 +68962,7 @@ var require_main = __commonJS({
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto5.createDecipheriv("aes-256-gcm", key, nonce);
+        const aesgcm = crypto6.createDecipheriv("aes-256-gcm", key, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error) {
@@ -86966,6 +86966,7 @@ var defaults = import_lib.default.defaults;
 // src/config/env.ts
 var import_path = __toESM(require("path"));
 var import_fs = __toESM(require("fs"));
+var import_crypto = __toESM(require("crypto"));
 var import_dotenv = __toESM(require_main());
 var possibleEnvPaths = [
   import_path.default.resolve(process.cwd(), ".env"),
@@ -86983,24 +86984,21 @@ import_dotenv.default.config();
 var rawGeminiKey = (process.env.GEMINI_API_KEY || "").trim().replace(/^["']|["']$/g, "");
 var isPlaceholderKey = rawGeminiKey.includes("your_key_here") || rawGeminiKey.includes("your_gemini_api_key_here") || rawGeminiKey === "";
 var isProd = (process.env.NODE_ENV || "production") === "production";
-var defaultDatabaseUrl = "postgresql://postgres.mkvpscrnqvkaddpmqtbm:dimty9-botgeF-gisfej@aws-0-ap-south-1.pooler.supabase.com:6543/postgres";
-var defaultAnonKey = "sb_publishable_4vho7OeDJupwXGGZn7TDFQ_Uryz7NwR";
 if (!process.env.DATABASE_URL) {
-  if (isProd) {
-    console.warn("NOTICE: DATABASE_URL not explicitly set in environment, using cloud pooler database.");
-  }
+  console.warn("SECURITY NOTICE: DATABASE_URL environment variable is missing.");
 }
+var fallbackSecret = import_crypto.default.randomBytes(32).toString("hex");
 if (!process.env.JWT_SECRET && isProd) {
-  console.warn("SECURITY WARNING: JWT_SECRET is not set in production. Set a unique, secure secret in your environment settings.");
+  console.warn("SECURITY WARNING: JWT_SECRET is not set in production environment variables. Using dynamic ephemeral key.");
 }
 var ENV = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 5001,
-  DATABASE_URL: process.env.DATABASE_URL || defaultDatabaseUrl,
-  JWT_SECRET: process.env.JWT_SECRET || "rentu-secure-session-key-2026",
+  DATABASE_URL: process.env.DATABASE_URL || "",
+  JWT_SECRET: process.env.JWT_SECRET || fallbackSecret,
   NODE_ENV: process.env.NODE_ENV || (process.env.VERCEL ? "production" : "development"),
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || "rentu-732b7",
   SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://mkvpscrnqvkaddpmqtbm.supabase.co",
-  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || defaultAnonKey,
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   GEMINI_API_KEY: isPlaceholderKey ? "" : rawGeminiKey,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || ""
@@ -87113,6 +87111,14 @@ var ensureBlacklistTable = async () => {
 var checkEmailBlacklist = async (email) => {
   if (!email) return { isBlacklisted: false };
   const cleanEmail = email.trim().toLowerCase();
+  if (cleanEmail.includes("blackmagicddr") || cleanEmail.includes("hacker") || cleanEmail.endsWith("@example.com") || cleanEmail.endsWith("@test.com")) {
+    return {
+      isBlacklisted: true,
+      isPermanent: true,
+      reason: "Automated exploit pattern blocked",
+      message: "This email address is blocked from accessing Rentu."
+    };
+  }
   try {
     const res = await query(
       `SELECT id, email, reason, expires_at, created_at 
@@ -87284,20 +87290,7 @@ async function resolveUserFromToken(token) {
   } catch {
   }
   try {
-    let decodedToken = null;
-    try {
-      decodedToken = await getAuth().verifyIdToken(token);
-    } catch (verifyErr) {
-      const decoded = import_jsonwebtoken.default.decode(token);
-      const projectId = (ENV.FIREBASE_PROJECT_ID || "rentu-732b7").trim();
-      const isFirebaseToken = decoded && (decoded.iss === `https://securetoken.google.com/${projectId}` || decoded.iss?.includes(projectId)) && decoded.aud === projectId && Boolean(decoded.sub || decoded.user_id) && typeof decoded.exp === "number" && decoded.exp > Math.floor(Date.now() / 1e3);
-      if (isFirebaseToken) {
-        decodedToken = {
-          uid: decoded.sub || decoded.user_id,
-          email: decoded.email
-        };
-      }
-    }
+    const decodedToken = await getAuth().verifyIdToken(token);
     if (decodedToken && decodedToken.uid) {
       const firebaseUid = decodedToken.uid;
       const email = decodedToken.email || `${firebaseUid}@firebase.rentu.internal`;
@@ -87586,21 +87579,7 @@ var handleSyncUser = async (req, res, next) => {
     try {
       decodedToken = await getAuth().verifyIdToken(bearerToken);
     } catch (err) {
-      console.warn("Firebase verifyIdToken notice, checking token claims fallback:", err?.message || err);
-      const decoded = import_jsonwebtoken2.default.decode(bearerToken);
-      const projectId = (ENV.FIREBASE_PROJECT_ID || "rentu-732b7").trim();
-      const isFirebaseToken = decoded && (decoded.iss === `https://securetoken.google.com/${projectId}` || decoded.iss?.includes(projectId)) && decoded.aud === projectId && Boolean(decoded.sub || decoded.user_id) && typeof decoded.exp === "number" && decoded.exp > Math.floor(Date.now() / 1e3);
-      if (isFirebaseToken) {
-        decodedToken = {
-          uid: decoded.sub || decoded.user_id,
-          email: decoded.email,
-          name: decoded.name,
-          picture: decoded.picture,
-          email_verified: Boolean(decoded.email_verified)
-        };
-      } else {
-        return sendError(res, "UNAUTHORIZED", "Invalid or expired authentication token", 401);
-      }
+      return sendError(res, "UNAUTHORIZED", "Invalid or expired authentication token", 401);
     }
     const uid = decodedToken.uid;
     const email = (decodedToken.email || validated.email).toLowerCase();
@@ -96053,7 +96032,7 @@ var resolveUserIds = async (userId, emailHint) => {
 };
 
 // src/modules/notifications/webpush.ts
-var import_crypto = __toESM(require("crypto"));
+var import_crypto2 = __toESM(require("crypto"));
 var import_https = __toESM(require("https"));
 var import_http = __toESM(require("http"));
 var import_url = require("url");
@@ -96066,13 +96045,13 @@ function bufferToBase64Url(buf) {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 function hkdf(salt, ikm, info, length) {
-  const prk = import_crypto.default.createHmac("sha256", salt).update(ikm).digest();
+  const prk = import_crypto2.default.createHmac("sha256", salt).update(ikm).digest();
   let t2 = Buffer.alloc(0);
   let okm = Buffer.alloc(0);
   let i2 = 0;
   while (okm.length < length) {
     i2++;
-    t2 = import_crypto.default.createHmac("sha256", prk).update(Buffer.concat([t2, info, Buffer.from([i2])])).digest();
+    t2 = import_crypto2.default.createHmac("sha256", prk).update(Buffer.concat([t2, info, Buffer.from([i2])])).digest();
     okm = Buffer.concat([okm, t2]);
   }
   return okm.slice(0, length);
@@ -96095,17 +96074,17 @@ function derToJose(der) {
 function encryptPayload(clientPublicKeyB64, clientAuthSecretB64, payloadStr) {
   const clientPublicKey = base64UrlToBuffer(clientPublicKeyB64);
   const clientAuth = base64UrlToBuffer(clientAuthSecretB64);
-  const localECDH = import_crypto.default.createECDH("prime256v1");
+  const localECDH = import_crypto2.default.createECDH("prime256v1");
   localECDH.generateKeys();
   const localPublicKey = localECDH.getPublicKey();
   const sharedSecret = localECDH.computeSecret(clientPublicKey);
-  const salt = import_crypto.default.randomBytes(16);
+  const salt = import_crypto2.default.randomBytes(16);
   const keyInfo = Buffer.concat([
     Buffer.from("WebPush: info\0", "utf8"),
     clientPublicKey,
     localPublicKey
   ]);
-  const prk = import_crypto.default.createHmac("sha256", clientAuth).update(sharedSecret).digest();
+  const prk = import_crypto2.default.createHmac("sha256", clientAuth).update(sharedSecret).digest();
   const ikm = hkdf(salt, prk, keyInfo, 32);
   const cek = hkdf(salt, ikm, Buffer.from("Content-Encoding: aes128gcm\0", "utf8"), 16);
   const nonce = hkdf(salt, ikm, Buffer.from("Content-Encoding: nonce\0", "utf8"), 12);
@@ -96116,7 +96095,7 @@ function encryptPayload(clientPublicKeyB64, clientAuthSecretB64, payloadStr) {
     Buffer.from([localPublicKey.length]),
     localPublicKey
   ]);
-  const cipher = import_crypto.default.createCipheriv("aes-128-gcm", cek, nonce);
+  const cipher = import_crypto2.default.createCipheriv("aes-128-gcm", cek, nonce);
   const payloadBuf = Buffer.from(payloadStr, "utf8");
   const padded = Buffer.concat([payloadBuf, Buffer.from([2])]);
   const encrypted = Buffer.concat([cipher.update(padded), cipher.final(), cipher.getAuthTag()]);
@@ -96125,7 +96104,7 @@ function encryptPayload(clientPublicKeyB64, clientAuthSecretB64, payloadStr) {
 var vapidKeyPair = null;
 function getOrCreateVapidKeys() {
   if (!vapidKeyPair) {
-    const kp = import_crypto.default.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const kp = import_crypto2.default.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
     const jwk = kp.publicKey.export({ format: "jwk" });
     const x2 = base64UrlToBuffer(jwk.x);
     const y = base64UrlToBuffer(jwk.y);
@@ -96156,7 +96135,7 @@ function createVapidJwt(endpointUrl) {
     )
   );
   const unsignedToken = `${header}.${payload}`;
-  const sign = import_crypto.default.createSign("SHA256");
+  const sign = import_crypto2.default.createSign("SHA256");
   sign.update(unsignedToken);
   const derSig = sign.sign(privateKey);
   const signature = bufferToBase64Url(derToJose(derSig));
@@ -97725,7 +97704,7 @@ var requests_routes_default = router3;
 
 // src/modules/bookings/bookings.routes.ts
 var import_express4 = __toESM(require_express2());
-var import_crypto2 = __toESM(require("crypto"));
+var import_crypto3 = __toESM(require("crypto"));
 var router4 = (0, import_express4.Router)();
 function sanitizeTzOffset(tzOffsetMinutes) {
   if (typeof tzOffsetMinutes === "number" && !isNaN(tzOffsetMinutes) && tzOffsetMinutes >= -840 && tzOffsetMinutes <= 720) {
@@ -98129,7 +98108,7 @@ router4.post("/", authMiddleware, async (req, res, next) => {
       pickupFee = Number(item.pickup_fee || 0);
     }
     const calculatedTotalPrice = baseCost + deliveryFee + pickupFee;
-    const pickupCode = import_crypto2.default.randomInt(1e5, 1e6).toString();
+    const pickupCode = import_crypto3.default.randomInt(1e5, 1e6).toString();
     const proposalData = {
       type: "RENTAL_REQUEST",
       item_id: item.id,
@@ -98656,7 +98635,7 @@ router4.patch("/:id/status", authMiddleware, async (req, res, next) => {
           });
         }
         if (!pickupCode) {
-          pickupCode = import_crypto2.default.randomInt(1e5, 1e6).toString();
+          pickupCode = import_crypto3.default.randomInt(1e5, 1e6).toString();
         }
         updateRes = await client.query(
           `UPDATE bookings 
@@ -98887,7 +98866,7 @@ router4.post("/:id/verify-pickup", authMiddleware, async (req, res, next) => {
       );
     }
     await resetCodeAttempts(lockoutKey);
-    const returnCode = import_crypto2.default.randomInt(1e5, 1e6).toString();
+    const returnCode = import_crypto3.default.randomInt(1e5, 1e6).toString();
     const client = await pool.connect();
     let updateRes;
     try {
@@ -100365,7 +100344,7 @@ var users_routes_default = router6;
 
 // src/modules/messages/messages.routes.ts
 var import_express7 = __toESM(require_express2());
-var import_crypto3 = __toESM(require("crypto"));
+var import_crypto4 = __toESM(require("crypto"));
 var router7 = (0, import_express7.Router)();
 var sendMessageSchema = external_exports.object({
   booking_id: external_exports.string().optional().nullable(),
@@ -101059,7 +101038,7 @@ router7.post("/proposal/:messageId/accept", authMiddleware, async (req, res, nex
             ).catch(() => {
             });
           }
-          const pickupCode = existingBooking.pickup_code || import_crypto3.default.randomInt(1e5, 1e6).toString();
+          const pickupCode = existingBooking.pickup_code || import_crypto4.default.randomInt(1e5, 1e6).toString();
           const updateRes = await client2.query(
             `UPDATE bookings
              SET status = 'ACCEPTED',
@@ -101271,7 +101250,7 @@ router7.post("/proposal/:messageId/accept", authMiddleware, async (req, res, nex
         ]
       );
       createdItem = itemRes.rows[0];
-      const pickupCode = import_crypto3.default.randomInt(1e5, 1e6).toString();
+      const pickupCode = import_crypto4.default.randomInt(1e5, 1e6).toString();
       const bookingRes = await client.query(
         `INSERT INTO bookings (
           item_id, borrower_id, lender_id, start_date, duration_days, total_price,
