@@ -18,7 +18,8 @@ import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
 import { api } from '../lib/api';
 import { uploadItemPhoto } from '../lib/upload';
-import { getEffectiveSavedLocations, formatSavedLocationFull } from '../lib/location';
+import { getEffectiveSavedLocations, formatSavedLocationFull, forwardGeocode } from '../lib/location';
+import { resolveCoords } from '../lib/distance';
 import { Item, SavedLocation } from '../lib/types';
 import { AddLocationModal } from './AddLocationModal';
 import { SetLocationModal } from './SetLocationModal';
@@ -304,8 +305,22 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
     try {
       const itemAddress = (chosenLocation ? [chosenLocation.building_flat_house, chosenLocation.street_road_landmark].filter(Boolean).join(', ') : '') || finalLocality;
       const itemPincode = chosenLocation?.pincode || user?.pincode || undefined;
-      const itemLat = chosenLocation?.latitude ?? (user?.latitude ? Number(user.latitude) : undefined);
-      const itemLon = chosenLocation?.longitude ?? (user?.longitude ? Number(user.longitude) : undefined);
+      let itemLat = chosenLocation?.latitude ?? (user?.latitude ? Number(user.latitude) : undefined);
+      let itemLon = chosenLocation?.longitude ?? (user?.longitude ? Number(user.longitude) : undefined);
+
+      if (!itemLat || !itemLon) {
+        const resolved = resolveCoords(undefined, undefined, finalLocality, itemAddress);
+        if (resolved) {
+          itemLat = resolved.lat;
+          itemLon = resolved.lon;
+        } else {
+          const geo = await forwardGeocode(`${itemAddress} ${finalLocality}`).catch(() => null);
+          if (geo) {
+            itemLat = geo.latitude;
+            itemLon = geo.longitude;
+          }
+        }
+      }
 
       const createdItem = await api.createItem({
         title: title.trim(),

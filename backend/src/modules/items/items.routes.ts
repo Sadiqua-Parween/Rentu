@@ -83,17 +83,26 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next
 
     if ((isNaN(userLat) || isNaN(userLon)) && (req as any).user?.id) {
       const uRes = await query(
-        `SELECT latitude, longitude, locality FROM users WHERE id::text = $1 OR firebase_uid = $1`,
+        `SELECT latitude, longitude, locality, address_text FROM users WHERE id::text = $1 OR firebase_uid = $1`,
         [(req as any).user.id]
       );
       if (uRes.rows.length > 0) {
         if (uRes.rows[0].latitude && uRes.rows[0].longitude) {
           userLat = parseFloat(uRes.rows[0].latitude);
           userLon = parseFloat(uRes.rows[0].longitude);
-        } else if (uRes.rows[0].locality) {
-          const loc = uRes.rows[0].locality.toLowerCase();
-          if (loc.includes('beml')) { userLat = 12.9140; userLon = 77.4993; }
-          else if (loc.includes('mylasandra')) { userLat = 12.8850; userLon = 77.5050; }
+        } else {
+          const loc = `${uRes.rows[0].locality || ''} ${uRes.rows[0].address_text || ''}`.toLowerCase();
+          if (loc.includes('bhel') || loc.includes('huelva') || loc.includes('pattanagere')) { userLat = 12.92404; userLon = 77.50201; }
+          else if (loc.includes('beml') || loc.includes('kimberly')) { userLat = 12.9140; userLon = 77.4993; }
+          else if (loc.includes('mylasandra') || loc.includes('mailasandra')) { userLat = 12.8850; userLon = 77.5050; }
+          else if (loc.includes('kengeri')) { userLat = 12.9177; userLon = 77.4838; }
+          else if (loc.includes('rajarajeshwari') || loc.includes('rr nagar')) { userLat = 12.9275; userLon = 77.5150; }
+          else if (loc.includes('jayanagar')) { userLat = 12.9308; userLon = 77.5838; }
+          else if (loc.includes('koramangala')) { userLat = 12.9352; userLon = 77.6245; }
+          else if (loc.includes('indiranagar')) { userLat = 12.9784; userLon = 77.6408; }
+          else if (loc.includes('hsr')) { userLat = 12.9121; userLon = 77.6446; }
+          else if (loc.includes('whitefield')) { userLat = 12.9698; userLon = 77.7500; }
+          else if (loc.includes('electronic city')) { userLat = 12.8452; userLon = 77.6602; }
         }
       }
     }
@@ -104,65 +113,97 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next
       params.push(userLon);
       const lonIdx = params.length;
 
-      // Exact Haversine formula from profile coordinates and accurate localities
+      // Exact Haversine formula from coordinates and known localities
       distanceField = `
-        ROUND(
-          6371000 * acos(
-            LEAST(1.0, GREATEST(-1.0, 
-              cos(radians($${latIdx})) * cos(radians(
-                CASE 
-                  WHEN i.latitude IS NOT NULL AND i.latitude != 0 THEN i.latitude
-                  WHEN u.latitude IS NOT NULL AND u.latitude != 0 THEN u.latitude
-                  WHEN i.locality ILIKE '%beml%' THEN 12.9140
-                  WHEN i.locality ILIKE '%mylasandra%' THEN 12.8850
-                  WHEN i.locality ILIKE '%kengeri%' THEN 12.9177
-                  WHEN i.locality ILIKE '%rajarajeshwari%' OR i.locality ILIKE '%rr nagar%' THEN 12.9275
-                  WHEN i.locality ILIKE '%jayanagar%' THEN 12.9308
-                  WHEN i.locality ILIKE '%koramangala%' THEN 12.9352
-                  WHEN i.locality ILIKE '%indiranagar%' THEN 12.9784
-                  WHEN i.locality ILIKE '%hsr%' THEN 12.9121
-                  WHEN i.locality ILIKE '%whitefield%' THEN 12.9698
-                  WHEN i.locality ILIKE '%electronic city%' THEN 12.8452
-                  ELSE $${latIdx}
-                END
-              )) *
-              cos(radians(
-                CASE 
-                  WHEN i.longitude IS NOT NULL AND i.longitude != 0 THEN i.longitude
-                  WHEN u.longitude IS NOT NULL AND u.longitude != 0 THEN u.longitude
-                  WHEN i.locality ILIKE '%beml%' THEN 77.4993
-                  WHEN i.locality ILIKE '%mylasandra%' THEN 77.5050
-                  WHEN i.locality ILIKE '%kengeri%' THEN 77.4838
-                  WHEN i.locality ILIKE '%rajarajeshwari%' OR i.locality ILIKE '%rr nagar%' THEN 77.5150
-                  WHEN i.locality ILIKE '%jayanagar%' THEN 77.5838
-                  WHEN i.locality ILIKE '%koramangala%' THEN 77.6245
-                  WHEN i.locality ILIKE '%indiranagar%' THEN 77.6408
-                  WHEN i.locality ILIKE '%hsr%' THEN 77.6446
-                  WHEN i.locality ILIKE '%whitefield%' THEN 77.7500
-                  WHEN i.locality ILIKE '%electronic city%' THEN 77.6602
-                  ELSE $${lonIdx}
-                END
-              ) - radians($${lonIdx})) +
-              sin(radians($${latIdx})) * sin(radians(
-                CASE 
-                  WHEN i.latitude IS NOT NULL AND i.latitude != 0 THEN i.latitude
-                  WHEN u.latitude IS NOT NULL AND u.latitude != 0 THEN u.latitude
-                  WHEN i.locality ILIKE '%beml%' THEN 12.9140
-                  WHEN i.locality ILIKE '%mylasandra%' THEN 12.8850
-                  WHEN i.locality ILIKE '%kengeri%' THEN 12.9177
-                  WHEN i.locality ILIKE '%rajarajeshwari%' OR i.locality ILIKE '%rr nagar%' THEN 12.9275
-                  WHEN i.locality ILIKE '%jayanagar%' THEN 12.9308
-                  WHEN i.locality ILIKE '%koramangala%' THEN 12.9352
-                  WHEN i.locality ILIKE '%indiranagar%' THEN 12.9784
-                  WHEN i.locality ILIKE '%hsr%' THEN 12.9121
-                  WHEN i.locality ILIKE '%whitefield%' THEN 12.9698
-                  WHEN i.locality ILIKE '%electronic city%' THEN 12.8452
-                  ELSE $${latIdx}
-                END
-              ))
-            ))
-          )
-        ) AS distance_meters
+        CASE 
+          WHEN (
+            COALESCE(
+              NULLIF(i.latitude, 0),
+              NULLIF(u.latitude, 0),
+              CASE 
+                WHEN (i.locality ILIKE '%bhel%' OR i.address_text ILIKE '%bhel%' OR i.address_text ILIKE '%huelva%' OR i.locality ILIKE '%pattanagere%') THEN 12.92404
+                WHEN (i.locality ILIKE '%beml%' OR i.address_text ILIKE '%beml%' OR i.address_text ILIKE '%kimberly%') THEN 12.9140
+                WHEN (i.locality ILIKE '%mylasandra%' OR i.address_text ILIKE '%mylasandra%') THEN 12.8850
+                WHEN (i.locality ILIKE '%kengeri%' OR i.address_text ILIKE '%kengeri%') THEN 12.9177
+                WHEN (i.locality ILIKE '%rajarajeshwari%' OR i.locality ILIKE '%rr nagar%' OR i.address_text ILIKE '%rr nagar%') THEN 12.9275
+                WHEN (i.locality ILIKE '%jayanagar%' OR i.address_text ILIKE '%jayanagar%') THEN 12.9308
+                WHEN (i.locality ILIKE '%koramangala%' OR i.address_text ILIKE '%koramangala%') THEN 12.9352
+                WHEN (i.locality ILIKE '%indiranagar%' OR i.address_text ILIKE '%indiranagar%') THEN 12.9784
+                WHEN (i.locality ILIKE '%hsr%' OR i.address_text ILIKE '%hsr%') THEN 12.9121
+                WHEN (i.locality ILIKE '%whitefield%' OR i.address_text ILIKE '%whitefield%') THEN 12.9698
+                WHEN (i.locality ILIKE '%electronic city%' OR i.address_text ILIKE '%electronic city%') THEN 12.8452
+                ELSE NULL
+              END
+            ) IS NOT NULL
+          ) THEN
+            ROUND(
+              6371000 * acos(
+                LEAST(1.0, GREATEST(-1.0, 
+                  cos(radians($${latIdx})) * cos(radians(
+                    COALESCE(
+                      NULLIF(i.latitude, 0),
+                      NULLIF(u.latitude, 0),
+                      CASE 
+                        WHEN (i.locality ILIKE '%bhel%' OR i.address_text ILIKE '%bhel%' OR i.address_text ILIKE '%huelva%' OR i.locality ILIKE '%pattanagere%') THEN 12.92404
+                        WHEN (i.locality ILIKE '%beml%' OR i.address_text ILIKE '%beml%' OR i.address_text ILIKE '%kimberly%') THEN 12.9140
+                        WHEN (i.locality ILIKE '%mylasandra%' OR i.address_text ILIKE '%mylasandra%') THEN 12.8850
+                        WHEN (i.locality ILIKE '%kengeri%' OR i.address_text ILIKE '%kengeri%') THEN 12.9177
+                        WHEN (i.locality ILIKE '%rajarajeshwari%' OR i.locality ILIKE '%rr nagar%' OR i.address_text ILIKE '%rr nagar%') THEN 12.9275
+                        WHEN (i.locality ILIKE '%jayanagar%' OR i.address_text ILIKE '%jayanagar%') THEN 12.9308
+                        WHEN (i.locality ILIKE '%koramangala%' OR i.address_text ILIKE '%koramangala%') THEN 12.9352
+                        WHEN (i.locality ILIKE '%indiranagar%' OR i.address_text ILIKE '%indiranagar%') THEN 12.9784
+                        WHEN (i.locality ILIKE '%hsr%' OR i.address_text ILIKE '%hsr%') THEN 12.9121
+                        WHEN (i.locality ILIKE '%whitefield%' OR i.address_text ILIKE '%whitefield%') THEN 12.9698
+                        WHEN (i.locality ILIKE '%electronic city%' OR i.address_text ILIKE '%electronic city%') THEN 12.8452
+                        ELSE NULL
+                      END
+                    )
+                  )) *
+                  cos(radians(
+                    COALESCE(
+                      NULLIF(i.longitude, 0),
+                      NULLIF(u.longitude, 0),
+                      CASE 
+                        WHEN (i.locality ILIKE '%bhel%' OR i.address_text ILIKE '%bhel%' OR i.address_text ILIKE '%huelva%' OR i.locality ILIKE '%pattanagere%') THEN 77.50201
+                        WHEN (i.locality ILIKE '%beml%' OR i.address_text ILIKE '%beml%' OR i.address_text ILIKE '%kimberly%') THEN 77.4993
+                        WHEN (i.locality ILIKE '%mylasandra%' OR i.address_text ILIKE '%mylasandra%') THEN 77.5050
+                        WHEN (i.locality ILIKE '%kengeri%' OR i.address_text ILIKE '%kengeri%') THEN 77.4838
+                        WHEN (i.locality ILIKE '%rajarajeshwari%' OR i.locality ILIKE '%rr nagar%' OR i.address_text ILIKE '%rr nagar%') THEN 77.5150
+                        WHEN (i.locality ILIKE '%jayanagar%' OR i.address_text ILIKE '%jayanagar%') THEN 77.5838
+                        WHEN (i.locality ILIKE '%koramangala%' OR i.address_text ILIKE '%koramangala%') THEN 77.6245
+                        WHEN (i.locality ILIKE '%indiranagar%' OR i.address_text ILIKE '%indiranagar%') THEN 77.6408
+                        WHEN (i.locality ILIKE '%hsr%' OR i.address_text ILIKE '%hsr%') THEN 77.6446
+                        WHEN (i.locality ILIKE '%whitefield%' OR i.address_text ILIKE '%whitefield%') THEN 77.7500
+                        WHEN (i.locality ILIKE '%electronic city%' OR i.address_text ILIKE '%electronic city%') THEN 77.6602
+                        ELSE NULL
+                      END
+                    )
+                  ) - radians($${lonIdx})) +
+                  sin(radians($${latIdx})) * sin(radians(
+                    COALESCE(
+                      NULLIF(i.latitude, 0),
+                      NULLIF(u.latitude, 0),
+                      CASE 
+                        WHEN (i.locality ILIKE '%bhel%' OR i.address_text ILIKE '%bhel%' OR i.address_text ILIKE '%huelva%' OR i.locality ILIKE '%pattanagere%') THEN 12.92404
+                        WHEN (i.locality ILIKE '%beml%' OR i.address_text ILIKE '%beml%' OR i.address_text ILIKE '%kimberly%') THEN 12.9140
+                        WHEN (i.locality ILIKE '%mylasandra%' OR i.address_text ILIKE '%mylasandra%') THEN 12.8850
+                        WHEN (i.locality ILIKE '%kengeri%' OR i.address_text ILIKE '%kengeri%') THEN 12.9177
+                        WHEN (i.locality ILIKE '%rajarajeshwari%' OR i.locality ILIKE '%rr nagar%' OR i.address_text ILIKE '%rr nagar%') THEN 12.9275
+                        WHEN (i.locality ILIKE '%jayanagar%' OR i.address_text ILIKE '%jayanagar%') THEN 12.9308
+                        WHEN (i.locality ILIKE '%koramangala%' OR i.address_text ILIKE '%koramangala%') THEN 12.9352
+                        WHEN (i.locality ILIKE '%indiranagar%' OR i.address_text ILIKE '%indiranagar%') THEN 12.9784
+                        WHEN (i.locality ILIKE '%hsr%' OR i.address_text ILIKE '%hsr%') THEN 12.9121
+                        WHEN (i.locality ILIKE '%whitefield%' OR i.address_text ILIKE '%whitefield%') THEN 12.9698
+                        WHEN (i.locality ILIKE '%electronic city%' OR i.address_text ILIKE '%electronic city%') THEN 12.8452
+                        ELSE NULL
+                      END
+                    )
+                  ))
+                ))
+              )
+            )
+          ELSE NULL
+        END AS distance_meters
       `;
 
       if (radar === 'true' || radar === '100m' || max_distance) {
@@ -396,25 +437,57 @@ router.get('/:id', optionalAuthMiddleware, async (req: Request, res: Response, n
     }
 
     // Calculate distance if viewer coordinates are available
-    let viewerLat: number | null = req.query.lat ? parseFloat(String(req.query.lat)) : null;
-    let viewerLon: number | null = req.query.lng ? parseFloat(String(req.query.lng)) : null;
+    let viewerLat: number | null = (req.query.latitude || req.query.lat) ? parseFloat(String(req.query.latitude || req.query.lat)) : null;
+    let viewerLon: number | null = (req.query.longitude || req.query.lng) ? parseFloat(String(req.query.longitude || req.query.lng)) : null;
 
-    if ((!viewerLat || !viewerLon) && currentViewerId) {
+    if ((!viewerLat || !viewerLon || isNaN(viewerLat) || isNaN(viewerLon)) && currentViewerId) {
       try {
-        const vRes = await query(`SELECT latitude, longitude FROM users WHERE id::text = $1 OR firebase_uid = $1`, [currentViewerId]);
-        if (vRes.rows.length > 0 && vRes.rows[0].latitude && vRes.rows[0].longitude) {
-          viewerLat = parseFloat(vRes.rows[0].latitude);
-          viewerLon = parseFloat(vRes.rows[0].longitude);
+        const vRes = await query(`SELECT latitude, longitude, locality, address_text FROM users WHERE id::text = $1 OR firebase_uid = $1`, [currentViewerId]);
+        if (vRes.rows.length > 0) {
+          if (vRes.rows[0].latitude && vRes.rows[0].longitude) {
+            viewerLat = parseFloat(vRes.rows[0].latitude);
+            viewerLon = parseFloat(vRes.rows[0].longitude);
+          } else {
+            const loc = `${vRes.rows[0].locality || ''} ${vRes.rows[0].address_text || ''}`.toLowerCase();
+            if (loc.includes('bhel') || loc.includes('huelva') || loc.includes('pattanagere')) { viewerLat = 12.92404; viewerLon = 77.50201; }
+            else if (loc.includes('beml') || loc.includes('kimberly')) { viewerLat = 12.9140; viewerLon = 77.4993; }
+            else if (loc.includes('mylasandra') || loc.includes('mailasandra')) { viewerLat = 12.8850; viewerLon = 77.5050; }
+            else if (loc.includes('kengeri')) { viewerLat = 12.9177; viewerLon = 77.4838; }
+            else if (loc.includes('rajarajeshwari') || loc.includes('rr nagar')) { viewerLat = 12.9275; viewerLon = 77.5150; }
+            else if (loc.includes('jayanagar')) { viewerLat = 12.9308; viewerLon = 77.5838; }
+            else if (loc.includes('koramangala')) { viewerLat = 12.9352; viewerLon = 77.6245; }
+            else if (loc.includes('indiranagar')) { viewerLat = 12.9784; viewerLon = 77.6408; }
+            else if (loc.includes('hsr')) { viewerLat = 12.9121; viewerLon = 77.6446; }
+            else if (loc.includes('whitefield')) { viewerLat = 12.9698; viewerLon = 77.7500; }
+            else if (loc.includes('electronic city')) { viewerLat = 12.8452; viewerLon = 77.6602; }
+          }
         }
       } catch {}
     }
 
-    if (viewerLat && viewerLon && item.latitude && item.longitude) {
-      const dLat = (parseFloat(item.latitude) - viewerLat) * (Math.PI / 180);
-      const dLon = (parseFloat(item.longitude) - viewerLon) * (Math.PI / 180);
+    let itemLat = item.latitude ? parseFloat(item.latitude) : null;
+    let itemLon = item.longitude ? parseFloat(item.longitude) : null;
+    if (!itemLat || !itemLon || isNaN(itemLat) || isNaN(itemLon)) {
+      const loc = `${item.locality || ''} ${item.address_text || ''}`.toLowerCase();
+      if (loc.includes('bhel') || loc.includes('huelva') || loc.includes('pattanagere')) { itemLat = 12.92404; itemLon = 77.50201; }
+      else if (loc.includes('beml') || loc.includes('kimberly')) { itemLat = 12.9140; itemLon = 77.4993; }
+      else if (loc.includes('mylasandra') || loc.includes('mailasandra')) { itemLat = 12.8850; itemLon = 77.5050; }
+      else if (loc.includes('kengeri')) { itemLat = 12.9177; itemLon = 77.4838; }
+      else if (loc.includes('rajarajeshwari') || loc.includes('rr nagar')) { itemLat = 12.9275; itemLon = 77.5150; }
+      else if (loc.includes('jayanagar')) { itemLat = 12.9308; itemLon = 77.5838; }
+      else if (loc.includes('koramangala')) { itemLat = 12.9352; itemLon = 77.6245; }
+      else if (loc.includes('indiranagar')) { itemLat = 12.9784; itemLon = 77.6408; }
+      else if (loc.includes('hsr')) { itemLat = 12.9121; itemLon = 77.6446; }
+      else if (loc.includes('whitefield')) { itemLat = 12.9698; itemLon = 77.7500; }
+      else if (loc.includes('electronic city')) { itemLat = 12.8452; itemLon = 77.6602; }
+    }
+
+    if (viewerLat && viewerLon && itemLat && itemLon) {
+      const dLat = (itemLat - viewerLat) * (Math.PI / 180);
+      const dLon = (itemLon - viewerLon) * (Math.PI / 180);
       const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(viewerLat * (Math.PI / 180)) * Math.cos(parseFloat(item.latitude) * (Math.PI / 180)) *
+        Math.cos(viewerLat * (Math.PI / 180)) * Math.cos(itemLat * (Math.PI / 180)) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       item.distance_meters = Math.round(6371000 * c);
@@ -559,16 +632,19 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     let itemLat = validated.latitude ?? (userRes.rows[0]?.latitude ? parseFloat(userRes.rows[0].latitude) : null);
     let itemLon = validated.longitude ?? (userRes.rows[0]?.longitude ? parseFloat(userRes.rows[0].longitude) : null);
 
-    if ((itemLat === null || isNaN(itemLat)) && finalLocality) {
-      const lower = finalLocality.toLowerCase();
-      if (lower.includes('beml')) { itemLat = 12.9140; itemLon = 77.4993; }
-      else if (lower.includes('mylasandra')) { itemLat = 12.8850; itemLon = 77.5050; }
+    if ((itemLat === null || isNaN(itemLat)) && (finalLocality || validated.address_text)) {
+      const lower = `${finalLocality} ${validated.address_text || ''}`.toLowerCase();
+      if (lower.includes('bhel') || lower.includes('huelva') || lower.includes('pattanagere')) { itemLat = 12.92404; itemLon = 77.50201; }
+      else if (lower.includes('beml') || lower.includes('kimberly')) { itemLat = 12.9140; itemLon = 77.4993; }
+      else if (lower.includes('mylasandra') || lower.includes('mailasandra')) { itemLat = 12.8850; itemLon = 77.5050; }
       else if (lower.includes('kengeri')) { itemLat = 12.9177; itemLon = 77.4838; }
       else if (lower.includes('rajarajeshwari') || lower.includes('rr nagar')) { itemLat = 12.9275; itemLon = 77.5150; }
       else if (lower.includes('jayanagar')) { itemLat = 12.9308; itemLon = 77.5838; }
       else if (lower.includes('koramangala')) { itemLat = 12.9352; itemLon = 77.6245; }
       else if (lower.includes('indiranagar')) { itemLat = 12.9784; itemLon = 77.6408; }
       else if (lower.includes('hsr')) { itemLat = 12.9121; itemLon = 77.6446; }
+      else if (lower.includes('whitefield')) { itemLat = 12.9698; itemLon = 77.7500; }
+      else if (lower.includes('electronic city')) { itemLat = 12.8452; itemLon = 77.6602; }
     }
 
 

@@ -152,6 +152,11 @@ export const SetLocationModal: React.FC<SetLocationModalProps> = ({
       // Refresh auth profile
       await refreshUser();
 
+      // Notify entire app of location update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('rentu_location_updated'));
+      }
+
       // Confetti celebrate
       try {
         confetti({

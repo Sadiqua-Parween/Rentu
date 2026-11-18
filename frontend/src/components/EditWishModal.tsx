@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, MapPin, Loader2, Trash2, Calendar, Target, Upload, Camera, ImageIcon } from 'lucide-react';
 import { CommunityRequest } from '../lib/types';
 import { api } from '../lib/api';
-import { detectCurrentLocation, parseAddressText, buildAddressString } from '../lib/location';
+import { detectCurrentLocation, parseAddressText, buildAddressString, forwardGeocode } from '../lib/location';
+import { resolveCoords } from '../lib/distance';
 import { uploadItemPhoto } from '../lib/upload';
 
 interface EditWishModalProps {
@@ -36,6 +37,7 @@ export const EditWishModal: React.FC<EditWishModalProps> = ({
   const [streetArea, setStreetArea] = useState('');
   const [locality, setLocality] = useState('');
   const [pincode, setPincode] = useState('');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationSuccessMsg, setLocationSuccessMsg] = useState('');
 
   const [status, setStatus] = useState<'OPEN' | 'FULFILLED' | 'CANCELLED'>('OPEN');
@@ -75,6 +77,11 @@ export const EditWishModal: React.FC<EditWishModalProps> = ({
       }
       setLocality(request.locality || '');
       setPincode(request.pincode || '');
+      if (request.latitude && request.longitude) {
+        setCoords({ latitude: Number(request.latitude), longitude: Number(request.longitude) });
+      } else {
+        setCoords(null);
+      }
 
       setStatus(request.status || 'OPEN');
       setImageUrl(request.image_url || '');
@@ -117,6 +124,7 @@ export const EditWishModal: React.FC<EditWishModalProps> = ({
       if (loc.pincode) {
         setPincode(loc.pincode);
       }
+      setCoords({ latitude: loc.latitude, longitude: loc.longitude });
       const locSummary = [loc.address_text, loc.locality].filter(Boolean).join(', ') || loc.city || 'Location detected';
       setLocationSuccessMsg(`Location detected: ${locSummary}`);
     } catch (err: any) {
@@ -176,6 +184,23 @@ export const EditWishModal: React.FC<EditWishModalProps> = ({
       const fullDestinationAddress = buildAddressString(trimmedBuilding, streetArea.trim(), pincode.trim(), locality.trim());
       const extraFeeNumber = (!willPickup || !willDropBack) ? Number(deliveryFee || 0) : 0;
 
+      let finalLat = coords?.latitude ?? request.latitude;
+      let finalLon = coords?.longitude ?? request.longitude;
+
+      if (!finalLat || !finalLon) {
+        const resolved = resolveCoords(undefined, undefined, locality.trim(), fullDestinationAddress);
+        if (resolved) {
+          finalLat = resolved.lat;
+          finalLon = resolved.lon;
+        } else {
+          const geo = await forwardGeocode(`${fullDestinationAddress} ${locality.trim()}`).catch(() => null);
+          if (geo) {
+            finalLat = geo.latitude;
+            finalLon = geo.longitude;
+          }
+        }
+      }
+
       await api.updateRequest(request.id, {
         item_name: itemName.trim(),
         description: description.trim(),
@@ -187,6 +212,8 @@ export const EditWishModal: React.FC<EditWishModalProps> = ({
         locality: locality.trim(),
         address_text: fullDestinationAddress,
         pincode: pincode.trim() || undefined,
+        latitude: finalLat ?? undefined,
+        longitude: finalLon ?? undefined,
         will_pickup: willPickup,
         will_drop_back: willDropBack,
         delivery_fee: extraFeeNumber,

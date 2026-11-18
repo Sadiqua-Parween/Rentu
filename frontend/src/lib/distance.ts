@@ -1,42 +1,75 @@
 /**
- * Known geographic coordinates for Bangalore localities and metro hubs.
- * Used for accurate geocoding when latitude/longitude are not explicitly saved.
+ * Known geographic coordinates for Bangalore localities, student hubs, and metro areas.
+ * Used for accurate geocoding and Haversine distance calculations when explicit GPS coords are pending.
  */
 export const LOCALITY_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  // BEML Layout & PGs
   'beml': { lat: 12.9140, lon: 77.4993 },
   'beml layout': { lat: 12.9140, lon: 77.4993 },
   'beml layout 7th phase': { lat: 12.9140, lon: 77.4993 },
+  'kimberly': { lat: 12.91388, lon: 77.49931 },
+  'kimberly house': { lat: 12.91388, lon: 77.49931 },
+  'stanza living kimberly': { lat: 12.91388, lon: 77.49931 },
+  // BHEL Layout & PGs
+  'bhel': { lat: 12.92404, lon: 77.50201 },
+  'bhel layout': { lat: 12.92404, lon: 77.50201 },
+  'huelva': { lat: 12.92404, lon: 77.50201 },
+  'huelva house': { lat: 12.92404, lon: 77.50201 },
+  'pattanagere': { lat: 12.92404, lon: 77.50201 },
+  'stanza living huelva': { lat: 12.92404, lon: 77.50201 },
+  'stanza living': { lat: 12.91388, lon: 77.49931 },
+  'stanza': { lat: 12.91388, lon: 77.49931 },
+  // West & South-West Hubs
+  'rvce': { lat: 12.9237, lon: 77.4988 },
+  'rv college': { lat: 12.9237, lon: 77.4988 },
+  'channasandra': { lat: 12.9030, lon: 77.5080 },
   'mylasandra': { lat: 12.8850, lon: 77.5050 },
   'mailasandra': { lat: 12.8850, lon: 77.5050 },
   'kengeri': { lat: 12.9177, lon: 77.4838 },
   'kengeri satellite town': { lat: 12.9177, lon: 77.4838 },
   'rajarajeshwari nagar': { lat: 12.9275, lon: 77.5150 },
+  'rajarajeshwari': { lat: 12.9275, lon: 77.5150 },
   'rr nagar': { lat: 12.9275, lon: 77.5150 },
+  'mysore road': { lat: 12.9350, lon: 77.5100 },
+  'uttarahalli': { lat: 12.9060, lon: 77.5380 },
+  'nagarbhavi': { lat: 12.9620, lon: 77.5110 },
+  'vijayanagar': { lat: 12.9710, lon: 77.5360 },
+  'basavanagudi': { lat: 12.9406, lon: 77.5738 },
+  // Central & Tech Corridors
   'jayanagar': { lat: 12.9308, lon: 77.5838 },
+  'jp nagar': { lat: 12.9063, lon: 77.5857 },
+  'btm': { lat: 12.9165, lon: 77.6101 },
+  'btm layout': { lat: 12.9165, lon: 77.6101 },
   'koramangala': { lat: 12.9352, lon: 77.6245 },
-  'indiranagar': { lat: 12.9784, lon: 77.6408 },
-  'hsr layout': { lat: 12.9121, lon: 77.6446 },
   'hsr': { lat: 12.9121, lon: 77.6446 },
+  'hsr layout': { lat: 12.9121, lon: 77.6446 },
+  'bellandur': { lat: 12.9304, lon: 77.6784 },
+  'kadubeesanahalli': { lat: 12.9370, lon: 77.6960 },
+  'marathahalli': { lat: 12.9591, lon: 77.6974 },
   'whitefield': { lat: 12.9698, lon: 77.7500 },
   'electronic city': { lat: 12.8452, lon: 77.6602 },
-  'bellandur': { lat: 12.9304, lon: 77.6784 },
-  'marathahalli': { lat: 12.9591, lon: 77.6974 },
-  'banashankari': { lat: 12.9255, lon: 77.5468 },
-  'jp nagar': { lat: 12.9063, lon: 77.5857 },
+  'indiranagar': { lat: 12.9784, lon: 77.6408 },
   'malleshwaram': { lat: 12.9982, lon: 77.5684 },
   'hebbal': { lat: 13.0358, lon: 77.5970 },
+  'yelahanka': { lat: 13.1007, lon: 77.5963 },
+  'mg road': { lat: 12.9756, lon: 77.6066 },
+  'brigade road': { lat: 12.9720, lon: 77.6070 },
+  'church street': { lat: 12.9750, lon: 77.6060 },
+  'banashankari': { lat: 12.9255, lon: 77.5468 },
+  // Delhi Hubs
   'saket': { lat: 28.5244, lon: 77.2167 },
   'hauz khas': { lat: 28.5494, lon: 77.2001 },
   'connaught place': { lat: 28.6315, lon: 77.2167 },
 };
 
 /**
- * Resolves latitude and longitude from explicit coords or known locality string
+ * Resolves latitude and longitude from explicit coords, locality, or address string
  */
 export function resolveCoords(
   lat?: number | null,
   lon?: number | null,
-  locality?: string | null
+  locality?: string | null,
+  address_text?: string | null
 ): { lat: number; lon: number } | null {
   if (
     typeof lat === 'number' &&
@@ -49,11 +82,13 @@ export function resolveCoords(
     return { lat, lon };
   }
 
-  if (locality) {
-    const locLower = locality.toLowerCase().trim();
-    for (const [key, coords] of Object.entries(LOCALITY_COORDINATES)) {
-      if (locLower.includes(key)) {
-        return coords;
+  const combined = `${locality || ''} ${address_text || ''}`.toLowerCase().trim();
+  if (combined) {
+    // Check longer/more specific keys first
+    const sortedKeys = Object.keys(LOCALITY_COORDINATES).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      if (combined.includes(key)) {
+        return LOCALITY_COORDINATES[key];
       }
     }
   }
@@ -77,8 +112,35 @@ export function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lo
 }
 
 /**
+ * Retrieves the viewing user's resolved coordinates:
+ * Prioritizes auth user coordinates -> profile locality/address -> localStorage cache
+ */
+export function getUserCoords(user?: {
+  latitude?: number | null;
+  longitude?: number | null;
+  locality?: string | null;
+  address_text?: string | null;
+} | null): { lat: number; lon: number } | null {
+  const fromUser = resolveCoords(user?.latitude, user?.longitude, user?.locality, user?.address_text);
+  if (fromUser) return fromUser;
+
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('rentu_user_location');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const fromStored = resolveCoords(parsed.latitude, parsed.longitude, parsed.locality, parsed.address_text);
+        if (fromStored) return fromStored;
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+/**
  * Checks if an entity (user, profile, item, or request) has genuinely set their location.
- * Returns false if location is null, empty string, or default generic text (e.g. 'Bengaluru', 'Bengaluru, India').
+ * Returns false if location is null, empty string, or default generic text.
  */
 export function hasUserSetLocation(entity?: {
   latitude?: number | null;
@@ -87,23 +149,28 @@ export function hasUserSetLocation(entity?: {
   address_text?: string | null;
   saved_locations?: any[];
 } | null): boolean {
-  if (!entity) return false;
+  if (!entity) {
+    // If entity is null (e.g. unauthenticated guest), check localStorage fallback
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('rentu_user_location');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return hasUserSetLocation(parsed);
+        }
+      } catch {}
+    }
+    return false;
+  }
 
-  // 1. Explicit non-zero coordinates
-  if (
-    typeof entity.latitude === 'number' &&
-    typeof entity.longitude === 'number' &&
-    !isNaN(entity.latitude) &&
-    !isNaN(entity.longitude) &&
-    entity.latitude !== 0 &&
-    entity.longitude !== 0
-  ) {
+  // 1. Explicit or resolvable coordinates
+  if (resolveCoords(entity.latitude, entity.longitude, entity.locality, entity.address_text)) {
     return true;
   }
 
   // 2. Concrete locality (must not be empty or generic city-level)
+  const genericStrings = ['bengaluru', 'bengaluru, india', 'bangalore', 'india', 'local hub', 'nearby', 'neighborhood', ''];
   const loc = (entity.locality || '').toLowerCase().trim();
-  const genericStrings = ['bengaluru', 'bengaluru, india', 'bangalore', 'india', 'local hub', 'nearby', ''];
   if (loc && !genericStrings.includes(loc)) {
     return true;
   }
@@ -136,59 +203,46 @@ export function getReachDistanceMeters(
     locality?: string | null;
     address_text?: string | null;
     id?: string;
+    owner_id?: string;
   },
   user?: {
+    id?: string;
     latitude?: number | null;
     longitude?: number | null;
     locality?: string | null;
     address_text?: string | null;
   } | null
 ): number | null {
-  // 1. Strict validation: If either entity has NOT set their location, do NOT compute or fake distance!
-  if (!hasUserSetLocation(item)) {
-    return null;
+  // If viewing user is owner
+  if (user?.id && item.owner_id && String(user.id) === String(item.owner_id)) {
+    return 0;
   }
 
-  let userCoords = resolveCoords(user?.latitude, user?.longitude, user?.locality);
-  if (!userCoords && typeof window !== 'undefined') {
-    try {
-      const stored = localStorage.getItem('rentu_user_location');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (hasUserSetLocation(parsed)) {
-          userCoords = resolveCoords(parsed.latitude, parsed.longitude, parsed.locality);
-        }
-      }
-    } catch {}
-  }
+  const userCoords = getUserCoords(user);
+  const itemCoords = resolveCoords(item.latitude, item.longitude, item.locality, item.address_text);
 
-  if (!hasUserSetLocation(user) && !userCoords) {
-    return null;
-  }
-
-  // 2. If backend provided exact Haversine distance_meters
-  if (
-    typeof item.distance_meters === 'number' &&
-    !isNaN(item.distance_meters) &&
-    item.distance_meters >= 0 &&
-    item.distance_meters < 5000000
-  ) {
-    return Math.round(item.distance_meters);
-  }
-
-  // 3. Resolve item coordinates
-  const itemCoords = resolveCoords(item.latitude, item.longitude, item.locality);
-
+  // If both coordinates are resolvable, compute Haversine distance
   if (userCoords && itemCoords) {
     const km = haversineDistanceKm(userCoords.lat, userCoords.lon, itemCoords.lat, itemCoords.lon);
     return Math.round(km * 1000);
   }
 
-  // 4. Locality proximity matching fallback (only for specific verified sub-localities)
+  // If backend provided valid distance_meters (> 0)
+  if (
+    typeof item.distance_meters === 'number' &&
+    !isNaN(item.distance_meters) &&
+    item.distance_meters > 0 &&
+    item.distance_meters < 5000000
+  ) {
+    return Math.round(item.distance_meters);
+  }
+
+  // Locality proximity matching fallback (only for specific non-generic sub-localities)
   const itemLoc = (item.locality || '').toLowerCase().trim();
   const userLoc = (user?.locality || '').toLowerCase().trim();
+  const genericStrings = ['bengaluru', 'bengaluru, india', 'bangalore', 'india', 'local hub', 'nearby', 'neighborhood', ''];
 
-  if (itemLoc && userLoc && itemLoc !== 'bengaluru' && userLoc !== 'bengaluru') {
+  if (itemLoc && userLoc && !genericStrings.includes(itemLoc) && !genericStrings.includes(userLoc)) {
     if (itemLoc === userLoc || itemLoc.includes(userLoc) || userLoc.includes(itemLoc)) {
       return 500;
     }
@@ -206,12 +260,16 @@ export function getReachDistanceKm(
     latitude?: number | null;
     longitude?: number | null;
     locality?: string | null;
+    address_text?: string | null;
     id?: string;
+    owner_id?: string;
   },
   user?: {
+    id?: string;
     latitude?: number | null;
     longitude?: number | null;
     locality?: string | null;
+    address_text?: string | null;
   } | null
 ): number {
   const meters = getReachDistanceMeters(item, user);
@@ -244,7 +302,7 @@ export function formatDistanceString(totalMeters: number): string {
  * Formats reach distance into clean user-facing string strictly indicating distance:
  * e.g. "Within ~500 m", "Within ~1.2 km", "Within ~2 km".
  * Returns NULL if either user or target has not set their location.
- * Privacy Rule: UNDER NO CIRCUMSTANCES is anyone's physical location/locality shown publicly.
+ * Privacy Rule: UNDER NO CIRCUMSTANCES is anyone's physical house/street location shown publicly.
  */
 export function getReachDistance(
   item: {
@@ -269,16 +327,10 @@ export function getReachDistance(
     return 'Within ~100 m (Your Gear)';
   }
 
-  // Strict check: if the item or user hasn't set location, NEVER show fake distance!
-  if (!hasUserSetLocation(item) || !hasUserSetLocation(user)) {
-    return null;
-  }
-
   const meters = getReachDistanceMeters(item, user);
   if (meters !== null) {
     return formatDistanceString(meters);
   }
 
-  // Do NOT return 'Within ~2 km' if no location is set! Return null!
   return null;
 }

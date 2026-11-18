@@ -24,7 +24,8 @@ import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
 import { api } from '../lib/api';
 import { uploadItemPhoto } from '../lib/upload';
-import { detectCurrentLocation, getEffectiveSavedLocations, formatSavedLocationFull, parseAddressText, buildAddressString } from '../lib/location';
+import { detectCurrentLocation, getEffectiveSavedLocations, formatSavedLocationFull, parseAddressText, buildAddressString, forwardGeocode } from '../lib/location';
+import { resolveCoords } from '../lib/distance';
 
 interface DropWishModalProps {
   isOpen: boolean;
@@ -382,8 +383,22 @@ export const DropWishModal: React.FC<DropWishModalProps> = ({
     try {
       const fullDestinationAddress = buildAddressString(trimmedBuilding, streetArea.trim(), pincode.trim(), locality.trim());
       const extraFeeNumber = (!willPickup || !willDropBack) ? Number(deliveryFee || 0) : 0;
-      const finalLat = coords?.latitude ?? (user?.latitude ? Number(user.latitude) : undefined);
-      const finalLon = coords?.longitude ?? (user?.longitude ? Number(user.longitude) : undefined);
+      let finalLat = coords?.latitude ?? (user?.latitude ? Number(user.latitude) : undefined);
+      let finalLon = coords?.longitude ?? (user?.longitude ? Number(user.longitude) : undefined);
+
+      if (!finalLat || !finalLon) {
+        const resolved = resolveCoords(undefined, undefined, locality.trim(), fullDestinationAddress);
+        if (resolved) {
+          finalLat = resolved.lat;
+          finalLon = resolved.lon;
+        } else {
+          const geo = await forwardGeocode(`${fullDestinationAddress} ${locality.trim()}`).catch(() => null);
+          if (geo) {
+            finalLat = geo.latitude;
+            finalLon = geo.longitude;
+          }
+        }
+      }
 
       await api.createRequest({
         item_name: itemName.trim(),

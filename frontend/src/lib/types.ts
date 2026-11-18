@@ -122,6 +122,9 @@ export interface CommunityRequest {
   locality: string;
   address_text?: string;
   pincode?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  distance_meters?: number | null;
   will_pickup?: boolean;
   will_drop_back?: boolean;
   delivery_fee?: number;

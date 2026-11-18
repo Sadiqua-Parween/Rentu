@@ -102,10 +102,115 @@ async function autoCancelExpiredRequests(): Promise<void> {
 router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next) => {
   try {
     await autoCancelExpiredRequests();
-    const { category, locality, status = 'OPEN', seekerId } = req.query;
+    const { category, locality, status = 'OPEN', seekerId, latitude, longitude } = req.query;
     const currentViewerId = (req as AuthenticatedRequest).user?.id;
     const viewerIds = currentViewerId ? await resolveUserIds(currentViewerId, (req as AuthenticatedRequest).user?.email) : [];
     const params: any[] = [viewerIds];
+
+    let distanceField = 'NULL AS distance_meters';
+    let userLat = latitude ? parseFloat(String(latitude)) : NaN;
+    let userLon = longitude ? parseFloat(String(longitude)) : NaN;
+
+    if ((isNaN(userLat) || isNaN(userLon)) && currentViewerId) {
+      const uRes = await query(
+        `SELECT latitude, longitude, locality, address_text FROM users WHERE id::text = $1 OR firebase_uid = $1`,
+        [currentViewerId]
+      );
+      if (uRes.rows.length > 0) {
+        if (uRes.rows[0].latitude && uRes.rows[0].longitude) {
+          userLat = parseFloat(uRes.rows[0].latitude);
+          userLon = parseFloat(uRes.rows[0].longitude);
+        } else {
+          const loc = `${uRes.rows[0].locality || ''} ${uRes.rows[0].address_text || ''}`.toLowerCase();
+          if (loc.includes('bhel') || loc.includes('huelva') || loc.includes('pattanagere')) { userLat = 12.92404; userLon = 77.50201; }
+          else if (loc.includes('beml') || loc.includes('kimberly')) { userLat = 12.9140; userLon = 77.4993; }
+          else if (loc.includes('mylasandra') || loc.includes('mailasandra')) { userLat = 12.8850; userLon = 77.5050; }
+          else if (loc.includes('kengeri')) { userLat = 12.9177; userLon = 77.4838; }
+          else if (loc.includes('rajarajeshwari') || loc.includes('rr nagar')) { userLat = 12.9275; userLon = 77.5150; }
+        }
+      }
+    }
+
+    if (!isNaN(userLat) && !isNaN(userLon)) {
+      params.push(userLat);
+      const latIdx = params.length;
+      params.push(userLon);
+      const lonIdx = params.length;
+
+      distanceField = `
+        CASE 
+          WHEN (
+            COALESCE(
+              NULLIF(r.latitude, 0),
+              NULLIF(u.latitude, 0),
+              CASE 
+                WHEN (r.locality ILIKE '%bhel%' OR r.address_text ILIKE '%bhel%' OR r.address_text ILIKE '%huelva%' OR r.locality ILIKE '%pattanagere%') THEN 12.92404
+                WHEN (r.locality ILIKE '%beml%' OR r.address_text ILIKE '%beml%' OR r.address_text ILIKE '%kimberly%') THEN 12.9140
+                WHEN (r.locality ILIKE '%mylasandra%' OR r.address_text ILIKE '%mylasandra%') THEN 12.8850
+                WHEN (r.locality ILIKE '%kengeri%' OR r.address_text ILIKE '%kengeri%') THEN 12.9177
+                WHEN (r.locality ILIKE '%rajarajeshwari%' OR r.locality ILIKE '%rr nagar%' OR r.address_text ILIKE '%rr nagar%') THEN 12.9275
+                WHEN (r.locality ILIKE '%jayanagar%' OR r.address_text ILIKE '%jayanagar%') THEN 12.9308
+                WHEN (r.locality ILIKE '%koramangala%' OR r.address_text ILIKE '%koramangala%') THEN 12.9352
+                WHEN (r.locality ILIKE '%indiranagar%' OR r.address_text ILIKE '%indiranagar%') THEN 12.9784
+                WHEN (r.locality ILIKE '%hsr%' OR r.address_text ILIKE '%hsr%') THEN 12.9121
+                WHEN (r.locality ILIKE '%whitefield%' OR r.address_text ILIKE '%whitefield%') THEN 12.9698
+                WHEN (r.locality ILIKE '%electronic city%' OR r.address_text ILIKE '%electronic city%') THEN 12.8452
+                ELSE NULL
+              END
+            ) IS NOT NULL
+          ) THEN
+            ROUND(
+              6371000 * acos(
+                LEAST(1.0, GREATEST(-1.0, 
+                  cos(radians($${latIdx})) * cos(radians(
+                    COALESCE(
+                      NULLIF(r.latitude, 0),
+                      NULLIF(u.latitude, 0),
+                      CASE 
+                        WHEN (r.locality ILIKE '%bhel%' OR r.address_text ILIKE '%bhel%' OR r.address_text ILIKE '%huelva%' OR r.locality ILIKE '%pattanagere%') THEN 12.92404
+                        WHEN (r.locality ILIKE '%beml%' OR r.address_text ILIKE '%beml%' OR r.address_text ILIKE '%kimberly%') THEN 12.9140
+                        WHEN (r.locality ILIKE '%mylasandra%' OR r.address_text ILIKE '%mylasandra%') THEN 12.8850
+                        WHEN (r.locality ILIKE '%kengeri%' OR r.address_text ILIKE '%kengeri%') THEN 12.9177
+                        WHEN (r.locality ILIKE '%rajarajeshwari%' OR r.locality ILIKE '%rr nagar%' OR r.address_text ILIKE '%rr nagar%') THEN 12.9275
+                        ELSE NULL
+                      END
+                    )
+                  )) *
+                  cos(radians(
+                    COALESCE(
+                      NULLIF(r.longitude, 0),
+                      NULLIF(u.longitude, 0),
+                      CASE 
+                        WHEN (r.locality ILIKE '%bhel%' OR r.address_text ILIKE '%bhel%' OR r.address_text ILIKE '%huelva%' OR r.locality ILIKE '%pattanagere%') THEN 77.50201
+                        WHEN (r.locality ILIKE '%beml%' OR r.address_text ILIKE '%beml%' OR r.address_text ILIKE '%kimberly%') THEN 77.4993
+                        WHEN (r.locality ILIKE '%mylasandra%' OR r.address_text ILIKE '%mylasandra%') THEN 77.5050
+                        WHEN (r.locality ILIKE '%kengeri%' OR r.address_text ILIKE '%kengeri%') THEN 77.4838
+                        WHEN (r.locality ILIKE '%rajarajeshwari%' OR r.locality ILIKE '%rr nagar%' OR r.address_text ILIKE '%rr nagar%') THEN 77.5150
+                        ELSE NULL
+                      END
+                    )
+                  ) - radians($${lonIdx})) +
+                  sin(radians($${latIdx})) * sin(radians(
+                    COALESCE(
+                      NULLIF(r.latitude, 0),
+                      NULLIF(u.latitude, 0),
+                      CASE 
+                        WHEN (r.locality ILIKE '%bhel%' OR r.address_text ILIKE '%bhel%' OR r.address_text ILIKE '%huelva%' OR r.locality ILIKE '%pattanagere%') THEN 12.92404
+                        WHEN (r.locality ILIKE '%beml%' OR r.address_text ILIKE '%beml%' OR r.address_text ILIKE '%kimberly%') THEN 12.9140
+                        WHEN (r.locality ILIKE '%mylasandra%' OR r.address_text ILIKE '%mylasandra%') THEN 12.8850
+                        WHEN (r.locality ILIKE '%kengeri%' OR r.address_text ILIKE '%kengeri%') THEN 12.9177
+                        WHEN (r.locality ILIKE '%rajarajeshwari%' OR r.locality ILIKE '%rr nagar%' OR r.address_text ILIKE '%rr nagar%') THEN 12.9275
+                        ELSE NULL
+                      END
+                    )
+                  ))
+                ))
+              )
+            )
+          ELSE NULL
+        END AS distance_meters
+      `;
+    }
 
     let sql = `
       SELECT 
@@ -114,6 +219,9 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response, next
         r.offered_amount, r.locality, 
         CASE WHEN r.seeker_id = ANY($1::text[]) THEN r.address_text ELSE NULL END AS address_text,
         CASE WHEN r.seeker_id = ANY($1::text[]) THEN r.pincode ELSE NULL END AS pincode,
+        COALESCE(r.latitude, u.latitude) AS latitude,
+        COALESCE(r.longitude, u.longitude) AS longitude,
+        ${distanceField},
         r.pickup_type, r.pickup_locality, r.return_type, r.return_locality,
         r.will_pickup, r.will_drop_back, r.delivery_fee,
         r.status, COALESCE(r.approval_status, 'APPROVED') AS approval_status, r.created_at, r.image_url,

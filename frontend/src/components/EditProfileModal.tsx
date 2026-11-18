@@ -23,7 +23,7 @@ import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
 import { api } from '../lib/api';
 import { uploadItemPhoto } from '../lib/upload';
-import { detectCurrentLocation, formatSavedLocationFull, parseAddressText, buildAddressString } from '../lib/location';
+import { detectCurrentLocation, formatSavedLocationFull, parseAddressText, buildAddressString, forwardGeocode } from '../lib/location';
 import { resolveCoords } from '../lib/distance';
 import { AddLocationModal } from './AddLocationModal';
 import { SavedLocation } from '../lib/types';
@@ -295,6 +295,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         ? buildAddressString(trimmedBuilding || null, trimmedStreet || null, pincode.trim() || null, locality.trim() || null)
         : null;
 
+      let finalLat = latitude !== undefined ? latitude : null;
+      let finalLon = longitude !== undefined ? longitude : null;
+
+      if (!finalLat || !finalLon) {
+        const resolved = resolveCoords(undefined, undefined, locality.trim(), fullAddress);
+        if (resolved) {
+          finalLat = resolved.lat;
+          finalLon = resolved.lon;
+        } else if (fullAddress || locality.trim()) {
+          const geo = await forwardGeocode(`${fullAddress || ''} ${locality.trim()}`).catch(() => null);
+          if (geo) {
+            finalLat = geo.latitude;
+            finalLon = geo.longitude;
+          }
+        }
+      }
+
       await api.updateProfile({
         name: name.trim(),
         username: cleanUsername || undefined,
@@ -303,11 +320,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         locality: locality.trim() ? locality.trim() : null,
         address_text: fullAddress ? fullAddress : null,
         pincode: pincode.trim() ? pincode.trim() : null,
-        latitude: latitude !== undefined ? latitude : null,
-        longitude: longitude !== undefined ? longitude : null,
+        latitude: finalLat,
+        longitude: finalLon,
         avatar_url: avatarUrl ? avatarUrl : null,
         banner_url: bannerUrl ? bannerUrl : null,
       });
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('rentu_user_location', JSON.stringify({
+          locality: locality.trim(),
+          address_text: fullAddress,
+          pincode: pincode.trim(),
+          latitude: finalLat,
+          longitude: finalLon,
+        }));
+        window.dispatchEvent(new CustomEvent('rentu_location_updated'));
+      }
 
       await refreshUser();
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });

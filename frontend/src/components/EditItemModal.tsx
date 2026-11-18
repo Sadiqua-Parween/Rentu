@@ -4,7 +4,8 @@ import { Item, SavedLocation } from '../lib/types';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/authContext';
 import { uploadItemPhoto } from '../lib/upload';
-import { getEffectiveSavedLocations } from '../lib/location';
+import { getEffectiveSavedLocations, forwardGeocode } from '../lib/location';
+import { resolveCoords } from '../lib/distance';
 import { AddLocationModal } from './AddLocationModal';
 
 interface EditItemModalProps {
@@ -167,6 +168,20 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
         pincode = chosenLocation.pincode || user?.pincode || undefined;
         latitude = chosenLocation.latitude ?? user?.latitude;
         longitude = chosenLocation.longitude ?? user?.longitude;
+      }
+
+      if (!latitude || !longitude) {
+        const resolved = resolveCoords(undefined, undefined, finalLocality, itemAddress);
+        if (resolved) {
+          latitude = resolved.lat;
+          longitude = resolved.lon;
+        } else {
+          const geo = await forwardGeocode(`${itemAddress} ${finalLocality}`).catch(() => null);
+          if (geo) {
+            latitude = geo.latitude;
+            longitude = geo.longitude;
+          }
+        }
       }
 
       const payload: any = {

@@ -4,6 +4,7 @@
  */
 
 import { User, SavedLocation } from './types';
+import { LOCALITY_COORDINATES } from './distance';
 
 export interface ResolvedLocation {
   locality: string;
@@ -189,6 +190,53 @@ export const detectCurrentLocation = async (
     ...resolved,
     accuracy: coords.accuracy,
   };
+};
+
+/**
+ * Forward geocodes a textual location, locality, or landmark into coordinates.
+ * Tries local high-speed dictionary first, then OpenStreetMap Nominatim.
+ */
+export const forwardGeocode = async (
+  query: string
+): Promise<{ latitude: number; longitude: number; display_name?: string } | null> => {
+  if (!query || !query.trim()) return null;
+  const cleanQ = query.trim().toLowerCase();
+
+  // 1. Fast local dictionary match
+  const sortedKeys = Object.keys(LOCALITY_COORDINATES).sort((a, b) => b.length - a.length);
+  for (const key of sortedKeys) {
+    if (cleanQ.includes(key)) {
+      const coords = LOCALITY_COORDINATES[key];
+      return { latitude: coords.lat, longitude: coords.lon, display_name: key };
+    }
+  }
+
+  // 2. OpenStreetMap Nominatim forward search with 4s timeout
+  try {
+    const hasCity = cleanQ.includes('bengaluru') || cleanQ.includes('bangalore') || cleanQ.includes('delhi');
+    const searchTarget = hasCity ? cleanQ : `${cleanQ}, Bengaluru`;
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTarget)}&limit=1`,
+      {
+        headers: { 'Accept-Language': 'en' },
+        signal: AbortSignal.timeout(4000),
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].lat && data[0].lon) {
+        return {
+          latitude: parseFloat(data[0].lat),
+          longitude: parseFloat(data[0].lon),
+          display_name: data[0].display_name,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Nominatim forward geocode fallback error:', err);
+  }
+
+  return null;
 };
 
 /**

@@ -495,19 +495,47 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     loadFeed();
-  }, [selectedCategory]);
+  }, [selectedCategory, user?.id, user?.latitude, user?.longitude]);
+
+  useEffect(() => {
+    const handleLocationUpdate = () => {
+      loadFeed(true);
+    };
+    window.addEventListener('rentu_location_updated', handleLocationUpdate);
+    return () => window.removeEventListener('rentu_location_updated', handleLocationUpdate);
+  }, [selectedCategory, user?.id]);
 
   const loadFeed = async (isBackground = false) => {
     if (!isBackground) setIsLoading(true);
     try {
+      let userLat: number | undefined = user?.latitude ? Number(user.latitude) : undefined;
+      let userLon: number | undefined = user?.longitude ? Number(user.longitude) : undefined;
+
+      if ((!userLat || !userLon) && typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('rentu_user_location');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.latitude && parsed.longitude) {
+              userLat = Number(parsed.latitude);
+              userLon = Number(parsed.longitude);
+            }
+          }
+        } catch {}
+      }
+
       const [itemsRes, requestsRes, analyticsRes] = await Promise.allSettled([
         api.getItems({
           category: selectedCategory,
           search: searchQuery,
+          latitude: userLat,
+          longitude: userLon,
         }),
         api.getRequests({
           category: selectedCategory,
           status: 'OPEN',
+          latitude: userLat,
+          longitude: userLon,
         }),
         api.getAnalytics(),
       ]);

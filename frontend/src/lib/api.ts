@@ -195,6 +195,10 @@ export const api = {
     locality?: string;
     status?: string;
     ownerId?: string;
+    latitude?: number;
+    longitude?: number;
+    radar?: string;
+    max_distance?: number;
   }): Promise<Item[]> {
     const query = new URLSearchParams();
     if (params?.category && params.category !== 'All') query.append('category', params.category);
@@ -203,14 +207,56 @@ export const api = {
     if (params?.status) query.append('status', params.status);
     if (params?.ownerId) query.append('ownerId', params.ownerId);
 
+    // Provide viewer coordinates for accurate Haversine distance calculations
+    let lat = params?.latitude;
+    let lon = params?.longitude;
+    if ((lat === undefined || lon === undefined) && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('rentu_user_location');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.latitude && parsed.longitude) {
+            lat = Number(parsed.latitude);
+            lon = Number(parsed.longitude);
+          }
+        }
+      } catch {}
+    }
+    if (typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)) {
+      query.append('latitude', String(lat));
+      query.append('longitude', String(lon));
+    }
+    if (params?.radar) query.append('radar', params.radar);
+    if (params?.max_distance) query.append('max_distance', String(params.max_distance));
+
     const res = await fetch(`${API_BASE}/items?${query.toString()}`, {
       headers: getHeaders(),
     });
     return handleResponse(res);
   },
 
-  async getItem(id: string): Promise<Item> {
-    const res = await fetch(`${API_BASE}/items/${id}`, {
+  async getItem(id: string, coords?: { latitude?: number; longitude?: number }): Promise<Item> {
+    const query = new URLSearchParams();
+    let lat = coords?.latitude;
+    let lon = coords?.longitude;
+    if ((lat === undefined || lon === undefined) && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('rentu_user_location');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.latitude && parsed.longitude) {
+            lat = Number(parsed.latitude);
+            lon = Number(parsed.longitude);
+          }
+        }
+      } catch {}
+    }
+    if (typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)) {
+      query.append('latitude', String(lat));
+      query.append('longitude', String(lon));
+    }
+    const qStr = query.toString();
+    const res = await fetch(`${API_BASE}/items/${id}${qStr ? `?${qStr}` : ''}`, {
       headers: getHeaders(),
     });
     return handleResponse(res);
@@ -291,12 +337,33 @@ export const api = {
     locality?: string;
     status?: string;
     seekerId?: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<CommunityRequest[]> {
     const query = new URLSearchParams();
     if (params?.category && params.category !== 'All') query.append('category', params.category);
     if (params?.locality) query.append('locality', params.locality);
     if (params?.status) query.append('status', params.status);
     if (params?.seekerId) query.append('seekerId', params.seekerId);
+
+    let lat = params?.latitude;
+    let lon = params?.longitude;
+    if ((lat === undefined || lon === undefined) && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('rentu_user_location');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.latitude && parsed.longitude) {
+            lat = Number(parsed.latitude);
+            lon = Number(parsed.longitude);
+          }
+        }
+      } catch {}
+    }
+    if (typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)) {
+      query.append('latitude', String(lat));
+      query.append('longitude', String(lon));
+    }
 
     const res = await fetch(`${API_BASE}/requests?${query.toString()}`, {
       headers: getHeaders(),
