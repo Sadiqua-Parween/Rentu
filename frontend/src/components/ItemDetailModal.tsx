@@ -47,6 +47,13 @@ interface ItemDetailModalProps {
   onDeleteItem?: (itemId: string) => void;
 }
 
+const formatDisplayDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, (m || 1) - 1, d || 1);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
 export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   item,
   onClose,
@@ -826,23 +833,15 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               )}
 
               {/* Dedicated Visible Product Calendar Section */}
-              <div className="pt-4 border-t border-divider space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <h3 className="text-sm font-extrabold text-ink uppercase tracking-wider flex items-center gap-1.5 font-display">
-                      <Calendar className="w-4 h-4 text-brand" />
-                      <span>Product Calendar & Availability</span>
-                    </h3>
-                    <p className="text-xs text-ink-secondary">
-                      {item.created_at 
-                        ? `Listed on ${new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}` 
-                        : 'Active listing'} • Choose days directly from this calendar to rent
-                    </p>
-                  </div>
-
-                  <span className="text-[11px] font-bold text-ink-secondary bg-surface px-2.5 py-1 rounded-full border border-divider">
-                    Pick dates on calendar
-                  </span>
+              <div className="pt-5 border-t border-divider space-y-3">
+                <div>
+                  <h3 className="text-sm font-bold text-ink flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-brand" />
+                    <span>Select Rental Dates</span>
+                  </h3>
+                  <p className="text-xs text-ink-secondary mt-0.5">
+                    Pick your dates and times on the calendar below
+                  </p>
                 </div>
 
                 <RentalCalendar
@@ -966,26 +965,23 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                       </div>
                     )}
                     
-                    {/* Chosen Rental Schedule (synced live from the calendar & time selectors on the left) */}
-                    <div className="p-3 rounded-2xl bg-surface border border-divider flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
+                    {/* Chosen Rental Schedule */}
+                    <div className="p-3.5 rounded-2xl bg-surface border border-divider flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div className="w-8 h-8 rounded-xl bg-brand-soft text-brand flex items-center justify-center shrink-0">
                           <Calendar className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-black text-ink flex flex-wrap items-center gap-1.5">
-                            <span>{startDate}</span>
-                            <span className="text-brand font-bold text-[11px]">{formatTime12(startTime)}</span>
-                            <span className="text-ink-secondary font-normal">→</span>
-                            <span>{endDate}</span>
-                            <span className="text-brand font-bold text-[11px]">{formatTime12(endTime)}</span>
+                          <div className="text-xs font-bold text-ink">
+                            {formatDisplayDate(startDate)} · {formatTime12(startTime)}
+                            <span className="text-ink-muted mx-1.5">→</span>
+                            {formatDisplayDate(endDate)} · {formatTime12(endTime)}
                           </div>
-                          <div className="text-[10px] text-ink-secondary">Selected on calendar</div>
+                          <div className="text-[11px] text-ink-secondary mt-0.5 font-medium">
+                            {durationDays} {durationDays === 1 ? 'day' : 'days'} rental
+                          </div>
                         </div>
                       </div>
-                      <span className="text-[10px] font-extrabold text-brand bg-brand-soft px-2.5 py-1 rounded-full border border-brand/20 shrink-0">
-                        {durationDays} {durationDays === 1 ? 'day' : 'days'}
-                      </span>
                     </div>
 
                     {/* Section: Handover & Delivery Options */}
