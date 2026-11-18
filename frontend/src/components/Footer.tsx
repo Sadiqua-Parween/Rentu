@@ -1,23 +1,12 @@
 import React, { useState } from 'react';
 import {
   ShieldCheck,
-  Sparkles,
-  MapPin,
   Lock,
   FileText,
-  Heart,
   ExternalLink,
-  HelpCircle,
   X,
-  CheckCircle2,
   Scale,
-  Compass,
-  Package,
-  Calendar,
-  Users,
-  MessageSquare,
-  Plus,
-  ArrowUpRight
+  CheckCircle2
 } from 'lucide-react';
 import { TabType } from '../App';
 
@@ -59,271 +48,60 @@ export const Footer: React.FC<FooterProps> = ({
 
   return (
     <>
-      <footer className="hidden md:block mt-24 border-t border-divider bg-surface/80 dark:bg-zinc-950/80 backdrop-blur-md text-ink transition-colors pb-12">
-        {/* Main Footer Navigation Grid */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10">
-            {/* Column 1: Brand Info & Community Mission (spans 2 cols on desktop) */}
-            <div className="lg:col-span-2 space-y-4">
-              <button
-                type="button"
-                onClick={() => handleNavClick('home')}
-                className="flex items-center gap-1.5 text-left cursor-pointer group"
-              >
-                <span className="font-extrabold text-2xl sm:text-3xl tracking-tight text-ink font-display">
-                  Rentu<sup className="text-brand font-black text-lg">⁺</sup>
-                </span>
-              </button>
-
-              <p className="text-xs text-ink-secondary leading-relaxed max-w-sm">
-                Peer-to-peer neighborhood rental network. Borrow everyday gear from verified neighbors nearby.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {onOpenDropGear && (
-                  <button
-                    type="button"
-                    onClick={onOpenDropGear}
-                    className="btn-primary text-xs px-3.5 py-1.5 shadow-pink font-bold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>List Gear</span>
-                  </button>
-                )}
-                {onOpenDropWish && (
-                  <button
-                    type="button"
-                    onClick={onOpenDropWish}
-                    className="btn-secondary text-xs px-3.5 py-1.5 font-bold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-brand" />
-                    <span>Post Request</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="pt-2 text-[11px] text-ink-muted flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>All systems operational • Bengaluru, Karnataka</span>
-              </div>
-            </div>
-
-            {/* Column 2: Marketplace Navigation */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-black uppercase tracking-wider text-ink font-display flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5 text-brand" />
-                <span>Marketplace</span>
-              </h3>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleNavClick('explore')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Explore All Gear
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleNavClick('requests')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left flex items-center gap-1.5"
-                  >
-                    <span>Community Requests</span>
-                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-brand/10 text-brand">Live</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleCategoryClick('Cameras & Photography')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Cameras & Photography
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleCategoryClick('Tech & Electronics')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Tech & Electronics
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleCategoryClick('Camping & Outdoors')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Camping & Outdoors
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleCategoryClick('Tools & DIY')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Tools & DIY
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 3: Community & Activity */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-black uppercase tracking-wider text-ink font-display flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-purple-600" />
-                <span>Community</span>
-              </h3>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleNavClick('community')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left flex items-center gap-1"
-                  >
-                    <span>Top 10 Leaderboard</span>
-                    <span className="text-[10px] text-amber-500 font-bold">★</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleNavClick('bookings')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Active Handoffs & Bookings
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleNavClick('messages')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Messages & Agreements
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleNavClick('profile')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Neighbor Profile & Trust
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleNavClick('saved')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Saved Items & Wishes
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('SECURITY')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left flex items-center gap-1"
-                  >
-                    <span>Handover Security Guarantee</span>
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 4: Licensing, Legal & Support */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-black uppercase tracking-wider text-ink font-display flex items-center gap-1.5">
-                <Scale className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Licensing & Trust</span>
-              </h3>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('LICENSING')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left flex items-center gap-1 font-semibold text-brand"
-                  >
-                    <span>MIT Open Source License</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('TERMS')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Terms of Service
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('PRIVACY')}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left"
-                  >
-                    Privacy & Location Policy
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onOpenHelp) onOpenHelp('NEW');
-                    }}
-                    className="text-ink-secondary hover:text-brand transition-colors cursor-pointer text-left flex items-center gap-1"
-                  >
-                    <HelpCircle className="w-3 h-3 text-brand" />
-                    <span>Help Center & Support</span>
-                  </button>
-                </li>
-              </ul>
-            </div>
+      <footer className="mt-12 border-t border-divider bg-surface text-ink transition-colors py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+          {/* Brand & Copyright */}
+          <div className="flex items-center gap-3">
+            <button 
+              type="button"
+              onClick={() => handleNavClick('home')}
+              className="font-extrabold text-base tracking-tight text-ink font-display cursor-pointer"
+            >
+              Rentu<sup className="text-brand font-black text-xs">⁺</sup>
+            </button>
+            <span className="text-divider">•</span>
+            <span className="text-ink-secondary">© {new Date().getFullYear()} Rentu</span>
           </div>
-        </div>
 
-        {/* Bottom Bar: Copyright & Social Links */}
-        <div className="border-t border-divider/60 pt-6">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-secondary">
-            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-4 text-center sm:text-left">
-              <span>© {new Date().getFullYear()} Rentu Technologies. Licensed under the MIT License.</span>
-              <span className="hidden sm:inline text-divider">•</span>
-              <span className="inline-flex items-center gap-1">
-                Built with <Heart className="w-3 h-3 fill-rose-500 text-rose-500" /> for sustainable communities in India
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setActiveModal('LICENSING')}
-                className="hover:text-brand transition-colors cursor-pointer"
-              >
-                License
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveModal('TERMS')}
-                className="hover:text-brand transition-colors cursor-pointer"
-              >
-                Terms
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveModal('PRIVACY')}
-                className="hover:text-brand transition-colors cursor-pointer"
-              >
-                Privacy
-              </button>
-            </div>
+          {/* Clean Navigation Links */}
+          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6 text-ink-secondary font-medium">
+            <button
+              type="button"
+              onClick={() => handleNavClick('explore')}
+              className="hover:text-brand transition-colors cursor-pointer"
+            >
+              Marketplace
+            </button>
+            <button
+              type="button"
+              onClick={() => handleNavClick('community')}
+              className="hover:text-brand transition-colors cursor-pointer"
+            >
+              Community
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenHelp) onOpenHelp('NEW');
+              }}
+              className="hover:text-brand transition-colors cursor-pointer"
+            >
+              Help & Support
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveModal('TERMS')}
+              className="hover:text-brand transition-colors cursor-pointer"
+            >
+              Terms
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveModal('PRIVACY')}
+              className="hover:text-brand transition-colors cursor-pointer"
+            >
+              Privacy
+            </button>
           </div>
         </div>
       </footer>
