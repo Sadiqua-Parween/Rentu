@@ -34,8 +34,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
         {/* Bold, Clean Headline */}
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-ink tracking-tight font-display leading-[1.15]">
-          Rent anything from{' '}
-          <span className="text-brand">neighbors nearby.</span>
+          Rent, lend, borrow <br className="hidden sm:inline" />
+          <span className="text-brand">anything and everything.</span>
         </h1>
 
         {/* Clean, Short Subtitle */}
