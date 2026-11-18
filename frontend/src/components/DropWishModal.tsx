@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   Compass,
   Check,
-  ShieldCheck
+  ShieldCheck,
+  AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
@@ -436,22 +437,18 @@ export const DropWishModal: React.FC<DropWishModalProps> = ({
       >
         {/* Top Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-divider bg-surface shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-brand-soft text-brand flex items-center justify-center shrink-0">
-              <Megaphone className="w-5 h-5 fill-brand text-brand" />
-            </div>
-            <div>
-              <h2 className="text-lg sm:text-xl font-black text-ink font-display tracking-tight">
-                Post a Request
-              </h2>
-              <p className="text-xs text-ink-secondary">
-                All details on a single page — define when you need it, when you'll return it, and handover locations.
-              </p>
-            </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-extrabold text-ink font-display tracking-tight flex items-center gap-2">
+              <Megaphone className="w-4 h-4 text-brand" />
+              <span>Post a Request</span>
+            </h2>
+            <p className="text-xs text-ink-secondary">
+              Find gear to rent or borrow from neighbors
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-canvas text-ink transition-colors cursor-pointer"
+            className="p-2 rounded-full hover:bg-canvas text-ink-secondary hover:text-ink transition-colors cursor-pointer"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -461,622 +458,379 @@ export const DropWishModal: React.FC<DropWishModalProps> = ({
         {/* Single-Page Scrollable Form Body */}
         <form id="drop-wish-form" onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 overflow-y-auto">
           {errorMsg && (
-            <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold animate-in fade-in">
-              {errorMsg}
+            <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
           {/* SECTION 1: Item Details */}
           <div className="space-y-4">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-ink-secondary flex items-center gap-1.5">
-              <span>1. What item do you need?</span>
-            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-ink mb-1.5">
+                  Item Name *
+                </label>
+                <input
+                  type="text"
+                  value={itemName}
+                  onChange={(e) => setItemName(e.target.value)}
+                  placeholder="e.g. Sony A7 IV or Camping Tent"
+                  className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                  required
+                />
+              </div>
 
-            {/* Item Name */}
-            <div>
-              <label className="block text-xs font-bold text-ink mb-1">
-                Item Name <span className="text-brand">*</span>
-              </label>
-              <input
-                type="text"
-                value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
-                placeholder="e.g. Sony A7 IV Camera or Camping Tent"
-                className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
-                required
-              />
+              <div>
+                <label className="block text-xs font-bold text-ink mb-1.5">
+                  Category *
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none cursor-pointer"
+                >
+                  <option value="Electronics & Tech">Electronics & Tech</option>
+                  <option value="Camping & Outdoor">Camping & Outdoor</option>
+                  <option value="Tools & DIY">Tools & DIY</option>
+                  <option value="Clothing & Fits">Clothing & Fits</option>
+                  <option value="Home & Appliances">Home & Appliances</option>
+                  <option value="Sports & Fitness">Sports & Fitness</option>
+                  <option value="Books & Media">Books & Media</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
             </div>
 
-            {/* Category */}
-            <div>
-              <label className="block text-xs font-bold text-ink mb-1">
-                Category <span className="text-brand">*</span>
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none cursor-pointer"
-              >
-                <option value="Electronics & Tech">Electronics & Tech</option>
-                <option value="Camping & Outdoor">Camping & Outdoor</option>
-                <option value="Tools & DIY">Tools & DIY</option>
-                <option value="Clothing & Fits">Clothing & Fits</option>
-                <option value="Home & Appliances">Home & Appliances</option>
-                <option value="Sports & Fitness">Sports & Fitness</option>
-                <option value="Books & Media">Books & Media</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            {/* Description with Compulsory Minimum 10 Characters Notice */}
+            {/* Description */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-ink">
-                  Description <span className="text-brand">*</span>
+                  Description *
                 </label>
-                {isDescTooShort && (
-                  <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 animate-in fade-in">
-                    Minimum 10 characters compulsory ({descTrimmed.length}/10)
+                {isDescTooShort ? (
+                  <span className="text-[10px] font-semibold text-amber-500">
+                    Min 10 chars ({descTrimmed.length}/10)
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-ink-secondary">
+                    {descTrimmed.length} chars
                   </span>
                 )}
               </div>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Be specific about what you need, preferred model, condition, or what you'll use it for..."
+                placeholder="What model, accessories, or condition do you need? What will you use it for?"
                 rows={3}
                 className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-medium text-ink outline-none focus:border-brand resize-none"
                 required
               />
             </div>
-          </div>
 
-          {/* SECTION 2: Reference Photo */}
-          <div className="space-y-3 pt-2 border-t border-divider">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-ink-secondary">
-                2. Reference Photo <span className="text-ink-secondary font-normal lowercase">(optional)</span>
-              </h3>
-              {imageUrl && (
-                <button
-                  type="button"
-                  onClick={() => setImageUrl('')}
-                  className="text-xs font-bold text-red-500 hover:text-red-600 inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Remove Photo</span>
-                </button>
-              )}
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-
-            {/* Live Camera Viewfinder */}
-            {isCameraActive && (
-              <div className="relative rounded-2xl overflow-hidden bg-black border border-divider shadow-inner p-2">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-64 object-cover rounded-xl"
-                />
-                <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-3">
+            {/* Reference Photo (Optional) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-ink">Reference Photo (optional)</span>
+                {imageUrl && (
                   <button
                     type="button"
-                    onClick={capturePhotoFromCamera}
-                    className="px-5 py-2.5 rounded-full bg-brand hover:bg-brand/90 text-white text-xs font-extrabold shadow-lg cursor-pointer inline-flex items-center gap-2 active:scale-95 transition-transform"
+                    onClick={() => setImageUrl('')}
+                    className="text-xs font-bold text-red-500 hover:text-red-600 inline-flex items-center gap-1 cursor-pointer"
                   >
-                    <Camera className="w-4 h-4" />
-                    <span>Click Photo</span>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={stopCamera}
-                    className="px-4 py-2.5 rounded-full bg-surface/90 hover:bg-surface text-ink text-xs font-bold shadow-lg cursor-pointer transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                )}
               </div>
-            )}
 
-            {/* Image Preview */}
-            {!isCameraActive && imageUrl && (
-              <div className="relative rounded-2xl overflow-hidden border border-divider bg-canvas p-3 flex items-center gap-4">
-                <img
-                  src={imageUrl}
-                  alt="Reference Preview"
-                  className="w-24 h-24 object-cover rounded-xl border border-divider shrink-0"
-                />
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Picture Attached</span>
-                  </div>
-                  <p className="text-[11px] text-ink-secondary">
-                    Your photo helps community members identify the exact model or condition.
-                  </p>
-                  <div className="flex items-center gap-2 pt-1">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+
+              {imageUrl ? (
+                <div className="flex items-center gap-3 p-2.5 bg-canvas border border-divider rounded-xl max-w-sm">
+                  <img
+                    src={imageUrl}
+                    alt="Preview"
+                    className="w-14 h-14 object-cover rounded-lg border border-divider shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">Photo Attached</span>
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-xs font-bold text-brand hover:underline cursor-pointer inline-flex items-center gap-1"
+                      className="text-[11px] text-brand hover:underline cursor-pointer font-bold"
                     >
-                      <RefreshCw className="w-3 h-3" />
-                      <span>Change Picture</span>
+                      Change Photo
                     </button>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Upload Buttons */}
-            {!isCameraActive && !imageUrl && (
-              <div className="border-2 border-dashed border-divider hover:border-brand/40 rounded-2xl p-5 text-center transition-colors bg-canvas/40">
-                {isUploading ? (
-                  <div className="py-6 flex flex-col items-center justify-center gap-2">
-                    <Loader2 className="w-8 h-8 text-brand animate-spin" />
-                    <span className="text-xs font-bold text-ink">Uploading photo...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-soft text-brand flex items-center justify-center mx-auto">
-                      <Camera className="w-6 h-6 stroke-[1.5]" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-extrabold text-ink">Add a picture of what you want</h4>
-                      <p className="text-[11px] text-ink-secondary mt-0.5">
-                        Upload from your device storage or snap a picture right now with your camera.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-4 py-2 rounded-xl bg-surface border border-divider hover:border-brand hover:text-brand text-xs font-bold text-ink shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all active:scale-95"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload from Computer / Phone</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={startCamera}
-                        className="px-4 py-2 rounded-xl bg-surface border border-divider hover:border-brand hover:text-brand text-xs font-bold text-ink shadow-xs cursor-pointer inline-flex items-center gap-2 transition-all active:scale-95"
-                      >
-                        <Camera className="w-3.5 h-3.5" />
-                        <span>Take Photo with Camera</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="btn-secondary text-xs px-3.5 py-2 inline-flex items-center gap-1.5 cursor-pointer font-bold hover:border-brand hover:text-brand"
+                  >
+                    {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    <span>Upload Reference Image</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    disabled={isUploading}
+                    className="btn-secondary text-xs px-3.5 py-2 inline-flex items-center gap-1.5 cursor-pointer font-bold hover:border-brand hover:text-brand"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Camera</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* SECTION 3: WHEN DO YOU NEED IT & RETURN SCHEDULE */}
-          <div className="space-y-4 pt-2 border-t border-divider">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-ink-secondary flex items-center justify-between">
-              <span>3. Rental Dates & Return Timeline</span>
-              <span className="text-[11px] font-bold text-brand bg-brand-soft px-2.5 py-0.5 rounded-full">
-                {durationDays} {durationDays === 1 ? 'Day' : 'Days'} Rental
+          {/* SECTION 2: Rental Schedule & Budget */}
+          <div className="space-y-4 pt-3 border-t border-divider">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-ink">Rental Dates & Budget</span>
+              <span className="text-[11px] font-bold text-brand bg-brand/10 px-2 py-0.5 rounded-full">
+                {durationDays} {durationDays === 1 ? 'day' : 'days'}
               </span>
-            </h3>
+            </div>
 
-            {/* Start and Return Dates Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-              {/* Start / Handover Date & Time */}
-              <div className="p-3.5 rounded-2xl bg-canvas border border-divider space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Start Date & Time */}
+              <div className="p-3 rounded-xl bg-canvas border border-divider space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-ink">
-                    <Calendar className="w-4 h-4 text-brand" />
+                  <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-brand" />
                     <span>Needed From *</span>
-                  </div>
-                  <div className="text-[10px] font-bold text-brand flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>Pickup Time</span>
-                  </div>
+                  </span>
+                  <span className="text-[10px] text-ink-secondary">{startTime}</span>
                 </div>
-
                 <div className="grid grid-cols-12 gap-2">
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker?.();
-                      } catch { }
-                    }}
-                    className="col-span-7 bg-surface border border-divider rounded-xl px-3 py-2 text-xs font-bold text-ink outline-none focus:border-brand cursor-pointer [color-scheme:dark]"
+                    className="col-span-7 bg-surface border border-divider rounded-lg px-2.5 py-1.5 text-xs font-bold text-ink outline-none focus:border-brand cursor-pointer"
                     required
                   />
                   <input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker?.();
-                      } catch { }
-                    }}
-                    className="col-span-5 bg-surface border border-divider rounded-xl px-2.5 py-2 text-xs font-bold text-ink outline-none focus:border-brand cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert"
+                    className="col-span-5 bg-surface border border-divider rounded-lg px-2 py-1.5 text-xs font-bold text-ink outline-none focus:border-brand cursor-pointer"
                   />
-                </div>
-
-                {/* Quick start time presets */}
-                <div className="flex flex-wrap items-center gap-1 pt-1">
-                  {['09:00', '10:00', '12:00', '16:00', '18:00'].map((t) => {
-                    const now = new Date();
-                    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-                    const currentHourMin = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                    const isStartToday = startDate === todayStr;
-                    const isPast = isStartToday && t <= currentHourMin;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        disabled={isPast}
-                        onClick={() => !isPast && setStartTime(t)}
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border transition-all ${
-                          isPast
-                            ? 'opacity-30 cursor-not-allowed bg-zinc-800/40 border-zinc-700/40 text-zinc-500 line-through pointer-events-none'
-                            : startTime === t
-                            ? 'bg-brand text-white border-brand shadow-xs cursor-pointer'
-                            : 'bg-surface border-divider text-ink-secondary hover:text-ink hover:border-brand/40 cursor-pointer'
-                        }`}
-                        title={isPast ? 'This time has already passed today' : undefined}
-                      >
-                        {t.startsWith('0') ? t.slice(1) : t} {parseInt(t) < 12 ? 'AM' : 'PM'} {isPast ? '(Passed)' : ''}
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
 
-              {/* End / Return Date & Time */}
-              <div className="p-3.5 rounded-2xl bg-canvas border border-divider space-y-2">
+              {/* End Date & Time */}
+              <div className="p-3 rounded-xl bg-canvas border border-divider space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-ink">
-                    <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>When will you return it? *</span>
-                  </div>
-                  <div className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>Return Time</span>
-                  </div>
+                  <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Return By *</span>
+                  </span>
+                  <span className="text-[10px] text-ink-secondary">{endTime}</span>
                 </div>
-
                 <div className="grid grid-cols-12 gap-2">
                   <input
                     type="date"
                     min={startDate}
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker?.();
-                      } catch { }
-                    }}
-                    className="col-span-7 bg-surface border border-divider rounded-xl px-3 py-2 text-xs font-bold text-ink outline-none focus:border-brand cursor-pointer [color-scheme:dark]"
+                    className="col-span-7 bg-surface border border-divider rounded-lg px-2.5 py-1.5 text-xs font-bold text-ink outline-none focus:border-brand cursor-pointer"
                     required
                   />
                   <input
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker?.();
-                      } catch { }
-                    }}
-                    className="col-span-5 bg-surface border border-divider rounded-xl px-2.5 py-2 text-xs font-bold text-ink outline-none focus:border-brand cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert"
+                    className="col-span-5 bg-surface border border-divider rounded-lg px-2 py-1.5 text-xs font-bold text-ink outline-none focus:border-brand cursor-pointer"
                   />
                 </div>
-
-                {/* Quick return time presets */}
-                <div className="flex flex-wrap items-center gap-1 pt-1">
-                  {['11:00', '14:00', '18:00', '20:00', '21:30'].map((t) => {
-                    const now = new Date();
-                    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-                    const currentHourMin = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                    const isEndToday = endDate === todayStr;
-                    const isPast = (isEndToday && t <= currentHourMin) || (startDate === endDate && t <= startTime);
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        disabled={isPast}
-                        onClick={() => !isPast && setEndTime(t)}
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border transition-all ${
-                          isPast
-                            ? 'opacity-30 cursor-not-allowed bg-zinc-800/40 border-zinc-700/40 text-zinc-500 line-through pointer-events-none'
-                            : endTime === t
-                            ? 'bg-brand text-white border-brand shadow-xs cursor-pointer'
-                            : 'bg-surface border-divider text-ink-secondary hover:text-ink hover:border-brand/40 cursor-pointer'
-                        }`}
-                        title={isPast ? (startDate === endDate && t <= startTime ? 'Must be after pickup time' : 'This time has already passed today') : undefined}
-                      >
-                        {t.startsWith('0') ? t.slice(1) : t} {parseInt(t) < 12 ? 'AM' : 'PM'} {isPast ? '(Passed)' : ''}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
-
             </div>
 
             {/* Offered Budget */}
             <div>
-              <label className="block text-xs font-bold text-ink mb-1">
-                Your Offered Budget (₹) *
+              <label className="block text-xs font-bold text-ink mb-1.5">
+                Your Total Offered Budget (₹) *
               </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-ink-secondary">
-                  ₹
-                </span>
+              <div className="relative max-w-xs">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-secondary">₹</span>
                 <input
                   type="number"
                   min="0"
-                  placeholder="e.g. 500"
+                  placeholder="500"
                   value={offeredAmount}
                   onChange={(e) => setOfferedAmount(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full bg-canvas border border-divider rounded-xl pl-8 pr-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
                   required
                 />
               </div>
-              <p className="text-[11px] text-ink-secondary mt-1">
-                Total budget offered to the lender for the full {durationDays} days.
-              </p>
             </div>
           </div>
 
-          {/* SECTION 4: PICKUP & DROP-OFF TRANSPORT PREFERENCE (TOGGLES) */}
-          <div className="space-y-4 pt-2 border-t border-divider">
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-ink font-display flex items-center gap-1.5">
-                <Truck className="w-4 h-4 text-brand" />
-                <span>4. Transport & Handover Preference</span>
-              </h3>
-              <p className="text-[11px] text-ink-secondary mt-0.5">
-                Toggle whether you will pick up and return the gear yourself, or offer extra money for someone to deliver/collect it.
-              </p>
-            </div>
+          {/* SECTION 3: Transport Preferences */}
+          <div className="space-y-3 pt-3 border-t border-divider">
+            <span className="text-xs font-bold text-ink block">Handover Preference</span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Toggle 1: Pickup */}
-              <div className={`p-4 rounded-2xl border transition-all ${willPickup
-                ? 'bg-emerald-500/5 border-emerald-500/30'
-                : 'bg-brand/5 border-brand/30 ring-1 ring-brand/20'
-                }`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <span className="text-xs font-black text-ink block">
-                      {willPickup ? 'I will pick up the item myself' : 'I need it delivered to me'}
-                    </span>
-                    <span className="text-[11px] text-ink-secondary block mt-0.5">
-                      {willPickup
-                        ? "You will travel to the lender's place to collect the gear."
-                        : "Lender or runner delivers gear to your destination."}
-                    </span>
-                  </div>
-
-                  {/* Interactive Toggle Button */}
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={willPickup}
-                    onClick={() => setWillPickup(!willPickup)}
-                    className={`w-11 h-6 rounded-full transition-colors relative shrink-0 cursor-pointer p-0.5 ${willPickup ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'
-                      }`}
-                  >
-                    <span className={`block w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${willPickup ? 'translate-x-5' : 'translate-x-0'
-                      }`} />
-                  </button>
+              {/* Pickup Toggle */}
+              <div className="p-3 rounded-xl bg-canvas border border-divider flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-ink block">
+                    {willPickup ? 'I will pick up' : 'Deliver to me'}
+                  </span>
+                  <span className="text-[11px] text-ink-secondary">
+                    {willPickup ? 'Collect from lender' : 'Need door delivery'}
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={willPickup}
+                  onClick={() => setWillPickup(!willPickup)}
+                  className={`w-9 h-5 rounded-full transition-colors relative shrink-0 cursor-pointer p-0.5 ${willPickup ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}
+                >
+                  <span className={`block w-4 h-4 rounded-full bg-white shadow transform transition-transform ${willPickup ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
               </div>
 
-              {/* Toggle 2: Drop / Return */}
-              <div className={`p-4 rounded-2xl border transition-all ${willDropBack
-                ? 'bg-emerald-500/5 border-emerald-500/30'
-                : 'bg-brand/5 border-brand/30 ring-1 ring-brand/20'
-                }`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <span className="text-xs font-black text-ink block">
-                      {willDropBack ? 'I will drop it back myself' : 'I need it collected from me'}
-                    </span>
-                    <span className="text-[11px] text-ink-secondary block mt-0.5">
-                      {willDropBack
-                        ? "You will return the gear back to the lender's place."
-                        : "Lender or runner collects gear back from your place."}
-                    </span>
-                  </div>
-
-                  {/* Interactive Toggle Button */}
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={willDropBack}
-                    onClick={() => setWillDropBack(!willDropBack)}
-                    className={`w-11 h-6 rounded-full transition-colors relative shrink-0 cursor-pointer p-0.5 ${willDropBack ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'
-                      }`}
-                  >
-                    <span className={`block w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${willDropBack ? 'translate-x-5' : 'translate-x-0'
-                      }`} />
-                  </button>
+              {/* Dropback Toggle */}
+              <div className="p-3 rounded-xl bg-canvas border border-divider flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-ink block">
+                    {willDropBack ? 'I will drop back' : 'Collect from me'}
+                  </span>
+                  <span className="text-[11px] text-ink-secondary">
+                    {willDropBack ? 'Return to lender' : 'Need pickup on return'}
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={willDropBack}
+                  onClick={() => setWillDropBack(!willDropBack)}
+                  className={`w-9 h-5 rounded-full transition-colors relative shrink-0 cursor-pointer p-0.5 ${willDropBack ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}
+                >
+                  <span className={`block w-4 h-4 rounded-full bg-white shadow transform transition-transform ${willDropBack ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
               </div>
             </div>
 
-            {/* Extra Amount Box if NOT picking up OR NOT dropping back */}
             {(!willPickup || !willDropBack) && (
-              <div className="p-4 rounded-2xl bg-brand/5 border border-brand/20 space-y-2 animate-in fade-in">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <label className="text-xs font-bold text-ink flex items-center gap-1.5">
-                    <span>Extra amount you'll pay for transport / delivery service (₹)</span>
-                    <span className="text-brand font-black">*</span>
-                  </label>
-                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-brand text-white">
-                    Delivery Reward
-                  </span>
-                </div>
-
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-extrabold text-ink-secondary">
-                    ₹
-                  </span>
+              <div className="p-3 rounded-xl bg-brand/5 border border-brand/20 flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-ink">Delivery / Transport Tip (₹)</span>
+                <div className="relative w-28">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-secondary">₹</span>
                   <input
                     type="number"
                     min="0"
                     value={deliveryFee}
                     onChange={(e) => setDeliveryFee(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="e.g. 50 or 100"
-                    className="w-full bg-surface border border-divider rounded-xl pl-8 pr-3.5 py-2 text-xs font-bold text-ink outline-none focus:border-brand"
+                    placeholder="50"
+                    className="w-full bg-surface border border-divider rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-ink outline-none focus:border-brand"
                     required={!willPickup || !willDropBack}
                   />
                 </div>
-                <p className="text-[11px] text-ink-secondary">
-                  Write down the extra convenience amount you will pay to someone who will {!willPickup && !willDropBack ? 'pick and drop the gear for you' : !willPickup ? 'deliver the gear to you' : 'collect the gear back from you'}.
-                </p>
               </div>
             )}
           </div>
 
-          {/* SECTION 5: EXACT DESTINATION LOCATION */}
-          <div className="space-y-3 pt-2 border-t border-divider pb-2">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-ink font-display flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-brand" />
-                  <span>5. Item Destination Location</span>
-                </h3>
-                <p className="text-[11px] text-ink-secondary mt-0.5">
-                  Choose from your saved profile locations or enter your destination address.
-                </p>
-              </div>
+          {/* SECTION 4: Location */}
+          <div className="space-y-3 pt-3 border-t border-divider">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-brand" />
+                <span>Your Location *</span>
+              </span>
+              {savedLocations.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  {savedLocations.slice(0, 3).map((loc) => (
+                    <button
+                      key={loc.id}
+                      type="button"
+                      onClick={() => {
+                        setBuildingHouseNo(loc.building_flat_house || '');
+                        setStreetArea(loc.street_road_landmark || '');
+                        setLocality(loc.locality || '');
+                        setPincode(loc.pincode || '');
+                        if (loc.latitude && loc.longitude) {
+                          setCoords({ latitude: loc.latitude, longitude: loc.longitude });
+                        }
+                        setLocationSuccessMsg(`Selected: ${loc.label}`);
+                      }}
+                      className="text-[11px] font-bold text-brand bg-brand/10 hover:bg-brand/20 px-2.5 py-1 rounded-lg cursor-pointer shrink-0 transition-colors"
+                    >
+                      {loc.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Choose from Saved Profile Locations */}
-            {savedLocations.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-secondary">
-                  Choose from saved profile locations:
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {savedLocations.map((loc) => {
-                    const isSelected = locality === loc.locality && buildingHouseNo === loc.building_flat_house;
-                    return (
-                      <button
-                        key={loc.id}
-                        type="button"
-                        onClick={() => {
-                          setBuildingHouseNo(loc.building_flat_house || '');
-                          setStreetArea(loc.street_road_landmark || '');
-                          setLocality(loc.locality || '');
-                          setPincode(loc.pincode || '');
-                          if (loc.latitude && loc.longitude) {
-                            setCoords({ latitude: loc.latitude, longitude: loc.longitude });
-                          } else {
-                            setCoords(null);
-                          }
-                          setLocationSuccessMsg(`Location selected: ${loc.label}`);
-                        }}
-                        className={`p-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${isSelected
-                          ? 'bg-brand/10 border-brand text-brand shadow-xs'
-                          : 'bg-surface border-divider text-ink-secondary hover:text-ink hover:border-brand/40'
-                          }`}
-                      >
-                        <MapPin className="w-3.5 h-3.5 text-brand shrink-0" />
-                        <span className="font-extrabold">{loc.label}</span>
-                        <span className="text-[10px] opacity-75">({loc.locality || loc.building_flat_house})</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {locationSuccessMsg && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold animate-in fade-in">
-                <CheckCircle2 className="w-3.5 h-3.5 stroke-[3] shrink-0" />
-                <span>{locationSuccessMsg}</span>
-              </div>
-            )}
-
-            {/* Structured Address Form Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Building / Flat / House No. (Compulsory) */}
               <div>
-                <label className="block text-xs font-bold text-ink mb-1">
-                  Building / Flat / House No. <span className="text-brand font-black">*</span>
-                </label>
+                <label className="block text-xs font-bold text-ink mb-1">Building / House *</label>
                 <input
                   type="text"
                   required
                   value={buildingHouseNo}
                   onChange={(e) => setBuildingHouseNo(e.target.value)}
-                  placeholder="e.g. Flat 402, Building 3B / House #12"
+                  placeholder="e.g. Flat 402, House #12"
                   className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
                 />
               </div>
 
-              {/* Street / Road / Landmark */}
               <div>
-                <label className="block text-xs font-bold text-ink mb-1">
-                  Street / Road / Landmark
-                </label>
+                <label className="block text-xs font-bold text-ink mb-1">Street / Landmark</label>
                 <input
                   type="text"
                   value={streetArea}
                   onChange={(e) => setStreetArea(e.target.value)}
-                  placeholder="e.g. 5th Main Road, Near Metro Station / Landmark"
+                  placeholder="e.g. 5th Main Road"
                   className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
                 />
               </div>
+            </div>
 
-              {/* Locality / Neighborhood (Compulsory) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-ink mb-1">
-                  Locality / Neighborhood <span className="text-brand font-black">*</span>
-                </label>
+                <label className="block text-xs font-bold text-ink mb-1">Locality / Neighborhood *</label>
                 <input
                   type="text"
                   required
                   value={locality}
                   onChange={(e) => setLocality(e.target.value)}
-                  placeholder="e.g. Indiranagar, Koramangala, Whitefield"
+                  placeholder="e.g. Indiranagar, Bengaluru"
                   className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
                 />
               </div>
 
-              {/* PIN / Postal Code */}
               <div>
-                <label className="block text-xs font-bold text-ink mb-1">
-                  PIN / Postal Code
-                </label>
+                <label className="block text-xs font-bold text-ink mb-1">PIN / Postal Code</label>
                 <input
                   type="text"
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value)}
-                  placeholder="e.g. 560060"
+                  placeholder="e.g. 560038"
                   maxLength={10}
                   className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
                 />

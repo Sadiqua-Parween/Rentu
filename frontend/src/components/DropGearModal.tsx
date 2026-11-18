@@ -356,16 +356,16 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
         {/* Top Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-divider bg-surface shrink-0">
           <div>
-            <h2 className="text-lg sm:text-xl font-black text-ink font-display tracking-tight">
+            <h2 className="text-base sm:text-lg font-extrabold text-ink font-display tracking-tight">
               List an Item
             </h2>
             <p className="text-xs text-ink-secondary">
-              All details on a single page — turn your unused gear into daily income.
+              Turn your unused gear into daily earnings
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-canvas text-ink transition-colors cursor-pointer"
+            className="p-2 rounded-full hover:bg-canvas text-ink-secondary hover:text-ink transition-colors cursor-pointer"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -375,27 +375,23 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
         {/* Single-Page Scrollable Form Body */}
         <form id="drop-gear-form" onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 overflow-y-auto">
           {errorMsg && (
-            <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold animate-in fade-in">
-              {errorMsg}
+            <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
           {/* SECTION 1: Item Details */}
           <div className="space-y-4">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-ink-secondary flex items-center gap-1.5">
-              <span>1. Item Details</span>
-            </h3>
-
-            {/* Title */}
             <div>
-              <label className="block text-xs font-bold text-ink mb-1">
-                Item Title <span className="text-brand">*</span>
+              <label className="block text-xs font-bold text-ink mb-1.5">
+                Item Title *
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Sony Headphones WH-1000XM4"
+                placeholder="e.g. Sony WH-1000XM4 Noise-Cancelling Headphones"
                 className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
                 required
               />
@@ -404,8 +400,8 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
             {/* Category & Condition */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-ink mb-1">
-                  Category <span className="text-brand">*</span>
+                <label className="block text-xs font-bold text-ink mb-1.5">
+                  Category *
                 </label>
                 <select
                   value={category}
@@ -424,8 +420,8 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-ink mb-1">
-                  Condition <span className="text-brand">*</span>
+                <label className="block text-xs font-bold text-ink mb-1.5">
+                  Condition *
                 </label>
                 <select
                   value={condition}
@@ -439,52 +435,47 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
               </div>
             </div>
 
-            {/* Description with Compulsory Minimum 10 Characters Notice */}
+            {/* Description */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-ink">
-                  Description <span className="text-brand">*</span>
+                  Description *
                 </label>
-                {/* Compulsory 10-char warning shown only while under 10 chars, removed once completed */}
-                {isDescTooShort && (
-                  <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full transition-all">
-                    Minimum 10 characters compulsory ({descTrimmed.length}/10)
+                {isDescTooShort ? (
+                  <span className="text-[10px] font-semibold text-amber-500">
+                    Min 10 chars ({descTrimmed.length}/10)
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-ink-secondary">
+                    {descTrimmed.length} chars
                   </span>
                 )}
               </div>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Be specific about your item, its condition, and included accessories..."
+                placeholder="What condition is it in? What accessories are included?"
                 rows={3}
-                className={`w-full bg-canvas border rounded-xl p-3 text-xs font-medium text-ink outline-none transition-colors resize-none ${
-                  description.length > 0 && isDescTooShort
-                    ? 'border-amber-400 focus:border-amber-500'
-                    : 'border-divider focus:border-brand'
-                }`}
+                className="w-full bg-canvas border border-divider rounded-xl p-3 text-xs font-medium text-ink outline-none focus:border-brand transition-colors resize-none"
                 required
               />
             </div>
           </div>
 
-          {/* SECTION 2: Photo Upload (Up to 5 Photos) */}
-          <div className="space-y-3 pt-2 border-t border-divider">
+          {/* SECTION 2: Photos */}
+          <div className="space-y-3 pt-3 border-t border-divider">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-ink-secondary">
-                2. Gear Photos <span className="text-brand">*</span>
-              </h3>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                imageUrls.length >= 5 
-                  ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' 
-                  : imageUrls.length > 0
-                  ? 'bg-brand/10 text-brand'
-                  : 'text-ink-secondary'
-              }`}>
-                {imageUrls.length}/5 photos
-              </span>
+              <div>
+                <span className="text-xs font-bold text-ink">Photos *</span>
+                <span className="text-[11px] text-ink-secondary ml-1.5">(up to 5 photos)</span>
+              </div>
+              {imageUrls.length > 0 && (
+                <span className="text-[11px] font-bold text-brand bg-brand/10 px-2 py-0.5 rounded-full">
+                  {imageUrls.length}/5
+                </span>
+              )}
             </div>
 
-            {/* Hidden file & camera inputs with multiple file support */}
             <input
               ref={fileInputRef}
               type="file"
@@ -502,10 +493,10 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
               className="hidden"
             />
 
-            {/* Live Camera Viewfinder (if webcam mode is active) */}
+            {/* Live Camera Viewfinder */}
             {isCameraActive && (
-              <div className="p-4 bg-canvas rounded-2xl border border-divider space-y-3 animate-in zoom-in-95 duration-150">
-                <div className="relative aspect-video w-full max-w-md mx-auto bg-black rounded-xl overflow-hidden shadow-inner">
+              <div className="p-3 bg-canvas rounded-2xl border border-divider space-y-3">
+                <div className="relative aspect-video w-full max-w-sm mx-auto bg-black rounded-xl overflow-hidden">
                   <video 
                     ref={videoRef} 
                     playsInline 
@@ -513,174 +504,112 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
                     muted 
                     className="w-full h-full object-cover" 
                   />
-                  <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
-                    Live Camera
-                  </div>
                 </div>
-                <div className="flex items-center justify-center gap-3">
+                <div className="flex items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={capturePhotoFromCamera}
-                    className="btn-primary text-xs px-5 py-2 shadow-pink font-bold cursor-pointer inline-flex items-center gap-1.5"
+                    className="btn-primary text-xs px-4 py-1.5 shadow-pink font-bold cursor-pointer inline-flex items-center gap-1.5"
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    <span>Click Photo</span>
+                    <span>Snap Photo</span>
                   </button>
                   <button
                     type="button"
                     onClick={stopCamera}
-                    className="btn-secondary text-xs px-4 py-2 cursor-pointer font-bold"
+                    className="btn-secondary text-xs px-3 py-1.5 cursor-pointer font-bold"
                   >
-                    Cancel Camera
+                    Cancel
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Multi-Photo Gallery & Selection Area */}
             {!isCameraActive && (
-              <div className="space-y-3">
-                {imageUrls.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                      {imageUrls.map((url, idx) => (
-                        <div 
-                          key={idx} 
-                          className="relative aspect-square rounded-2xl overflow-hidden border border-divider bg-zinc-950 group shadow-xs flex items-center justify-center"
-                        >
-                          {/* Ambient blur behind image */}
-                          <img
-                            src={url}
-                            alt=""
-                            aria-hidden="true"
-                            className="absolute inset-0 w-full h-full object-cover blur-md opacity-35 scale-110 pointer-events-none"
-                          />
-                          {/* Full uncropped image fit */}
-                          <img
-                            src={url}
-                            alt={`Photo ${idx + 1}`}
-                            className="relative z-10 max-w-full max-h-full object-contain"
-                          />
-
-                          {/* Cover badge / Set Cover button */}
-                          {idx === 0 ? (
-                            <span className="absolute top-1.5 left-1.5 z-20 px-2 py-0.5 rounded-full bg-brand text-white text-[9px] font-extrabold shadow-sm">
-                              Cover
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleSetCoverPhoto(idx)}
-                              className="absolute top-1.5 left-1.5 z-20 px-1.5 py-0.5 rounded-full bg-black/70 hover:bg-brand text-white text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
-                              title="Set as primary cover photo"
-                            >
-                              Set Cover
-                            </button>
-                          )}
-
-                          {/* Remove button */}
+              <div>
+                {imageUrls.length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                    {imageUrls.map((url, idx) => (
+                      <div 
+                        key={idx} 
+                        className="relative aspect-square rounded-xl overflow-hidden border border-divider bg-zinc-950 group flex items-center justify-center"
+                      >
+                        <img
+                          src={url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                        {idx === 0 ? (
+                          <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-brand text-white text-[8px] font-bold shadow-sm">
+                            Cover
+                          </span>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => handleRemovePhoto(idx)}
-                            className="absolute top-1.5 right-1.5 z-20 w-6 h-6 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center transition-all hover:scale-110 shadow-sm cursor-pointer"
-                            title="Remove this photo"
+                            onClick={() => handleSetCoverPhoto(idx)}
+                            className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-black/70 hover:bg-brand text-white text-[8px] font-bold opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            Set Cover
                           </button>
-                        </div>
-                      ))}
-
-                      {/* Add more tile if under 5 photos */}
-                      {imageUrls.length < 5 && (
-                        <div className="aspect-square rounded-2xl border-2 border-dashed border-divider hover:border-brand/60 bg-canvas/60 hover:bg-brand/5 flex flex-col items-center justify-center p-2 text-center transition-colors">
-                          {isUploading ? (
-                            <div className="flex flex-col items-center justify-center gap-1.5">
-                              <Loader2 className="w-5 h-5 text-brand animate-spin" />
-                              <span className="text-[10px] font-bold text-ink">Uploading...</span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center gap-1.5 w-full h-full">
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => fileInputRef.current?.click()}
-                                  className="p-1.5 rounded-xl bg-surface border border-divider hover:border-brand text-ink hover:text-brand transition-colors cursor-pointer"
-                                  title="Upload from device"
-                                >
-                                  <Upload className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={startCamera}
-                                  className="p-1.5 rounded-xl bg-surface border border-divider hover:border-brand text-ink hover:text-brand transition-colors cursor-pointer"
-                                  title="Take photo with camera"
-                                >
-                                  <Camera className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                              <span className="text-[10px] font-bold text-ink-secondary">
-                                + Add ({imageUrls.length}/5)
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-ink-secondary pt-1 px-1">
-                      <span>Tip: First photo will be the main cover. You can upload up to 5 photos.</span>
-                      {imageUrls.length < 5 && (
+                        )}
                         <button
                           type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="text-brand font-bold hover:underline cursor-pointer inline-flex items-center gap-1"
+                          onClick={() => handleRemovePhoto(idx)}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center transition-all cursor-pointer shadow-sm"
+                          title="Remove"
                         >
-                          <Plus className="w-3 h-3" />
-                          <span>Add more pictures</span>
+                          <X className="w-3 h-3" />
                         </button>
-                      )}
-                    </div>
-                  </div>
-                )}
+                      </div>
+                    ))}
 
-                {/* Empty State / Initial Upload Prompt */}
-                {imageUrls.length === 0 && (
-                  <div className="p-5 border-2 border-dashed border-divider rounded-2xl bg-canvas/40 text-center space-y-3">
+                    {imageUrls.length < 5 && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="aspect-square rounded-xl border border-dashed border-divider hover:border-brand/60 bg-canvas flex flex-col items-center justify-center gap-1 text-center cursor-pointer transition-colors"
+                      >
+                        {isUploading ? (
+                          <Loader2 className="w-4 h-4 text-brand animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 text-ink-secondary" />
+                            <span className="text-[10px] font-bold text-ink-secondary">Add</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 border border-dashed border-divider rounded-2xl bg-canvas/40 text-center space-y-3">
                     {isUploading ? (
-                      <div className="py-6 flex flex-col items-center justify-center gap-2">
-                        <Loader2 className="w-8 h-8 text-brand animate-spin" />
-                        <span className="text-xs font-bold text-ink">Uploading photos...</span>
+                      <div className="py-4 flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-6 h-6 text-brand animate-spin" />
+                        <span className="text-xs font-bold text-ink">Uploading...</span>
                       </div>
                     ) : (
                       <>
-                        <div className="w-12 h-12 rounded-2xl bg-brand/10 text-brand flex items-center justify-center mx-auto shadow-inner">
-                          <Camera className="w-6 h-6 stroke-[1.8]" />
+                        <div className="w-10 h-10 rounded-2xl bg-brand/10 text-brand flex items-center justify-center mx-auto">
+                          <Camera className="w-5 h-5" />
                         </div>
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-ink">
-                            Add pictures of your item (up to 5 photos)
-                          </p>
-                          <p className="text-[11px] text-ink-secondary max-w-sm mx-auto">
-                            Upload multiple photos at once or snap pictures using your camera. First photo will be your cover.
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-center gap-2.5 pt-1 flex-wrap">
+                        <p className="text-xs text-ink-secondary">Add clear photos of your item</p>
+                        <div className="flex items-center justify-center gap-2 pt-1">
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="btn-secondary text-xs px-4 py-2 font-bold cursor-pointer inline-flex items-center gap-1.5 hover:border-brand hover:text-brand transition-colors"
+                            className="btn-secondary text-xs px-3.5 py-1.5 font-bold cursor-pointer inline-flex items-center gap-1.5 hover:border-brand hover:text-brand"
                           >
-                            <Upload className="w-3.5 h-3.5 text-brand" />
-                            <span>Upload Photos (Select Multiple)</span>
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload Photos</span>
                           </button>
                           <button
                             type="button"
                             onClick={startCamera}
-                            className="btn-secondary text-xs px-4 py-2 font-bold cursor-pointer inline-flex items-center gap-1.5 hover:border-brand hover:text-brand transition-colors"
+                            className="btn-secondary text-xs px-3.5 py-1.5 font-bold cursor-pointer inline-flex items-center gap-1.5 hover:border-brand hover:text-brand"
                           >
-                            <Camera className="w-3.5 h-3.5 text-brand" />
-                            <span>Take Photo with Camera</span>
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>Camera</span>
                           </button>
                         </div>
                       </>
@@ -691,183 +620,127 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
             )}
           </div>
 
-          {/* SECTION 3: Pricing & Availability */}
-          <div className="space-y-4 pt-2 border-t border-divider">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-ink-secondary">
-              3. Pricing & Rental Terms
-            </h3>
+          {/* SECTION 3: Pricing & Delivery */}
+          <div className="space-y-4 pt-3 border-t border-divider">
+            <span className="text-xs font-bold text-ink block">Pricing & Delivery</span>
 
-            {/* Listing Type Toggle */}
-            <div className="grid grid-cols-2 gap-3 max-w-md">
+            {/* Type Toggle */}
+            <div className="grid grid-cols-2 gap-3 max-w-sm">
               <button
                 type="button"
                 onClick={() => setListingType('Rent')}
-                className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
+                className={`py-2 px-3 rounded-xl border text-center cursor-pointer transition-all ${
                   listingType === 'Rent'
-                    ? 'border-brand bg-brand-soft/30 text-ink shadow-xs ring-1 ring-brand'
+                    ? 'border-brand bg-brand-soft/40 text-ink font-bold ring-1 ring-brand'
                     : 'border-divider bg-canvas text-ink-secondary hover:text-ink'
                 }`}
               >
-                <div className="text-xs font-black">Rent for Fee</div>
-                <div className="text-[11px] text-ink-secondary">Set a daily price</div>
+                <span className="text-xs">Rent for Fee</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setListingType('Borrow')}
-                className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
+                className={`py-2 px-3 rounded-xl border text-center cursor-pointer transition-all ${
                   listingType === 'Borrow'
-                    ? 'border-brand bg-brand-soft/30 text-ink shadow-xs ring-1 ring-brand'
+                    ? 'border-brand bg-brand-soft/40 text-ink font-bold ring-1 ring-brand'
                     : 'border-divider bg-canvas text-ink-secondary hover:text-ink'
                 }`}
               >
-                <div className="text-xs font-black">Free Community Sharing</div>
-                <div className="text-[11px] text-ink-secondary">Lend to neighbors for free</div>
+                <span className="text-xs">Free Share</span>
               </button>
             </div>
 
-            {/* Price */}
-            <div>
-              {listingType === 'Rent' ? (
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">
-                    Price per day (₹) <span className="text-brand">*</span>
-                  </label>
+            {/* Price Input */}
+            {listingType === 'Rent' ? (
+              <div>
+                <label className="block text-xs font-bold text-ink mb-1.5">
+                  Daily Rental Rate (₹) *
+                </label>
+                <div className="relative max-w-xs">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-secondary">₹</span>
                   <input
                     type="number"
                     min="1"
-                    placeholder="e.g. 250"
+                    placeholder="250"
                     value={pricePerDay}
                     onChange={(e) => setPricePerDay(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                    className="w-full bg-canvas border border-divider rounded-xl pl-8 pr-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
                     required
                   />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-ink-secondary">/ day</span>
                 </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">Price per day</label>
-                  <div className="w-full bg-canvas/60 border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    ₹0 (Free community share)
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Handover & Delivery Options by Owner */}
-            <div className="space-y-3 pt-3 border-t border-divider">
-              <div>
-                <h4 className="text-xs font-bold text-ink flex items-center gap-1.5">
-                  <span>Delivery & Return Collection</span>
-                </h4>
-                <p className="text-[11px] text-ink-secondary">
-                  Choose if you will deliver to the renter or collect the gear on return, plus any charges.
-                </p>
               </div>
+            ) : null}
 
-              {/* Option 1: Delivery by Owner */}
-              <div className="p-3.5 rounded-2xl bg-canvas border border-divider space-y-3">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-ink">I will deliver to the renter</span>
-                      {offersDelivery && (
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                          Ready to Deliver
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-ink-secondary">
-                      Toggle ON if you are willing to deliver the product to the person renting it.
-                    </p>
-                  </div>
-
+            {/* Delivery Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Option 1: Deliver */}
+              <div className="p-3 rounded-xl bg-canvas border border-divider space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink">I can deliver</span>
                   <button
                     type="button"
                     onClick={() => setOffersDelivery(!offersDelivery)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${
                       offersDelivery ? 'bg-brand' : 'bg-zinc-300 dark:bg-zinc-700'
                     }`}
-                    role="switch"
-                    aria-checked={offersDelivery}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        offersDelivery ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                        offersDelivery ? 'translate-x-4' : 'translate-x-0.5'
+                      } mt-0.5`}
                     />
                   </button>
                 </div>
-
                 {offersDelivery && (
-                  <div className="pt-2 border-t border-divider/60 flex items-center justify-between gap-3 animate-in fade-in">
-                    <div>
-                      <label className="text-xs font-bold text-ink block">Delivery Fee (₹)</label>
-                      <span className="text-[10px] text-ink-secondary">Set ₹0 for free delivery or your delivery charge</span>
-                    </div>
-                    <div className="relative w-32">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-secondary">₹</span>
+                  <div className="flex items-center justify-between pt-1 border-t border-divider/60">
+                    <span className="text-[11px] text-ink-secondary">Fee</span>
+                    <div className="relative w-24">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-secondary">₹</span>
                       <input
                         type="number"
                         min="0"
                         value={deliveryFee}
                         onChange={(e) => setDeliveryFee(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
                         placeholder="0"
-                        className="w-full bg-surface border border-divider rounded-xl pl-7 pr-3 py-1.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                        className="w-full bg-surface border border-divider rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-ink outline-none focus:border-brand"
                       />
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Option 2: Pickup by Owner upon return */}
-              <div className="p-3.5 rounded-2xl bg-canvas border border-divider space-y-3">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-ink">I will pick up / collect myself on return</span>
-                      {offersPickup && (
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                          Ready to Collect
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-ink-secondary">
-                      Toggle ON if you will collect the product from the renter when rental duration ends.
-                    </p>
-                  </div>
-
+              {/* Option 2: Collect */}
+              <div className="p-3 rounded-xl bg-canvas border border-divider space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink">I can pick up on return</span>
                   <button
                     type="button"
                     onClick={() => setOffersPickup(!offersPickup)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors ${
                       offersPickup ? 'bg-brand' : 'bg-zinc-300 dark:bg-zinc-700'
                     }`}
-                    role="switch"
-                    aria-checked={offersPickup}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        offersPickup ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                        offersPickup ? 'translate-x-4' : 'translate-x-0.5'
+                      } mt-0.5`}
                     />
                   </button>
                 </div>
-
                 {offersPickup && (
-                  <div className="pt-2 border-t border-divider/60 flex items-center justify-between gap-3 animate-in fade-in">
-                    <div>
-                      <label className="text-xs font-bold text-ink block">Return Collection Fee (₹)</label>
-                      <span className="text-[10px] text-ink-secondary">Set ₹0 for free collection or your pickup charge</span>
-                    </div>
-                    <div className="relative w-32">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-ink-secondary">₹</span>
+                  <div className="flex items-center justify-between pt-1 border-t border-divider/60">
+                    <span className="text-[11px] text-ink-secondary">Fee</span>
+                    <div className="relative w-24">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-secondary">₹</span>
                       <input
                         type="number"
                         min="0"
                         value={pickupFee}
                         onChange={(e) => setPickupFee(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
                         placeholder="0"
-                        className="w-full bg-surface border border-divider rounded-xl pl-7 pr-3 py-1.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                        className="w-full bg-surface border border-divider rounded-lg pl-6 pr-2 py-1 text-xs font-bold text-ink outline-none focus:border-brand"
                       />
                     </div>
                   </div>
@@ -876,144 +749,65 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 4: Pickup & Drop Location */}
-          <div className="space-y-3 pt-2 border-t border-divider">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-ink flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-brand" />
-                  <span>4. Pickup & Drop Location</span>
-                  <span className="text-brand">*</span>
-                </h3>
-                <p className="text-[11px] text-ink-secondary mt-0.5">
-                  Choose where the renter will pick up the item and drop it back upon return.
-                </p>
-              </div>
+          {/* SECTION 4: Handoff Location */}
+          <div className="space-y-3 pt-3 border-t border-divider">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-brand" />
+                <span>Pickup Location *</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAddLocationOpen(true)}
+                className="text-xs font-bold text-brand hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Location</span>
+              </button>
+            </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+            {savedLocations.length === 0 ? (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3 text-xs">
+                <span className="text-ink-secondary">No location set yet.</span>
                 <button
                   type="button"
                   onClick={() => setIsAddLocationOpen(true)}
-                  className="btn-primary text-[11px] font-bold px-3 py-1.5 shadow-pink cursor-pointer inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+                  className="btn-primary text-xs px-3 py-1 font-bold shadow-pink cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ Add Another Location</span>
+                  Set Location
                 </button>
               </div>
-            </div>
-
-            {/* List of Saved Locations in User's Profile */}
-            <div className="space-y-2.5">
-              {/* If no location set in profile */}
-              {savedLocations.length === 0 && (
-                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3 animate-in fade-in">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                      <AlertCircle className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-xs font-black text-ink">No Location Set in Your Profile</h4>
-                      <p className="text-[11px] text-ink-secondary mt-0.5 leading-relaxed">
-                        You have not set any location yet. Please add a location below so renters can coordinate handoffs.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddLocationOpen(true)}
-                      className="btn-primary text-xs px-3.5 py-1.5 shadow-pink font-bold flex items-center gap-1.5 cursor-pointer"
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {savedLocations.map((loc) => {
+                  const isSelected = selectedLocationId === loc.id;
+                  return (
+                    <div
+                      key={loc.id}
+                      onClick={() => {
+                        setSelectedLocationId(loc.id);
+                        setLocality(loc.locality);
+                      }}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all flex items-start gap-2.5 ${
+                        isSelected
+                          ? 'border-brand bg-brand-soft/30 ring-1 ring-brand'
+                          : 'border-divider bg-canvas hover:border-ink-secondary/40'
+                      }`}
                     >
-                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                      <span>+ Add Another Location</span>
-                    </button>
-
-                    {onOpenProfile && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          onOpenProfile();
-                        }}
-                        className="btn-secondary text-xs px-3.5 py-1.5 font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <MapPin className="w-3.5 h-3.5 text-brand" />
-                        <span>Go to Profile Section</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {savedLocations.map((loc) => {
-                const isSelected = selectedLocationId === loc.id;
-                const formattedFull = formatSavedLocationFull(loc);
-                return (
-                  <div
-                    key={loc.id}
-                    onClick={() => {
-                      setSelectedLocationId(loc.id);
-                      setLocality(loc.locality);
-                    }}
-                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
-                      isSelected
-                        ? 'bg-brand/5 border-brand ring-1 ring-brand/20 shadow-xs'
-                        : 'bg-canvas border-divider hover:border-brand/40'
-                    }`}
-                  >
-                    {/* Radio indicator */}
-                    <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
-                      isSelected ? 'border-brand bg-brand' : 'border-divider bg-surface'
-                    }`}>
-                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-extrabold text-ink">
-                          {loc.label}
-                        </span>
-                        {loc.is_default && (
-                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand/20">
-                            Profile Primary
-                          </span>
-                        )}
-                        {isSelected && (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                            <Check className="w-2.5 h-2.5" /> Selected for this listing
-                          </span>
-                        )}
-
-                        {/* Edit Address Button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (loc.is_default) {
-                              setIsSetLocationOpen(true);
-                            } else {
-                              setEditingLocation(loc);
-                              setIsAddLocationOpen(true);
-                            }
-                          }}
-                          className="ml-auto inline-flex items-center gap-1 text-[11px] font-bold text-ink-secondary hover:text-brand hover:bg-brand/10 transition-colors px-2 py-0.5 rounded-lg cursor-pointer"
-                          title={`Edit ${loc.label} address`}
-                        >
-                          <Pencil className="w-3 h-3" />
-                          <span>Edit</span>
-                        </button>
+                      <div className={`w-3.5 h-3.5 rounded-full border mt-0.5 flex items-center justify-center shrink-0 ${
+                        isSelected ? 'border-brand bg-brand' : 'border-divider'
+                      }`}>
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
-
-                      <p className="text-xs text-ink-secondary mt-1 font-medium leading-relaxed">
-                        <MapPin className="w-3.5 h-3.5 text-brand inline shrink-0 mr-1 -mt-0.5" />
-                        <span>{formattedFull}</span>
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-ink truncate">{loc.label}</div>
+                        <div className="text-[11px] text-ink-secondary truncate">{loc.locality}</div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </form>
 

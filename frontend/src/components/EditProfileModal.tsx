@@ -16,7 +16,8 @@ import {
   Plus,
   Trash2,
   AtSign,
-  Pencil
+  Pencil,
+  AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../lib/authContext';
@@ -327,16 +328,15 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       <div className="relative bg-surface rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden my-4 border border-divider">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-divider bg-canvas/30">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-brand" />
-            <h3 className="text-sm font-black text-ink uppercase tracking-wider font-display">
-              Edit Your Profile & Appearance
-            </h3>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-divider bg-surface">
+          <div>
+            <h3 className="text-base font-extrabold text-ink font-display">Edit Profile</h3>
+            <p className="text-xs text-ink-secondary">Manage your identity, photos, and handoff address</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-surface-hover text-ink transition-colors cursor-pointer"
+            className="p-2 rounded-full hover:bg-canvas text-ink-secondary hover:text-ink transition-colors cursor-pointer"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -345,44 +345,95 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSave} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs font-bold">
-              {errorMsg}
+            <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* 1. Background Cover Section */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-ink flex items-center gap-1.5">
-                <ImageIcon className="w-3.5 h-3.5 text-brand" />
-                Background Cover Picture
-              </label>
-              {bannerUploadStatus && (
-                <span className="text-[11px] text-emerald-500 font-bold">{bannerUploadStatus}</span>
-              )}
-            </div>
+          {/* Profile Media: Cover Banner & Overlapping Avatar */}
+          <div className="space-y-3">
+            <div className="relative rounded-2xl overflow-hidden border border-divider bg-zinc-800">
+              <div className="relative h-28 sm:h-32 w-full group">
+                <img
+                  src={bannerUrl}
+                  alt="Cover"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => bannerInputRef.current?.click()}
+                    disabled={isUploadingBanner}
+                    className="bg-black/60 hover:bg-black/80 text-white text-xs font-bold px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 backdrop-blur-sm cursor-pointer transition-all"
+                  >
+                    {isUploadingBanner ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                    <span>Change Cover</span>
+                  </button>
+                </div>
+              </div>
 
-            {/* Banner Preview & Direct Upload Button */}
-            <div className="relative h-32 sm:h-36 w-full rounded-2xl overflow-hidden border border-divider group bg-zinc-800">
-              <img
-                src={bannerUrl}
-                alt="Banner Preview"
-                className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
-              />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <button
-                  type="button"
-                  onClick={() => bannerInputRef.current?.click()}
-                  disabled={isUploadingBanner}
-                  className="bg-white/90 dark:bg-zinc-900/90 hover:bg-white text-ink px-4 py-2 rounded-full text-xs font-bold shadow-lg cursor-pointer inline-flex items-center gap-1.5 backdrop-blur-sm"
-                >
-                  {isUploadingBanner ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
+              {/* Overlapping Avatar */}
+              <div className="px-4 pb-3 pt-2 bg-canvas/80 backdrop-blur-sm flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="relative -mt-9 w-16 h-16 rounded-full overflow-hidden border-2 border-surface shadow-md bg-surface shrink-0 group">
+                    <img
+                      src={currentAvatarDisplay}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={isUploadingAvatar}
+                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      title="Upload photo"
+                    >
+                      {isUploadingAvatar ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="text-xs font-bold text-brand hover:underline cursor-pointer block"
+                    >
+                      {isUploadingAvatar ? 'Uploading...' : 'Change Photo'}
+                    </button>
+                    {avatarUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setAvatarUrl('')}
+                        className="text-[11px] text-ink-secondary hover:text-red-500 cursor-pointer block mt-0.5"
+                      >
+                        Reset to Initials
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Preset Themes Dropdown / Row */}
+                <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                  {PRESET_BANNERS.slice(0, 4).map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => setBannerUrl(preset.url)}
+                      className={`w-7 h-7 rounded-lg overflow-hidden border-2 transition-all cursor-pointer shrink-0 ${bannerUrl === preset.url ? 'border-brand scale-105 ring-1 ring-brand' : 'border-divider opacity-70 hover:opacity-100'}`}
+                      title={preset.name}
+                    >
+                      <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => bannerInputRef.current?.click()}
+                    className="w-7 h-7 rounded-lg border border-divider hover:border-brand flex items-center justify-center text-ink-secondary hover:text-brand bg-surface cursor-pointer shrink-0"
+                    title="Upload Custom Cover"
+                  >
                     <Upload className="w-3.5 h-3.5" />
-                  )}
-                  Upload Custom Cover Photo
-                </button>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -393,190 +444,86 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               onChange={handleBannerFileChange}
               className="hidden"
             />
-
-            {/* Curated Theme Presets */}
-            <div>
-              <p className="text-[11px] font-bold text-ink-secondary mb-1.5">Or choose a preset cover theme:</p>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {PRESET_BANNERS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    onClick={() => setBannerUrl(preset.url)}
-                    className={`relative rounded-xl overflow-hidden h-14 border-2 transition-all cursor-pointer group ${bannerUrl === preset.url
-                      ? 'border-brand ring-2 ring-brand/30'
-                      : 'border-divider hover:border-ink-secondary'
-                      }`}
-                  >
-                    <img
-                      src={preset.url}
-                      alt={preset.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-1">
-                      <span className="text-[9px] font-black text-white text-center leading-tight truncate">
-                        {preset.name}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarFileChange}
+              className="hidden"
+            />
           </div>
 
-          {/* 2. Profile Avatar Section */}
-          <div className="space-y-2 pt-2 border-t border-divider">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-ink flex items-center gap-1.5">
-                <Camera className="w-3.5 h-3.5 text-brand" />
-                Profile Picture
-              </label>
-              {avatarUploadStatus && (
-                <span className="text-[11px] text-emerald-500 font-bold">{avatarUploadStatus}</span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4 p-3 bg-canvas border border-divider rounded-2xl">
-              <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-divider shrink-0 group">
-                <img
-                  src={currentAvatarDisplay}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white"
-                  title="Upload photo"
-                >
-                  <Camera className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 space-y-1.5">
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarFileChange}
-                  className="hidden"
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => avatarInputRef.current?.click()}
-                    disabled={isUploadingAvatar}
-                    className="btn-secondary text-xs px-3 py-1.5 cursor-pointer inline-flex items-center gap-1.5"
-                  >
-                    {isUploadingAvatar ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading to Supabase...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3.5 h-3.5" /> Upload Photo from Computer
-                      </>
-                    )}
-                  </button>
-                  {avatarUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setAvatarUrl('')}
-                      className="text-xs text-ink-secondary hover:text-red-500 underline cursor-pointer"
-                    >
-                      Reset to Initials
-                    </button>
-                  )}
-                </div>
-                <p className="text-[11px] text-ink-secondary">
-                  PNG, JPG or WEBP up to 5MB. Saved directly to Supabase Storage.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Basic Info Fields */}
-          <div className="space-y-3 pt-2 border-t border-divider">
-            {/* Username / Custom Link */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-ink flex items-center gap-1.5 flex-wrap">
-                  <AtSign className="w-3.5 h-3.5 text-brand" />
-                  <span>Username *</span>
-                </label>
-                {isCheckingUsername ? (
-                  <span className="text-[11px] text-zinc-400 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Checking...
-                  </span>
-                ) : usernameStatus?.available ? (
-                  <span className="text-[11px] text-emerald-500 font-bold flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Available
-                  </span>
-                ) : usernameStatus && !usernameStatus.available ? (
-                  <span className="text-[11px] text-red-500 font-bold flex items-center gap-1">
-                    <X className="w-3 h-3" /> {usernameStatus.message}
-                  </span>
-                ) : null}
-              </div>
-              <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-xs font-bold text-ink-secondary select-none">
-                  @
-                </span>
+          {/* Account Details */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Full Name */}
+              <div>
+                <label className="block text-xs font-bold text-ink mb-1.5">Full Name *</label>
                 <input
                   type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                  placeholder="username"
-                  maxLength={30}
-                  className="w-full bg-canvas border border-divider rounded-xl pl-8 pr-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Sadiqua Parween"
+                  className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
                   required
                 />
               </div>
-              <p className="text-[11px] text-ink-secondary mt-1">
-                Your dedicated page:{' '}
-                <span className="text-brand font-mono font-bold">
-                  rentu.site/{username || 'username'}
-                </span>
-                <span className="block text-[10px] text-ink-muted mt-0.5">
-                  Your username is verified unique across Rentu and cannot be shared or duplicated by any other member.
-                </span>
-              </p>
-            </div>
 
-            {/* Full Name */}
-            <div>
-              <label className="block text-xs font-bold text-ink mb-1">Full Name *</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Sadiqua Parween"
-                className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
-                required
-              />
+              {/* Username */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-ink flex items-center gap-1">
+                    <AtSign className="w-3.5 h-3.5 text-brand" />
+                    <span>Username *</span>
+                  </label>
+                  {isCheckingUsername ? (
+                    <span className="text-[11px] text-zinc-400 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Checking
+                    </span>
+                  ) : usernameStatus?.available ? (
+                    <span className="text-[11px] text-emerald-500 font-bold flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Available
+                    </span>
+                  ) : usernameStatus && !usernameStatus.available ? (
+                    <span className="text-[11px] text-red-500 font-bold flex items-center gap-1">
+                      <X className="w-3 h-3" /> Taken
+                    </span>
+                  ) : null}
+                </div>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-xs font-bold text-ink-secondary select-none">@</span>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    placeholder="username"
+                    maxLength={30}
+                    className="w-full bg-canvas border border-divider rounded-xl pl-8 pr-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Bio */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-ink">Bio / Tagline</label>
-                <span className={`text-[10px] ${bio.length > 300 ? 'text-rose-500 font-bold' : 'text-ink-secondary'}`}>
-                  {bio.length}/300
-                </span>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-ink">Bio</label>
+                <span className="text-[10px] text-ink-secondary">{bio.length}/300</span>
               </div>
               <textarea
                 value={bio}
                 maxLength={300}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="Tell others what you do, what gear you love, or what you like borrowing..."
+                placeholder="A short intro about what gear you love or what you lend..."
                 rows={2}
-                className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2 text-xs font-medium text-ink outline-none focus:border-brand"
+                className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-medium text-ink outline-none focus:border-brand resize-none"
               />
             </div>
 
-            {/* Phone Number */}
+            {/* Phone */}
             <div>
-              <label className="block text-xs font-bold text-ink mb-1">Phone Number</label>
+              <label className="block text-xs font-bold text-ink mb-1.5">Phone Number</label>
               <input
                 type="tel"
                 value={phone}
@@ -585,228 +532,177 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
               />
             </div>
+          </div>
 
-            {/* Location & Address Section */}
-            <div className="pt-3 border-t border-divider space-y-3">
-              {/* GPS "Use My Current Location" Card */}
-              <div className="bg-canvas border border-divider rounded-2xl p-4 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-brand" />
-                      <span className="text-xs font-black text-ink uppercase tracking-wider">
-                        Set Your Location
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-ink-secondary mt-0.5">
-                      Coordinates are stored securely to calculate distance with nearby lenders & borrowers.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    id="use-my-current-location-btn"
-                    onClick={handleDetectLocation}
-                    disabled={isDetectingLocation}
-                    className="btn-primary text-xs px-3.5 py-2 inline-flex items-center gap-2 shadow-sm cursor-pointer whitespace-nowrap active:scale-95 transition-all self-start sm:self-auto shrink-0"
-                  >
-                    {isDetectingLocation ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Detecting GPS...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Navigation className="w-3.5 h-3.5" />
-                        <span>Use my current location</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {(locationSuccessMsg || (latitude && longitude)) && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold animate-in fade-in">
-                    <Check className="w-3.5 h-3.5 stroke-[3] shrink-0" />
-                    <span>
-                      {locationSuccessMsg || 'GPS Location pinpointed & verified'}
-                    </span>
-                  </div>
-                )}
+          {/* Location & Address */}
+          <div className="space-y-4 pt-3 border-t border-divider">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-ink flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-brand" />
+                  <span>Handoff Address</span>
+                </h4>
+                <p className="text-[11px] text-ink-secondary">Used for pickup coordination & neighborhood matching</p>
               </div>
 
-              {/* Explicit Address Form Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Building / House / Flat No. */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-ink">
-                      Building / Flat / House No.
-                    </label>
-                    <span className="text-[10px] font-bold text-ink-muted">e.g. Flat, House</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={buildingHouseNo}
-                    onChange={(e) => setBuildingHouseNo(e.target.value)}
-                    placeholder="e.g. Flat 402, Building 3B / House #12"
-                    className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
-                  />
-                </div>
-
-                {/* Street / Road / Landmark */}
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">
-                    Street / Road / Landmark
-                  </label>
-                  <input
-                    type="text"
-                    value={streetArea}
-                    onChange={(e) => setStreetArea(e.target.value)}
-                    placeholder="e.g. 5th Main Road, Near Metro Station / Landmark"
-                    className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Locality / Neighborhood */}
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">
-                    Locality / Neighborhood
-                  </label>
-                  <input
-                    type="text"
-                    value={locality}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setLocality(val);
-                      setLocationSuccessMsg('');
-                      // If user changes locality manually, do not leave stale GPS coords attached
-                      const resolved = resolveCoords(null, null, val);
-                      if (resolved) {
-                        setLatitude(resolved.lat);
-                        setLongitude(resolved.lon);
-                      } else {
-                        setLatitude(undefined);
-                        setLongitude(undefined);
-                      }
-                    }}
-                    placeholder="e.g. Indiranagar, Koramangala, Whitefield"
-                    className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
-                  />
-                </div>
-
-                {/* PIN / Postal Code */}
-                <div>
-                  <label className="block text-xs font-bold text-ink mb-1">
-                    PIN / Postal Code
-                  </label>
-                  <input
-                    type="text"
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
-                    placeholder="e.g. 560038"
-                    className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
-                  />
-                </div>
-              </div>
-
-              {/* Additional Saved Pickup & Drop Locations */}
-              <div className="pt-3 border-t border-divider space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h4 className="text-xs font-bold text-ink flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-brand" />
-                      <span>Additional Saved Locations</span>
-                    </h4>
-                    <p className="text-[11px] text-ink-secondary">
-                      Save alternative locations (e.g. Office, Studio) to quickly select when listing products.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingLocation(null);
-                      setIsAddLocationOpen(true);
-                    }}
-                    className="btn-primary text-[11px] font-bold px-3 py-1.5 shadow-pink cursor-pointer inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Add Another Location</span>
-                  </button>
-                </div>
-
-                {/* Render User's Saved Locations */}
-                {Array.isArray(user?.saved_locations) && user.saved_locations.length > 0 ? (
-                  <div className="space-y-2">
-                    {user.saved_locations.map((loc) => (
-                      <div
-                        key={loc.id}
-                        className="p-3 rounded-2xl bg-canvas border border-divider flex items-center justify-between gap-3 text-xs group"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-ink">{loc.label}</span>
-                            <span className="text-[10px] text-ink-secondary font-medium">({loc.locality})</span>
-                          </div>
-                          <p className="text-[11px] text-ink-secondary truncate mt-0.5">
-                            {formatSavedLocationFull(loc)}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          {/* Edit Address Button */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingLocation(loc);
-                              setIsAddLocationOpen(true);
-                            }}
-                            className="p-1.5 rounded-lg text-ink-secondary hover:text-brand hover:bg-brand/10 transition-colors cursor-pointer"
-                            title={`Edit "${loc.label}" address`}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Delete Address Button */}
-                          <button
-                            type="button"
-                            disabled={deletingLocationId === loc.id}
-                            onClick={async () => {
-                              if (window.confirm(`Remove saved location "${loc.label}"?`)) {
-                                setDeletingLocationId(loc.id);
-                                setErrorMsg('');
-                                try {
-                                  await api.deleteSavedLocation(loc.id, user);
-                                  await refreshUser();
-                                } catch (err: any) {
-                                  console.error('Failed to remove saved location:', err);
-                                  setErrorMsg(err.message || 'Failed to remove saved location. Please try again.');
-                                } finally {
-                                  setDeletingLocationId(null);
-                                }
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-ink-secondary hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-50"
-                            title="Remove location"
-                          >
-                            {deletingLocationId === loc.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-red-500" />
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              <button
+                type="button"
+                id="use-my-current-location-btn"
+                onClick={handleDetectLocation}
+                disabled={isDetectingLocation}
+                className="btn-secondary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 cursor-pointer font-bold shrink-0 hover:border-brand hover:text-brand"
+              >
+                {isDetectingLocation ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Locating...</span>
+                  </>
                 ) : (
-                  <div className="p-3.5 rounded-2xl bg-canvas border border-divider/60 text-center text-[11px] text-ink-secondary">
-                    No additional locations saved yet. Click "+ Add Another Location" to add an office, studio, or warehouse address.
-                  </div>
+                  <>
+                    <Navigation className="w-3.5 h-3.5 text-brand" />
+                    <span>Auto-detect GPS</span>
+                  </>
                 )}
+              </button>
+            </div>
+
+            {(locationSuccessMsg || (latitude && longitude)) && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold">
+                <Check className="w-3.5 h-3.5 stroke-[3] shrink-0" />
+                <span>{locationSuccessMsg || 'GPS coordinates verified'}</span>
               </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-ink mb-1">Building / House / Flat</label>
+                <input
+                  type="text"
+                  value={buildingHouseNo}
+                  onChange={(e) => setBuildingHouseNo(e.target.value)}
+                  placeholder="e.g. Flat 402, House #12"
+                  className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-ink mb-1">Street / Landmark</label>
+                <input
+                  type="text"
+                  value={streetArea}
+                  onChange={(e) => setStreetArea(e.target.value)}
+                  placeholder="e.g. 5th Main Road"
+                  className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-ink mb-1">Locality / Neighborhood</label>
+                <input
+                  type="text"
+                  value={locality}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLocality(val);
+                    setLocationSuccessMsg('');
+                    const resolved = resolveCoords(null, null, val);
+                    if (resolved) {
+                      setLatitude(resolved.lat);
+                      setLongitude(resolved.lon);
+                    } else {
+                      setLatitude(undefined);
+                      setLongitude(undefined);
+                    }
+                  }}
+                  placeholder="e.g. Indiranagar, Bengaluru"
+                  className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-ink mb-1">PIN / Postal Code</label>
+                <input
+                  type="text"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="e.g. 560038"
+                  className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-bold text-ink outline-none focus:border-brand"
+                />
+              </div>
+            </div>
+
+            {/* Additional Saved Locations */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-ink">Saved Locations</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingLocation(null);
+                    setIsAddLocationOpen(true);
+                  }}
+                  className="text-xs font-bold text-brand hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Location</span>
+                </button>
+              </div>
+
+              {Array.isArray(user?.saved_locations) && user.saved_locations.length > 0 ? (
+                <div className="space-y-2">
+                  {user.saved_locations.map((loc) => (
+                    <div
+                      key={loc.id}
+                      className="p-2.5 rounded-xl bg-canvas border border-divider flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-ink">{loc.label}</span>
+                        <span className="text-[11px] text-ink-secondary ml-1.5 truncate">({loc.locality})</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingLocation(loc);
+                            setIsAddLocationOpen(true);
+                          }}
+                          className="p-1 rounded-lg text-ink-secondary hover:text-brand transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingLocationId === loc.id}
+                          onClick={async () => {
+                            if (window.confirm(`Remove saved location "${loc.label}"?`)) {
+                              setDeletingLocationId(loc.id);
+                              setErrorMsg('');
+                              try {
+                                await api.deleteSavedLocation(loc.id, user);
+                                await refreshUser();
+                              } catch (err: any) {
+                                console.error('Failed to remove saved location:', err);
+                                setErrorMsg(err.message || 'Failed to remove saved location. Please try again.');
+                              } finally {
+                                setDeletingLocationId(null);
+                              }
+                            }
+                          }}
+                          className="p-1 rounded-lg text-ink-secondary hover:text-red-500 transition-colors cursor-pointer"
+                        >
+                          {deletingLocationId === loc.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-red-500" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
 
