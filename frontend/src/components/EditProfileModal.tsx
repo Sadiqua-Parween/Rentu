@@ -286,20 +286,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }
 
     const trimmedBuilding = buildingHouseNo.trim();
-    const hasLocationInfo = Boolean(streetArea.trim() || locality.trim() || pincode.trim() || latitude !== undefined);
-
-    // Building / Flat / House No. is strictly COMPULSORY when saving an address
-    if (!trimmedBuilding && hasLocationInfo) {
-      setErrorMsg('Building / Flat / House No. is compulsory. Please enter your building, flat, or house number before saving.');
-      return;
-    }
+    const trimmedStreet = streetArea.trim();
 
     setIsSaving(true);
     try {
-      // Canonical address: Strictly [Building / Flat / House No.], [Street / Road / Landmark], [Postal Code]
-      // Locality and Neighborhood are explicitly excluded from the address string. No duplicate strings.
-      const fullAddress = trimmedBuilding
-        ? buildAddressString(trimmedBuilding, streetArea.trim(), pincode.trim(), locality.trim())
+      const fullAddress = (trimmedBuilding || trimmedStreet)
+        ? buildAddressString(trimmedBuilding || null, trimmedStreet || null, pincode.trim() || null, locality.trim() || null)
         : null;
 
       await api.updateProfile({
@@ -648,9 +640,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-bold text-ink">
-                      Building / Flat / House No. <span className="text-brand font-black">* (Compulsory)</span>
+                      Building / Flat / House No.
                     </label>
-                    <span className="text-[10px] font-bold text-brand uppercase tracking-wider">Required</span>
+                    <span className="text-[10px] font-bold text-ink-muted">e.g. Flat, House</span>
                   </div>
                   <input
                     type="text"

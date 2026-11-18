@@ -109,8 +109,9 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
     setErrorMsg('');
 
     const trimmedBuilding = buildingHouseNo.trim();
-    if (!trimmedBuilding) {
-      setErrorMsg('Building / Flat / House No. is compulsory. Please enter your building, flat, or house number before saving.');
+    const trimmedStreet = streetArea.trim();
+    if (!trimmedBuilding && !trimmedStreet) {
+      setErrorMsg('Please enter your building, house, or street address before saving.');
       return;
     }
 
@@ -284,9 +285,9 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold text-ink">
-                Building / Flat / House No. <span className="text-brand font-black">* (Compulsory)</span>
+                Building / Flat / House No.
               </label>
-              <span className="text-[10px] font-bold text-brand uppercase tracking-wider">Required</span>
+              <span className="text-[10px] font-bold text-ink-muted">e.g. Flat, House</span>
             </div>
             <input
               type="text"
@@ -294,7 +295,6 @@ export const AddLocationModal: React.FC<AddLocationModalProps> = ({
               onChange={(e) => setBuildingHouseNo(e.target.value)}
               placeholder="e.g. Flat 402, Building 3B / House #12"
               className="w-full bg-canvas border border-divider rounded-xl px-3.5 py-2.5 text-xs font-semibold text-ink outline-none focus:border-brand"
-              required
             />
           </div>
 

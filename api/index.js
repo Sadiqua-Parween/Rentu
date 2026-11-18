@@ -73996,6 +73996,17 @@ function extractCity(locality) {
   if (loc.includes("mumbai") || loc.includes("bandra") || loc.includes("powai") || loc.includes("andheri") || loc.includes("juhu") || loc.includes("colaba")) {
     return "Mumbai";
   }
+  if (loc.includes("hyderabad") || loc.includes("secunderabad")) return "Hyderabad";
+  if (loc.includes("chennai")) return "Chennai";
+  if (loc.includes("kolkata")) return "Kolkata";
+  if (loc.includes("pune")) return "Pune";
+  if (loc.includes("noida")) return "Noida";
+  if (loc.includes("gurgaon") || loc.includes("gurugram")) return "Gurgaon";
+  if (loc.includes("jaipur")) return "Jaipur";
+  if (loc.includes("chandigarh")) return "Chandigarh";
+  if (loc.includes("lucknow")) return "Lucknow";
+  if (loc.includes("ahmedabad")) return "Ahmedabad";
+  if (loc.includes("patna")) return "Patna";
   return "Delhi";
 }
 
