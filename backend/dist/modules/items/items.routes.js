@@ -33,25 +33,25 @@ const createItemSchema = zod_1.z.object({
     pickup_fee: zod_1.z.number().min(0).optional().default(0),
 });
 const updateItemSchema = zod_1.z.object({
-    title: zod_1.z.string().min(3).optional(),
-    description: zod_1.z.string().min(10).optional(),
+    title: zod_1.z.string().min(1).optional(),
+    description: zod_1.z.string().optional(),
     category: zod_1.z.string().optional(),
-    condition: zod_1.z.string().optional(),
-    price_per_day: zod_1.z.number().min(0).optional(),
-    max_duration_days: zod_1.z.number().int().positive().optional(),
+    condition: zod_1.z.string().nullable().optional(),
+    price_per_day: zod_1.z.union([zod_1.z.number().min(0), zod_1.z.string().transform(v => Number(v))]).optional(),
+    max_duration_days: zod_1.z.union([zod_1.z.number().int().positive(), zod_1.z.string().transform(v => parseInt(v, 10))]).optional(),
     image_urls: zod_1.z.array(zod_1.z.string().min(1, 'Photo URL cannot be empty')).max(5, 'Maximum 5 photos allowed').optional(),
-    sticker_badge: zod_1.z.string().optional(),
-    locality: zod_1.z.string().optional(),
-    address_text: zod_1.z.string().optional(),
-    pincode: zod_1.z.string().optional(),
-    latitude: zod_1.z.number().min(-90).max(90).optional(),
-    longitude: zod_1.z.number().min(-180).max(180).optional(),
+    sticker_badge: zod_1.z.string().nullable().optional(),
+    locality: zod_1.z.string().nullable().optional(),
+    address_text: zod_1.z.string().nullable().optional(),
+    pincode: zod_1.z.string().nullable().optional(),
+    latitude: zod_1.z.union([zod_1.z.number().min(-90).max(90), zod_1.z.string().transform(v => parseFloat(v))]).nullable().optional(),
+    longitude: zod_1.z.union([zod_1.z.number().min(-180).max(180), zod_1.z.string().transform(v => parseFloat(v))]).nullable().optional(),
     status: zod_1.z.enum(['AVAILABLE', 'RENTED', 'UNAVAILABLE']).optional(),
     available_for_borrowing: zod_1.z.boolean().optional(),
     offers_delivery: zod_1.z.boolean().optional(),
-    delivery_fee: zod_1.z.number().min(0).optional(),
+    delivery_fee: zod_1.z.union([zod_1.z.number().min(0), zod_1.z.string().transform(v => Number(v))]).nullable().optional(),
     offers_pickup: zod_1.z.boolean().optional(),
-    pickup_fee: zod_1.z.number().min(0).optional(),
+    pickup_fee: zod_1.z.union([zod_1.z.number().min(0), zod_1.z.string().transform(v => Number(v))]).nullable().optional(),
 });
 // Browse Items (Includes 100-Meter Proximity Radar)
 router.get('/', auth_1.optionalAuthMiddleware, async (req, res, next) => {
@@ -685,26 +685,31 @@ router.put('/:id', auth_1.authMiddleware, async (req, res, next) => {
                 await (0, db_1.query)(`INSERT INTO item_images (item_id, image_url, display_order) VALUES ($1, $2, $3)`, [id, validated.image_urls[i], i]).catch(() => { });
             }
         }
-        // Trigger availability notifications if status was modified
-        if (validated.status === 'UNAVAILABLE') {
-            await (0, notifications_service_1.createNotification)({
-                userId: req.user.id,
-                type: 'ITEM_UNAVAILABLE',
-                title: 'Listing Marked Unavailable',
-                body: `"${result.rows[0]?.title || 'Item'}" is now marked unavailable and paused from rental listings.`,
-                referenceId: id,
-                referenceType: 'ITEM',
-            });
+        // Trigger availability notifications if status was modified (non-blocking)
+        try {
+            if (validated.status === 'UNAVAILABLE') {
+                await (0, notifications_service_1.createNotification)({
+                    userId: req.user.id,
+                    type: 'ITEM_UNAVAILABLE',
+                    title: 'Listing Marked Unavailable',
+                    body: `"${result.rows[0]?.title || 'Item'}" is now marked unavailable and paused from rental listings.`,
+                    referenceId: id,
+                    referenceType: 'ITEM',
+                });
+            }
+            else if (validated.status === 'AVAILABLE') {
+                await (0, notifications_service_1.createNotification)({
+                    userId: req.user.id,
+                    type: 'ITEM_AVAILABLE',
+                    title: 'Listing Marked Available',
+                    body: `"${result.rows[0]?.title || 'Item'}" is active and available for rent on the marketplace.`,
+                    referenceId: id,
+                    referenceType: 'ITEM',
+                });
+            }
         }
-        else if (validated.status === 'AVAILABLE') {
-            await (0, notifications_service_1.createNotification)({
-                userId: req.user.id,
-                type: 'ITEM_AVAILABLE',
-                title: 'Listing Marked Available',
-                body: `"${result.rows[0]?.title || 'Item'}" is active and available for rent on the marketplace.`,
-                referenceId: id,
-                referenceType: 'ITEM',
-            });
+        catch (notifError) {
+            console.warn('[NOTIF WARNING]: Failed to record item availability notification:', notifError);
         }
         return (0, response_1.sendSuccess)(res, result.rows[0], 'Listing updated successfully');
     }

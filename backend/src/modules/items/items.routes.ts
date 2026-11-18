@@ -36,25 +36,25 @@ const createItemSchema = z.object({
 });
 
 const updateItemSchema = z.object({
-  title: z.string().min(3).optional(),
-  description: z.string().min(10).optional(),
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
   category: z.string().optional(),
-  condition: z.string().optional(),
-  price_per_day: z.number().min(0).optional(),
-  max_duration_days: z.number().int().positive().optional(),
+  condition: z.string().nullable().optional(),
+  price_per_day: z.union([z.number().min(0), z.string().transform(v => Number(v))]).optional(),
+  max_duration_days: z.union([z.number().int().positive(), z.string().transform(v => parseInt(v, 10))]).optional(),
   image_urls: z.array(z.string().min(1, 'Photo URL cannot be empty')).max(5, 'Maximum 5 photos allowed').optional(),
-  sticker_badge: z.string().optional(),
-  locality: z.string().optional(),
-  address_text: z.string().optional(),
-  pincode: z.string().optional(),
-  latitude: z.number().min(-90).max(90).optional(),
-  longitude: z.number().min(-180).max(180).optional(),
+  sticker_badge: z.string().nullable().optional(),
+  locality: z.string().nullable().optional(),
+  address_text: z.string().nullable().optional(),
+  pincode: z.string().nullable().optional(),
+  latitude: z.union([z.number().min(-90).max(90), z.string().transform(v => parseFloat(v))]).nullable().optional(),
+  longitude: z.union([z.number().min(-180).max(180), z.string().transform(v => parseFloat(v))]).nullable().optional(),
   status: z.enum(['AVAILABLE', 'RENTED', 'UNAVAILABLE']).optional(),
   available_for_borrowing: z.boolean().optional(),
   offers_delivery: z.boolean().optional(),
-  delivery_fee: z.number().min(0).optional(),
+  delivery_fee: z.union([z.number().min(0), z.string().transform(v => Number(v))]).nullable().optional(),
   offers_pickup: z.boolean().optional(),
-  pickup_fee: z.number().min(0).optional(),
+  pickup_fee: z.union([z.number().min(0), z.string().transform(v => Number(v))]).nullable().optional(),
 });
 
 // Browse Items (Includes 100-Meter Proximity Radar)
@@ -757,25 +757,29 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Respon
       }
     }
 
-    // Trigger availability notifications if status was modified
-    if (validated.status === 'UNAVAILABLE') {
-      await createNotification({
-        userId: req.user!.id,
-        type: 'ITEM_UNAVAILABLE',
-        title: 'Listing Marked Unavailable',
-        body: `"${result.rows[0]?.title || 'Item'}" is now marked unavailable and paused from rental listings.`,
-        referenceId: id,
-        referenceType: 'ITEM',
-      });
-    } else if (validated.status === 'AVAILABLE') {
-      await createNotification({
-        userId: req.user!.id,
-        type: 'ITEM_AVAILABLE',
-        title: 'Listing Marked Available',
-        body: `"${result.rows[0]?.title || 'Item'}" is active and available for rent on the marketplace.`,
-        referenceId: id,
-        referenceType: 'ITEM',
-      });
+    // Trigger availability notifications if status was modified (non-blocking)
+    try {
+      if (validated.status === 'UNAVAILABLE') {
+        await createNotification({
+          userId: req.user!.id,
+          type: 'ITEM_UNAVAILABLE',
+          title: 'Listing Marked Unavailable',
+          body: `"${result.rows[0]?.title || 'Item'}" is now marked unavailable and paused from rental listings.`,
+          referenceId: id,
+          referenceType: 'ITEM',
+        });
+      } else if (validated.status === 'AVAILABLE') {
+        await createNotification({
+          userId: req.user!.id,
+          type: 'ITEM_AVAILABLE',
+          title: 'Listing Marked Available',
+          body: `"${result.rows[0]?.title || 'Item'}" is active and available for rent on the marketplace.`,
+          referenceId: id,
+          referenceType: 'ITEM',
+        });
+      }
+    } catch (notifError) {
+      console.warn('[NOTIF WARNING]: Failed to record item availability notification:', notifError);
     }
 
     return sendSuccess(res, result.rows[0], 'Listing updated successfully');

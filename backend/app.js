@@ -74296,25 +74296,25 @@ var createItemSchema = external_exports.object({
   pickup_fee: external_exports.number().min(0).optional().default(0)
 });
 var updateItemSchema = external_exports.object({
-  title: external_exports.string().min(3).optional(),
-  description: external_exports.string().min(10).optional(),
+  title: external_exports.string().min(1).optional(),
+  description: external_exports.string().optional(),
   category: external_exports.string().optional(),
-  condition: external_exports.string().optional(),
-  price_per_day: external_exports.number().min(0).optional(),
-  max_duration_days: external_exports.number().int().positive().optional(),
+  condition: external_exports.string().nullable().optional(),
+  price_per_day: external_exports.union([external_exports.number().min(0), external_exports.string().transform((v) => Number(v))]).optional(),
+  max_duration_days: external_exports.union([external_exports.number().int().positive(), external_exports.string().transform((v) => parseInt(v, 10))]).optional(),
   image_urls: external_exports.array(external_exports.string().min(1, "Photo URL cannot be empty")).max(5, "Maximum 5 photos allowed").optional(),
-  sticker_badge: external_exports.string().optional(),
-  locality: external_exports.string().optional(),
-  address_text: external_exports.string().optional(),
-  pincode: external_exports.string().optional(),
-  latitude: external_exports.number().min(-90).max(90).optional(),
-  longitude: external_exports.number().min(-180).max(180).optional(),
+  sticker_badge: external_exports.string().nullable().optional(),
+  locality: external_exports.string().nullable().optional(),
+  address_text: external_exports.string().nullable().optional(),
+  pincode: external_exports.string().nullable().optional(),
+  latitude: external_exports.union([external_exports.number().min(-90).max(90), external_exports.string().transform((v) => parseFloat(v))]).nullable().optional(),
+  longitude: external_exports.union([external_exports.number().min(-180).max(180), external_exports.string().transform((v) => parseFloat(v))]).nullable().optional(),
   status: external_exports.enum(["AVAILABLE", "RENTED", "UNAVAILABLE"]).optional(),
   available_for_borrowing: external_exports.boolean().optional(),
   offers_delivery: external_exports.boolean().optional(),
-  delivery_fee: external_exports.number().min(0).optional(),
+  delivery_fee: external_exports.union([external_exports.number().min(0), external_exports.string().transform((v) => Number(v))]).nullable().optional(),
   offers_pickup: external_exports.boolean().optional(),
-  pickup_fee: external_exports.number().min(0).optional()
+  pickup_fee: external_exports.union([external_exports.number().min(0), external_exports.string().transform((v) => Number(v))]).nullable().optional()
 });
 router2.get("/", optionalAuthMiddleware, async (req, res, next) => {
   try {
@@ -74950,24 +74950,28 @@ router2.put("/:id", authMiddleware, async (req, res, next) => {
         });
       }
     }
-    if (validated.status === "UNAVAILABLE") {
-      await createNotification({
-        userId: req.user.id,
-        type: "ITEM_UNAVAILABLE",
-        title: "Listing Marked Unavailable",
-        body: `"${result.rows[0]?.title || "Item"}" is now marked unavailable and paused from rental listings.`,
-        referenceId: id,
-        referenceType: "ITEM"
-      });
-    } else if (validated.status === "AVAILABLE") {
-      await createNotification({
-        userId: req.user.id,
-        type: "ITEM_AVAILABLE",
-        title: "Listing Marked Available",
-        body: `"${result.rows[0]?.title || "Item"}" is active and available for rent on the marketplace.`,
-        referenceId: id,
-        referenceType: "ITEM"
-      });
+    try {
+      if (validated.status === "UNAVAILABLE") {
+        await createNotification({
+          userId: req.user.id,
+          type: "ITEM_UNAVAILABLE",
+          title: "Listing Marked Unavailable",
+          body: `"${result.rows[0]?.title || "Item"}" is now marked unavailable and paused from rental listings.`,
+          referenceId: id,
+          referenceType: "ITEM"
+        });
+      } else if (validated.status === "AVAILABLE") {
+        await createNotification({
+          userId: req.user.id,
+          type: "ITEM_AVAILABLE",
+          title: "Listing Marked Available",
+          body: `"${result.rows[0]?.title || "Item"}" is active and available for rent on the marketplace.`,
+          referenceId: id,
+          referenceType: "ITEM"
+        });
+      }
+    } catch (notifError) {
+      console.warn("[NOTIF WARNING]: Failed to record item availability notification:", notifError);
     }
     return sendSuccess(res, result.rows[0], "Listing updated successfully");
   } catch (error) {
@@ -82215,6 +82219,8 @@ var runMigrations = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT;
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id TEXT;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id UUID;

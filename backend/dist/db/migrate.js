@@ -372,6 +372,8 @@ const runMigrations = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT;
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id TEXT;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id UUID;
