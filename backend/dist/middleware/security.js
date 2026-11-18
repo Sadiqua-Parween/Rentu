@@ -125,13 +125,12 @@ const isAllowedOrigin = (origin) => {
                 return true;
         }
         // 2. Allowed production domains
-        if (host === 'rentu.site' || host === 'www.rentu.site')
+        if (host === 'rentu.site' || host === 'www.rentu.site' || host.endsWith('.rentu.site'))
             return true;
         // 3. Allowed official Rentu Vercel project deployments
-        // Matches: rentu-git-*.vercel.app, rentu-*.vercel.app, and rentu-*-sadiqua-parweens-projects.vercel.app
+        // Strictly matches rentu.vercel.app and owner-scoped project preview deployments
         if (host === 'rentu.vercel.app' ||
-            (host.startsWith('rentu-') && host.endsWith('.vercel.app')) ||
-            host.endsWith('sadiqua-parweens-projects.vercel.app')) {
+            host.endsWith('-sadiqua-parweens-projects.vercel.app')) {
             return true;
         }
         // 4. Allowed local development

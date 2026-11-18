@@ -79609,8 +79609,8 @@ router8.post("/", authMiddleware, async (req, res) => {
       }
       if (cleanContentType === "image/svg+xml") {
         const svgContent = buffer.toString("utf8");
-        if (/<script\b/i.test(svgContent) || /javascript\s*:/i.test(svgContent) || /\bon[a-zA-Z]+\s*=/i.test(svgContent)) {
-          return sendError(res, "BAD_REQUEST", "Security policy violation: SVG contains executable script content", 400);
+        if (/<script\b/i.test(svgContent) || /javascript\s*:/i.test(svgContent) || /\bon[a-zA-Z]+\s*=/i.test(svgContent) || /<foreignObject\b/i.test(svgContent) || /<use\b[^>]*href\s*=\s*["']?data:/i.test(svgContent) || /<animate\b/i.test(svgContent) || /<set\b/i.test(svgContent)) {
+          return sendError(res, "BAD_REQUEST", "Security policy violation: SVG contains executable or dynamic script content", 400);
         }
       }
     }
@@ -82457,8 +82457,8 @@ var isAllowedOrigin = (origin) => {
       const explicit = process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim().toLowerCase());
       if (explicit.includes(origin.toLowerCase()) || explicit.includes(host)) return true;
     }
-    if (host === "rentu.site" || host === "www.rentu.site") return true;
-    if (host === "rentu.vercel.app" || host.startsWith("rentu-") && host.endsWith(".vercel.app") || host.endsWith("sadiqua-parweens-projects.vercel.app")) {
+    if (host === "rentu.site" || host === "www.rentu.site" || host.endsWith(".rentu.site")) return true;
+    if (host === "rentu.vercel.app" || host.endsWith("-sadiqua-parweens-projects.vercel.app")) {
       return true;
     }
     if (host === "localhost" || host === "127.0.0.1") return true;
@@ -82480,6 +82480,9 @@ function sanitizeData(data) {
   if (typeof data === "object" && !(data instanceof Date) && !(data instanceof RegExp) && !Buffer.isBuffer(data)) {
     const sanitized = {};
     for (const key of Object.keys(data)) {
+      if (key === "__proto__" || key === "constructor" || key === "prototype") {
+        continue;
+      }
       sanitized[key] = sanitizeData(data[key]);
     }
     return sanitized;

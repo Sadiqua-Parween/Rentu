@@ -159,14 +159,13 @@ export const isAllowedOrigin = (origin: string | undefined): boolean => {
     }
 
     // 2. Allowed production domains
-    if (host === 'rentu.site' || host === 'www.rentu.site') return true;
+    if (host === 'rentu.site' || host === 'www.rentu.site' || host.endsWith('.rentu.site')) return true;
 
     // 3. Allowed official Rentu Vercel project deployments
-    // Matches: rentu-git-*.vercel.app, rentu-*.vercel.app, and rentu-*-sadiqua-parweens-projects.vercel.app
+    // Strictly matches rentu.vercel.app and owner-scoped project preview deployments
     if (
       host === 'rentu.vercel.app' ||
-      (host.startsWith('rentu-') && host.endsWith('.vercel.app')) ||
-      host.endsWith('sadiqua-parweens-projects.vercel.app')
+      host.endsWith('-sadiqua-parweens-projects.vercel.app')
     ) {
       return true;
     }

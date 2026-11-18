@@ -41,6 +41,10 @@ function sanitizeData(data) {
     if (typeof data === 'object' && !(data instanceof Date) && !(data instanceof RegExp) && !Buffer.isBuffer(data)) {
         const sanitized = {};
         for (const key of Object.keys(data)) {
+            // Prototype Pollution Prevention: ignore dangerous object prototype keys
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                continue;
+            }
             sanitized[key] = sanitizeData(data[key]);
         }
         return sanitized;

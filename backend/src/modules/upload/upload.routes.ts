@@ -51,8 +51,16 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
       // XSS Prevention: Disallow scripts and executable event handlers inside SVG images
       if (cleanContentType === 'image/svg+xml') {
         const svgContent = buffer.toString('utf8');
-        if (/<script\b/i.test(svgContent) || /javascript\s*:/i.test(svgContent) || /\bon[a-zA-Z]+\s*=/i.test(svgContent)) {
-          return sendError(res, 'BAD_REQUEST', 'Security policy violation: SVG contains executable script content', 400);
+        if (
+          /<script\b/i.test(svgContent) ||
+          /javascript\s*:/i.test(svgContent) ||
+          /\bon[a-zA-Z]+\s*=/i.test(svgContent) ||
+          /<foreignObject\b/i.test(svgContent) ||
+          /<use\b[^>]*href\s*=\s*["']?data:/i.test(svgContent) ||
+          /<animate\b/i.test(svgContent) ||
+          /<set\b/i.test(svgContent)
+        ) {
+          return sendError(res, 'BAD_REQUEST', 'Security policy violation: SVG contains executable or dynamic script content', 400);
         }
       }
     }
