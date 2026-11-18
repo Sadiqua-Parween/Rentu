@@ -59,54 +59,7 @@ export const Footer: React.FC<FooterProps> = ({
 
   return (
     <>
-      <footer className="hidden md:block mt-20 border-t border-divider bg-surface/80 dark:bg-zinc-950/80 backdrop-blur-md text-ink transition-colors pb-12">
-        {/* Top Banner: Value Props */}
-        <div className="border-b border-divider/60 bg-brand/5 dark:bg-brand/10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-brand/15 text-brand flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-ink font-display">100% Verified Community</h4>
-                  <p className="text-ink-secondary text-[11px]">Real neighbors with transparent trust scores</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-ink font-display">6-Digit Handoff Codes</h4>
-                  <p className="text-ink-secondary text-[11px]">Secure verification at pickup and return</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-ink font-display">Hyper-Local Sharing</h4>
-                  <p className="text-ink-secondary text-[11px]">Meet neighbors within walking distance</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-ink font-display">Sustainable Economy</h4>
-                  <p className="text-ink-secondary text-[11px]">Rent unused gear & cut household waste</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+      <footer className="hidden md:block mt-24 border-t border-divider bg-surface/80 dark:bg-zinc-950/80 backdrop-blur-md text-ink transition-colors pb-12">
         {/* Main Footer Navigation Grid */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10">
@@ -123,7 +76,7 @@ export const Footer: React.FC<FooterProps> = ({
               </button>
 
               <p className="text-xs text-ink-secondary leading-relaxed max-w-sm">
-                India's modern hyper-local peer-to-peer gear sharing network. Borrow cameras, camping gear, tools, and tech directly from verified neighbors near you.
+                Peer-to-peer neighborhood rental network. Borrow everyday gear from verified neighbors nearby.
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-1">

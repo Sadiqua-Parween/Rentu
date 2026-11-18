@@ -17,14 +17,14 @@ export interface CategoryItem {
 }
 
 export const CATEGORIES: CategoryItem[] = [
-  { name: 'Tools & DIY', label: 'Tools & DIY', icon: <Wrench className="w-5 h-5" /> },
-  { name: 'Electronics & Tech', label: 'Electronics', icon: <Tv className="w-5 h-5" /> },
-  { name: 'Camping & Outdoor', label: 'Camping', icon: <Tent className="w-5 h-5" /> },
+  { name: 'Tools & DIY', label: 'Tools', icon: <Wrench className="w-5 h-5" /> },
+  { name: 'Electronics & Tech', label: 'Tech', icon: <Tv className="w-5 h-5" /> },
+  { name: 'Camping & Outdoor', label: 'Outdoor', icon: <Tent className="w-5 h-5" /> },
   { name: 'Home & Appliances', label: 'Home', icon: <Coffee className="w-5 h-5" /> },
-  { name: 'Clothing & Fits', label: 'Clothing', icon: <Shirt className="w-5 h-5" /> },
+  { name: 'Clothing & Fits', label: 'Fashion', icon: <Shirt className="w-5 h-5" /> },
   { name: 'Books & Media', label: 'Books', icon: <BookOpen className="w-5 h-5" /> },
   { name: 'Sports & Fitness', label: 'Sports', icon: <Dumbbell className="w-5 h-5" /> },
-  { name: 'Other', label: 'Other', icon: <Sparkles className="w-5 h-5" /> },
+  { name: 'Other', label: 'More', icon: <Sparkles className="w-5 h-5" /> },
 ];
 
 interface CategoryTilesProps {
@@ -39,18 +39,13 @@ export const CategoryTiles: React.FC<CategoryTilesProps> = ({
   return (
     <div className="py-6">
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-lg sm:text-xl font-black text-ink tracking-tight font-display">
-            Browse Categories
-          </h3>
-          <p className="text-xs text-ink-secondary">
-            Explore everyday gear shared by neighbors in your area
-          </p>
-        </div>
+        <h2 className="text-base sm:text-lg font-bold text-ink">
+          Categories
+        </h2>
         {selectedCategory !== 'All' && (
           <button
             onClick={() => onSelectCategory('All')}
-            className="text-xs font-bold text-brand hover:underline cursor-pointer"
+            className="text-xs font-semibold text-brand hover:underline cursor-pointer"
           >
             Show All
           </button>
@@ -64,7 +59,7 @@ export const CategoryTiles: React.FC<CategoryTilesProps> = ({
             <button
               key={cat.name}
               onClick={() => onSelectCategory(isSelected ? 'All' : cat.name)}
-              className={`flex flex-col items-center justify-center p-3 rounded-2xl text-center cursor-pointer transition-all duration-150 border ${
+              className={`flex flex-col items-center justify-center p-3 sm:py-3.5 rounded-2xl text-center cursor-pointer transition-all border ${
                 isSelected
                   ? 'bg-brand/10 border-brand text-brand ring-1 ring-brand/30 shadow-xs'
                   : 'bg-surface border-divider hover:border-zinc-300 dark:hover:border-zinc-700 text-ink hover:text-brand shadow-xs'
@@ -73,7 +68,7 @@ export const CategoryTiles: React.FC<CategoryTilesProps> = ({
               <div className={`mb-1.5 transition-colors ${isSelected ? 'text-brand' : 'text-ink-secondary group-hover:text-brand'}`}>
                 {cat.icon}
               </div>
-              <span className="text-[11px] font-bold leading-tight truncate max-w-full">
+              <span className="text-[11px] font-semibold leading-tight truncate max-w-full">
                 {cat.label}
               </span>
             </button>

@@ -222,11 +222,11 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       {/* Header Bar: Renamed Page Title + Subtitle + In-Page [Items | Requests] Segmented Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-divider">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-ink tracking-tight font-display">
+          <h1 className="text-xl sm:text-2xl font-bold text-ink tracking-tight font-display">
             Marketplace
           </h1>
-          <p className="text-xs sm:text-sm text-ink-secondary font-medium mt-0.5">
-            Everyday items and community requests. Real people. Shared near you.
+          <p className="text-xs text-ink-secondary mt-0.5">
+            Browse gear or see what neighbors are looking for
           </p>
         </div>
 

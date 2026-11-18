@@ -720,10 +720,10 @@ export const App: React.FC = () => {
           />
         ) : (
           <>
-            {/* VIEW 1: HOMEPAGE / LANDING (Screen 1 in Mockup) */}
+            {/* VIEW 1: HOMEPAGE / LANDING */}
             {activeTab === 'home' && (
-              <div>
-                {/* Minimalist Chic Hero Section */}
+              <div className="space-y-10 sm:space-y-16 pb-12">
+                {/* Minimalist Hero Section */}
                 <HeroSection
                   onGetStarted={() => setActiveTab('explore')}
                   onOpenDropGear={() => setIsDropGearOpen(true)}
@@ -735,7 +735,7 @@ export const App: React.FC = () => {
                   onOpenUserProfile={handleOpenUserProfile}
                 />
 
-                {/* 8 Soft Pastel Category Tiles Container */}
+                {/* Category Tiles */}
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                   <CategoryTiles
                     selectedCategory={selectedCategory}
@@ -746,40 +746,27 @@ export const App: React.FC = () => {
                   />
                 </div>
 
-                {/* How Rentu⁺ Works Section (Placed Above Popular Gear) */}
-                <HowItWorksSection
-                  onExploreGear={() => setActiveTab('explore')}
-                  onOpenDropGear={() => setIsDropGearOpen(true)}
-                  onOpenDropWish={() => setIsDropWishOpen(true)}
-                  onOpenAuth={() => setIsAuthOpen(true)}
-                  onViewCommunity={() => setActiveTab('community')}
-                  showCommunityLink={true}
-                />
-
-                {/* Popular Gear Near You (Placed Below How Rentu Works) */}
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                  <div className="flex items-center justify-between mb-6">
+                {/* Popular Gear Near You */}
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex items-center justify-between mb-5">
                     <div>
-                      <h2 className="text-xl sm:text-2xl font-black text-ink font-display">
-                        Popular Gear Near You
+                      <h2 className="text-lg sm:text-xl font-bold text-ink">
+                        Popular near you
                       </h2>
-                      <p className="text-xs sm:text-sm text-ink-secondary">
-                        Available for rent from verified community lenders
-                      </p>
                     </div>
                     <button
                       onClick={() => setActiveTab('explore')}
-                      className="text-xs font-bold text-brand hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-brand hover:underline cursor-pointer"
                     >
-                      {isLoading ? 'Explore All →' : `Explore All (${(items || []).length}) →`}
+                      {isLoading ? 'View all →' : `View all (${(items || []).length}) →`}
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
                     {isLoading ? (
                       [1, 2, 3, 4].map((i) => (
-                        <div key={i} className="bg-surface border border-divider rounded-3xl p-3 sm:p-4 space-y-2.5 animate-pulse">
-                          <div className="aspect-[4/3] w-full rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
+                        <div key={i} className="bg-surface border border-divider rounded-2xl p-3 sm:p-4 space-y-2.5 animate-pulse">
+                          <div className="aspect-[4/3] w-full rounded-xl bg-zinc-200 dark:bg-zinc-800" />
                           <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded-md w-3/4" />
                           <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded-md w-1/2" />
                           <div className="pt-2 border-t border-divider flex items-center justify-between">
@@ -800,6 +787,16 @@ export const App: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {/* How Rentu Works Section */}
+                <HowItWorksSection
+                  onExploreGear={() => setActiveTab('explore')}
+                  onOpenDropGear={() => setIsDropGearOpen(true)}
+                  onOpenDropWish={() => setIsDropWishOpen(true)}
+                  onOpenAuth={() => setIsAuthOpen(true)}
+                  onViewCommunity={() => setActiveTab('community')}
+                  showCommunityLink={true}
+                />
               </div>
             )}
 
