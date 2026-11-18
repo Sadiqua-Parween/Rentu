@@ -121,10 +121,37 @@ export const DropWishModal: React.FC<DropWishModalProps> = ({
     setIsCameraActive(false);
   };
 
-  // Stop camera when closing modal
+  const resetForm = () => {
+    setItemName('');
+    setDescription('');
+    setCategory('Electronics & Tech');
+    setImageUrl('');
+    setStartDate(defaultStartDate);
+    setStartTime('10:00');
+    setEndDate(defaultEndDate);
+    setEndTime('18:00');
+    setDurationDays(3);
+    setOfferedAmount('');
+    setWillPickup(true);
+    setWillDropBack(true);
+    setDeliveryFee('');
+    setBuildingHouseNo('');
+    setStreetArea('');
+    setLocality(user?.locality || '');
+    setPincode(user?.pincode || '');
+    setCoords(null);
+    setLocationSuccessMsg('');
+    setErrorMsg('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    stopCamera();
+  };
+
+  // Stop camera and reset form fields when closing modal so next open is completely fresh
   useEffect(() => {
     if (!isOpen) {
       stopCamera();
+      resetForm();
     }
     return () => {
       stopCamera();
@@ -389,6 +416,7 @@ export const DropWishModal: React.FC<DropWishModalProps> = ({
       });
 
       onSuccess();
+      resetForm();
       onClose();
     } catch (err: any) {
       console.error('Failed to post request:', err);

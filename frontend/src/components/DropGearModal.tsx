@@ -94,10 +94,37 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
     setIsCameraActive(false);
   };
 
-  // Stop camera when closing modal
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setCategory('Electronics & Tech');
+    setListingType('Rent');
+    setPricePerDay('');
+    setMaxDurationDays(365);
+    setCondition('Like new');
+    setLocality(user?.locality || '');
+    setImageUrls([]);
+    setOffersDelivery(false);
+    setDeliveryFee(0);
+    setOffersPickup(false);
+    setPickupFee(0);
+    setErrorMsg('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    stopCamera();
+    const effectiveLocs = getEffectiveSavedLocations(user);
+    if (effectiveLocs.length > 0) {
+      setSelectedLocationId(effectiveLocs[0].id);
+    } else {
+      setSelectedLocationId('');
+    }
+  };
+
+  // Stop camera and reset form fields when closing modal so next open is completely fresh
   useEffect(() => {
     if (!isOpen) {
       stopCamera();
+      resetForm();
     }
     return () => {
       stopCamera();
@@ -308,6 +335,7 @@ export const DropGearModal: React.FC<DropGearModalProps> = ({
       });
 
       onSuccess(createdItem);
+      resetForm();
       onClose();
     } catch (err: any) {
       console.error('Failed to list item:', err);
