@@ -79651,7 +79651,9 @@ router8.post("/", authMiddleware, async (req, res) => {
       });
     }
     console.error("Cloudinary upload failure:", dataCloudinary.error?.message || dataCloudinary);
-    return sendError(res, "UPLOAD_FAILED", dataCloudinary.error?.message || "Media upload failed", 500);
+    const isProd2 = ENV.NODE_ENV === "production";
+    const uploadErrMsg = isProd2 ? "Media upload failed" : dataCloudinary.error?.message || "Media upload failed";
+    return sendError(res, "UPLOAD_FAILED", uploadErrMsg, 500);
   } catch (err) {
     console.error("Backend upload handler error:", err);
     const isProd2 = ENV.NODE_ENV === "production";

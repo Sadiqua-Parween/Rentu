@@ -98,7 +98,9 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     }
 
     console.error('Cloudinary upload failure:', dataCloudinary.error?.message || dataCloudinary);
-    return sendError(res, 'UPLOAD_FAILED', dataCloudinary.error?.message || 'Media upload failed', 500);
+    const isProd = ENV.NODE_ENV === 'production';
+    const uploadErrMsg = isProd ? 'Media upload failed' : (dataCloudinary.error?.message || 'Media upload failed');
+    return sendError(res, 'UPLOAD_FAILED', uploadErrMsg, 500);
   } catch (err: any) {
     console.error('Backend upload handler error:', err);
     const isProd = ENV.NODE_ENV === 'production';
