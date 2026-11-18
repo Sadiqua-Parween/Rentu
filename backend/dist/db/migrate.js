@@ -123,12 +123,14 @@ const runMigrations = async () => {
       ALTER TABLE items ADD COLUMN IF NOT EXISTS pickup_fee NUMERIC(10, 2) DEFAULT 0;
       ALTER TABLE items ADD COLUMN IF NOT EXISTS condition VARCHAR(50) DEFAULT 'Good';
       ALTER TABLE items ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false;
+      ALTER TABLE items ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) DEFAULT 'APPROVED';
 
       CREATE INDEX IF NOT EXISTS idx_items_owner ON items(owner_id);
       CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
       CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
       CREATE INDEX IF NOT EXISTS idx_items_coords ON items(latitude, longitude);
       CREATE INDEX IF NOT EXISTS idx_items_borrowing ON items(available_for_borrowing);
+      CREATE INDEX IF NOT EXISTS idx_items_approval ON items(approval_status);
     `);
         await client.query(`
       CREATE TABLE IF NOT EXISTS requests (
@@ -170,10 +172,12 @@ const runMigrations = async () => {
       ALTER TABLE requests ADD COLUMN IF NOT EXISTS will_pickup BOOLEAN DEFAULT TRUE;
       ALTER TABLE requests ADD COLUMN IF NOT EXISTS will_drop_back BOOLEAN DEFAULT TRUE;
       ALTER TABLE requests ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC(10, 2) DEFAULT 0;
+      ALTER TABLE requests ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) DEFAULT 'APPROVED';
 
       CREATE INDEX IF NOT EXISTS idx_requests_seeker ON requests(seeker_id);
       CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
       CREATE INDEX IF NOT EXISTS idx_requests_coords ON requests(latitude, longitude);
+      CREATE INDEX IF NOT EXISTS idx_requests_approval ON requests(approval_status);
     `);
         await client.query(`
       CREATE TABLE IF NOT EXISTS bookings (

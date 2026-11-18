@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS users (
     community_lender_reviews_count INT DEFAULT 0,
     trust_rating NUMERIC(3, 2) DEFAULT NULL,
     trust_score INT DEFAULT 85,          -- Baseline trust score for new members
+    notify_nearby_requests_5km BOOLEAN DEFAULT TRUE,
     role user_role DEFAULT 'USER',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -76,6 +77,7 @@ CREATE TABLE IF NOT EXISTS items (
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     status item_status DEFAULT 'AVAILABLE',
+    approval_status VARCHAR(20) DEFAULT 'APPROVED',
     available_for_borrowing BOOLEAN DEFAULT false,
     offers_delivery BOOLEAN DEFAULT false,
     delivery_fee NUMERIC(10, 2) DEFAULT 0,
@@ -88,6 +90,7 @@ CREATE TABLE IF NOT EXISTS items (
 CREATE INDEX IF NOT EXISTS idx_items_owner ON items(owner_id);
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
 CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
+CREATE INDEX IF NOT EXISTS idx_items_approval ON items(approval_status);
 CREATE INDEX IF NOT EXISTS idx_items_coords ON items(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_items_pincode ON items(pincode);
 
@@ -112,7 +115,15 @@ CREATE TABLE IF NOT EXISTS requests (
     start_date DATE NOT NULL,
     start_time TIME,
     duration_days INTEGER NOT NULL DEFAULT 1 CHECK (duration_days > 0),
+    end_date DATE,
+    end_time TIME,
     offered_amount NUMERIC(10, 2) NOT NULL CHECK (offered_amount >= 0),
+    pickup_type VARCHAR(20) DEFAULT 'SELF_PICKUP',
+    return_type VARCHAR(20) DEFAULT 'SELF_RETURN',
+    will_pickup BOOLEAN DEFAULT TRUE,
+    will_drop_back BOOLEAN DEFAULT TRUE,
+    delivery_fee NUMERIC(10, 2) DEFAULT 0,
+    approval_status VARCHAR(20) DEFAULT 'APPROVED',
     locality VARCHAR(120),
     address_text TEXT,
     pincode VARCHAR(10),
@@ -125,6 +136,7 @@ CREATE TABLE IF NOT EXISTS requests (
 
 CREATE INDEX IF NOT EXISTS idx_requests_seeker ON requests(seeker_id);
 CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
+CREATE INDEX IF NOT EXISTS idx_requests_approval ON requests(approval_status);
 CREATE INDEX IF NOT EXISTS idx_requests_coords ON requests(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_requests_pincode ON requests(pincode);
 
