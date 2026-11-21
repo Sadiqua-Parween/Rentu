@@ -1,410 +1,291 @@
 <div align="center">
 
-# ⚡ Rentu⁺
+# ⚡ Rentu⁺ (`rentu.site`)
 
-### **Don't Buy It. Rent It. Flex It.**
-*Peer-to-Peer Gear Sharing & Rental Platform for Creators, Students & Flatmates.*
+### **Rent, Lend, and Borrow Anything and Everything.**
+*The Hyper-Local Peer-to-Peer Sharing Economy for Creators, Students, and Neighbors.*
 
+[![Live Site](https://img.shields.io/badge/Live_Platform-rentu.site-FF3366?style=for-the-badge&logo=google-chrome&logoColor=white)](https://rentu.site)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/Vite_5-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS_3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Express](https://img.shields.io/badge/Express.js_4-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_14+-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Neon](https://img.shields.io/badge/Neon-00E599?style=for-the-badge&logo=postgresql&logoColor=black)](https://neon.tech/)
-[![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=for-the-badge&logo=cloudinary&logoColor=white)](https://cloudinary.com/)
-[![Gemini](https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Neon](https://img.shields.io/badge/Neon_Serverless-00E599?style=for-the-badge&logo=postgresql&logoColor=black)](https://neon.tech/)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini_AI-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Vercel](https://img.shields.io/badge/Vercel_Deployment-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
+
+---
+
+### **"Same stuff. More people. Happier planet. Good things circulate."**
 
 </div>
 
 ---
 
-## 📖 Product Overview
+## 💡 The "Why": Why Rentu Exists
 
-**Rentu⁺** is an anti-ownership, community-powered gear rental marketplace where digital creators, students, and young professionals rent high-demand gear (cameras, DJ controllers, projectors, camping kits, gaming rigs, power tools, festival fits) from people nearby at a fraction of retail cost, while lenders turn idle equipment into passive income (secure the bag 💸).
+Every day, millions of high-utility items sit dormant inside storage closets, drawers, and under beds:
+- A **₹70,000 DSLR camera** bought for a single vacation used only 3 times a year.
+- A **power drill or angle grinder** used for an average of *13 minutes in its entire lifespan*.
+- A **camping tent, projector, DJ console, or party speaker** gathering dust between occasional weekends.
+- **Traditional festival wear, formal suits, or specialized lenses** purchased at full retail price for one-off occasions.
 
-> **"Same stuff. More people. Happier planet. Good things circulate."**
+Meanwhile, just 300 meters away in the same apartment complex, campus hostel, or residential layout, a student, freelancer, or neighbor needs that exact piece of gear for a 48-hour project. Currently, their only options are:
+1. **Buying it brand new**, sinking thousands of rupees into an asset they'll barely touch again.
+2. **Renting from corporate rental agencies**, dealing with high security deposits, hidden maintenance fees, rigid weekly minimums, and slow shipping.
+3. **Abandoning their creative or practical project altogether** due to prohibitive upfront costs.
+
+### The Mission Behind Rentu
+**Rentu (`rentu.site`) was built to replace blind consumerism with community access.**
+
+1. **Access Over Ownership**: You don't need to own a drill; you need a hole in the wall. You don't need to own an expensive cinema lens; you need the footage for your college festival film. Rentu shifts society from *owning dead assets* to *accessing active tools*.
+2. **Hyper-Local Proximity**: Instead of waiting 3 days for an e-commerce delivery or driving across the city to an industrial rental shop, you can borrow or rent gear from someone living on your street, in your college PG, or in your apartment tower.
+3. **Financial Empowerment**: Lenders turn idle gear into steady passive income, easily covering the cost of their gear. Renters get top-tier equipment at 5% to 10% of retail price.
+4. **Environmental Sustainability**: Fewer new products manufactured, fewer cardboard boxes shipped, less electronic waste dumped into landfills. Every rental on Rentu reduces the carbon footprint of unnecessary consumer manufacturing.
+5. **Rebuilding Neighborhood Trust**: In an increasingly isolated digital world, Rentu connects neighbors through face-to-face handshakes, mutual respect, and a shared communal pool of resources.
 
 ---
 
-## 🛠️ Technology Stack & Architecture
+## 🚀 What You Can Do on Rentu
 
-| Component | Framework / Technology | Role in Architecture |
+Rentu provides a complete, modern peer-to-peer rental and sharing ecosystem. Whether you are looking to rent, borrow, lend, or request, here is everything you can do on the platform:
+
+```
+                                  ┌──────────────────────────────┐
+                                  │   Rentu Platform Ecosystem   │
+                                  └──────────────┬───────────────┘
+                                                 │
+            ┌────────────────────────────────────┼────────────────────────────────────┐
+            ▼                                    ▼                                    ▼
+┌───────────────────────┐            ┌───────────────────────┐            ┌───────────────────────┐
+│     For Borrowers     │            │      For Lenders      │            │     For Community     │
+├───────────────────────┤            ├───────────────────────┤            ├───────────────────────┤
+│ • Explore Gear Feed   │            │ • List Gear in 60s    │            │ • 4-Tier Leaderboards │
+│ • Filter by Distance  │            │ • AI Listing Assistant│            │ • Public Profiles     │
+│ • Free Peer Borrowing │            │ • Calendar Management │            │ • Follow / Unfollow   │
+│ • Drop Wanted Bounties│            │ • Custom Delivery Fees│            │ • Trust Scores & Stars│
+│ • In-Chat Negotiation │            │ • Safe 6-Digit Codes  │            │ • Relative Distance   │
+│ • 6-Digit Handshakes  │            │ • Earnings & Payouts  │            │ • Address Privacy     │
+└───────────────────────┘            └───────────────────────┘            └───────────────────────┘
+```
+
+---
+
+### 1. 🔍 Dual Marketplace: Supply & Demand Combined
+- **Browse Gear by Category**: Seamlessly filter items across 8 curated categories:
+  - 🛠️ **Tools & DIY** (Cordless drills, toolboxes, heat guns, socket wrenches)
+  - 📸 **Electronics & Tech** (DSLRs, mirrorless cameras, lenses, ring lights, microphones, powerbanks)
+  - ⛺ **Camping & Outdoor** (Tents, trekking backpacks, sleeping bags, camp stoves)
+  - 🍳 **Home & Appliances** (Air fryers, vacuum cleaners, garment steamers, sewing machines)
+  - 👗 **Clothing & Fits** (Festive kurtas, tuxedos, winter jackets, costume accessories)
+  - 📚 **Books & Media** (Exam textbooks, bestselling novels, comics, vinyl records)
+  - ⚽ **Sports & Fitness** (Badminton racquets, dumbbells, yoga mats, roller skates)
+  - ✨ **Other** (Party lights, folding tables, board games)
+- **Multi-Dimensional Filters**:
+  - **Budget Slider**: Filter daily rental rates from ₹0 to ₹5,000/day.
+  - **Distance Radius Filter**: Narrow down gear within 1 km, 5 km, 15 km, or 50 km.
+  - **Item Condition**: Select from *Like New / Pristine*, *Good*, or *Fair*.
+  - **Instant Availability**: View only gear that is ready for immediate handover today.
+  - **Delivery Perks**: Filter for items offering door-to-door delivery.
+- **🎁 Free Community Borrowing (`₹0`)**:
+  - Rentu isn't just a commercial rental marketplace. Lenders can flag items as `Available for Borrowing` to lend items completely free of charge to neighbors in need.
+- **📢 The Wanted Board (Reverse Bounties / Wishes)**:
+  - Can't find a specific camera stabilizer or trekking pole on the marketplace?
+  - Post a **Community Wish**: specify the exact item, description, needed dates, time, and your offered budget.
+  - Nearby neighbors who own the item get notified and can claim the request with one click (**"I have this gear"**).
+
+---
+
+### 2. 📍 Hyper-Local Geospatial Proximity & Privacy Protection
+- **Automatic GPS & Locality Detection**: Detect your exact neighborhood with 1-click browser geolocation, powered by high-accuracy reverse geocoding via OpenStreetMap Nominatim.
+- **Accurate Haversine Distance**: Every product and bounty card calculates the real ground distance relative to your current location (e.g., `Within ~100 m`, `Within ~800 m`, `Within ~1.2 km`, `Within ~8.5 km`).
+- **Owner Visibility**: When you view your own listings, the app automatically indicates `Within ~100 m (Your Gear)`.
+- **🛡️ Strict Privacy Shield**:
+  - **No exact street address or building flat numbers are ever shown publicly.**
+  - Public visitors and neighbors only see distance estimates and general localities.
+  - The exact pickup flat/building address is unlocked and revealed **only after a rental booking is accepted and confirmed by both parties**.
+
+---
+
+### 3. 📦 Instant Listing Wizard & Google Gemini AI Assistant
+- **Drop Gear in Under 60 Seconds**:
+  - Upload multiple high-resolution photos via device camera, drag & drop, or file browser.
+  - Set daily rental rates, maximum rental duration, and security badge labels.
+  - Configure pickup & return preferences: Self Pickup, Owner Delivery, or Renter Drop-off, with optional custom delivery fees.
+- **🤖 Powered by Google Gemini AI**:
+  - AI Listing Enhancer automatically extracts specs, recommends optimal daily prices based on retail cost, fixes typos, and generates engaging listing titles and descriptions.
+
+---
+
+### 4. 📅 Interactive Booking & Availability Calendar
+- **Interactive Calendar Picker**: Inspect item availability visually with color-coded day states (*Available*, *Rented / Unavailable*, *Selected*).
+- **Time Presets**: Fast pickup and return scheduling with standard convenience presets (9 AM, 12 PM, 4 PM, 6 PM, 8 PM).
+- **Transparent Price Breakdown**: Real-time total calculation based on duration days, daily price, delivery fees, and platform protection.
+
+---
+
+### 5. 🔐 The Secure Two-Party Handshake (OTP & QR Verification)
+To guarantee 100% dispute-free handovers without physical paperwork, Rentu implements a cryptographic two-party state machine:
+
+$$\text{REQUESTED} \longrightarrow \text{ACCEPTED} \longrightarrow \text{HANDED\_OVER} \longrightarrow \text{COMPLETED}$$
+
+1. **Pickup Handshake**:
+   - The borrower is issued a private **4 or 6-digit Pickup Code** and an offline-compatible **QR Code**.
+   - When meeting in person, the lender inspects the gear with the borrower and enters the code (or scans the QR code).
+   - This formally transitions the booking to **`HANDED_OVER`** and activates the custody timer.
+2. **Return Handshake**:
+   - When returning the item, the lender is issued a private **Return Code** and **QR Code**.
+   - Once the lender inspects their equipment and confirms its condition, they provide the return code to the borrower to finalize the booking.
+   - The status transitions to **`COMPLETED`**, unlocking the review stage.
+
+---
+
+### 6. 💬 Split-Screen In-App Chat & Live Deal Negotiation
+- **Real-Time Peer Messaging**: Coordinate pickup times, ask questions about accessories, or arrange parking lot meetups.
+- **In-Chat Interactive Proposals**:
+  - Need the gear for an extra day? Want to request a slight discount for a week-long rental?
+  - Either party can send a **Custom Proposal** directly inside the chat dialog with custom dates and pricing.
+  - The other party can **Accept** or **Decline** with a single tap, updating the booking contract instantly.
+- **Safe & Private**: No need to exchange personal phone numbers or reveal personal social media accounts.
+
+---
+
+### 7. 🏆 Community Reputation, Trust Scores & Social Graph
+- **Community Champions Leaderboard (`/community`)**:
+  - 🌟 **Top Rated**: Ranked by verified 5-star peer reviews across lender, renter, and community roles.
+  - ⚡ **Top Lenders**: Celebrating neighbors sharing the most equipment.
+  - 🎒 **Top Borrowers**: Recognizing reliable, punctual renters who treat gear with care.
+  - 🎁 **Free Community Sharers**: Highlighting altruistic heroes who lend items for free (`₹0`).
+- **Rich Public Profiles (`/user/:id`)**:
+  - Display custom usernames (`@handle`), member bios, verified identity badges, ratings, and active gear closets.
+  - **Social Following**: Follow fellow creators, photographers, and local handymen to stay notified when they drop new gear.
+- **Bidirectional Reviews**: Both lender and borrower review each other after every completed handover, maintaining a high-trust neighborhood standard.
+
+---
+
+### 8. 🔔 Smart Alerts & Automated Notification Center
+- **In-App Notification Bell**: Instant alerts for booking requests, accepted rentals, chat messages, return reminders, and new bounty matches.
+- **Automated Lifecycle Reminders**: Background schedulers remind borrowers 2 hours before pickup, 3 hours before return deadlines, and alert both parties if an item is overdue.
+- **Web Push Notifications**: Push notifications delivered straight to mobile screens and desktop browsers even when the tab is closed.
+
+---
+
+### 9. 📊 Hustle Hub (Admin Dashboard & Analytics)
+- Real-time marketplace pulse: Total registered users, active gear count, total wishes, and Gross Marketplace Volume (GMV).
+- Listing moderation pipeline (review, approve, or flag listings).
+- Customer support ticket triage and dispute management.
+- Sanitized CSV data exports protected against formula injection.
+
+---
+
+## 🏗️ Architecture & Technology Stack
+
+| Layer | Technologies Used | Key Responsibilities |
 | :--- | :--- | :--- |
-| **Frontend SPA** | **React 18 + Vite 5** | High-performance Single Page Application with instant client-side routing & fast HMR |
-| **Styling & Tokens** | **Tailwind CSS 3** | Neo-Pop / Pastel Brutalist design system with full dark/light theme persistence |
-| **Icons & Confetti** | **Lucide React + Canvas Confetti** | Vector iconography, milestone celebration confetti, and dynamic UI state badges |
-| **Backend API** | **Node.js (v20+ LTS) + Express.js** | Decoupled RESTful API built in strict TypeScript with comprehensive middleware |
-| **Validation** | **Zod 3.23+** | Strict runtime schema validation across query params, request bodies, and mutations |
-| **Relational Database** | **PostgreSQL 14+ (Supabase)** | Fully normalized 1NF, 2NF & 3NF relational schema with Row Level Security (RLS) |
-| **Spatial Proximity** | **PostGIS + Haversine SQL** | Geospatial calculations for nearby gear matching without leaking private street addresses |
-| **Connection Pool** | **`pg` (node-postgres) + Pooler** | High-throughput connection pooling on port 6543 optimized for serverless execution |
-| **Auth System** | **Dual JWT + Firebase Admin** | Unified authentication supporting local HMAC JWTs and Firebase Auth UIDs |
-| **AI Gear Assistant** | **Google Gemini API** | AI-assisted listing generation, smart specs extraction, and description polishing |
-| **Notifications** | **Web Push API + Service Worker** | In-app alerts, background notification scheduler, and desktop/mobile Web Push |
-| **Cloud Storage** | **Supabase Storage** (`item-photos`) | Public CDN storage bucket with automated image resizing and fallbacks |
-| **Production Build** | **esbuild + Vite** | Standalone zero-dependency backend bundling (`api/index.js`) for resilient Vercel serverless execution |
+| **Frontend Client** | **React 18, Vite 5, TypeScript** | Single-page application, client-side routing, optimistic UI updates, high responsiveness. |
+| **Styling & UI Tokens** | **Tailwind CSS 3, Lucide Icons, Canvas Confetti** | Clean Neo-Pop aesthetic, accessible high-contrast color palette, instant Dark/Light mode persistence. |
+| **Backend REST API** | **Node.js (v20+ LTS), Express.js, TypeScript** | Decoupled RESTful API with structured modular routes, robust middleware, and serverless compatibility. |
+| **Data Validation** | **Zod 3.23+** | Type-safe runtime schema validation across request bodies, URL params, and mutation payloads. |
+| **Database** | **PostgreSQL 14+ on Neon Serverless** | 3NF relational database schema with connection pooling, foreign key constraints, and transactional consistency. |
+| **Spatial Proximity** | **Haversine Trigonometric Formula + Geocoding** | Ground distance calculations in SQL and client libraries with zero private address leakage. |
+| **Authentication** | **Dual JWT + Firebase Auth Integration** | Secure Bearer token authentication supporting email/password, demo accounts, and Firebase Auth UIDs. |
+| **Media Cloud Storage** | **Cloudinary CDN / Supabase Storage** | Optimized multi-image uploads, secure CDN URLs, automated image compression. |
+| **Artificial Intelligence**| **Google Gemini API** | AI-assisted product listing descriptions, pricing recommendations, and spec parsing. |
+| **Deployment & Hosting** | **Vercel Edge Platform** | Production CDN deployment, automatic SSL, serverless function routing via `vercel.json`. |
 
 ---
 
-## 📐 Architecture & System Design
-
-### 1. Data Flow Diagram (DFD Level 1)
-
-```mermaid
-flowchart TD
-    subgraph Client["💻 Rentu⁺ Client (React 18 + Vite SPA)"]
-        UI_Market["Marketplace & Category Feed"]
-        UI_List["Drop Gear Modal (Lender)"]
-        UI_Wish["Wanted Board (Borrower Bounty)"]
-        UI_Book["Booking & Handshake Modal"]
-        UI_QR["Handover / Return QR Code Verification"]
-        UI_Chat["Split-Screen Peer Chat"]
-        UI_Comm["Community Leaderboards & Social"]
-        UI_Admin["Admin & Live Analytics Dashboard"]
-    end
-
-    subgraph Edge["🌐 Edge Gateway (Vercel)"]
-        VercelRouter{"Route Handler"}
-        StaticAssets["Frontend SPA CDN"]
-        ServerlessAPI["/api/* Serverless API"]
-    end
-
-    subgraph Backend["⚡ Express API Services"]
-        AuthMid["Auth Middleware (JWT & Firebase UID)"]
-        ItemsMod["/api/items (CRUD & Spatial Radar)"]
-        RequestsMod["/api/requests (Wanted Board)"]
-        BookingsMod["/api/bookings (Lifecycle, OTP & QR)"]
-        MessagesMod["/api/messages (Chat & In-Chat Proposals)"]
-        UsersMod["/api/users (Profiles, Follows & Badges)"]
-        NotifyMod["/api/notifications (Reminders & Web Push)"]
-        AiMod["/api/ai (Gemini Assistant)"]
-        AdminMod["/api/admin (Analytics & Support Triage)"]
-    end
-
-    subgraph Cloud["☁️ Supabase Infrastructure"]
-        Bucket[("Storage: item-photos")]
-        DB[("PostgreSQL Database (RLS Enforced)")]
-    end
-
-    Client -->|Static Assets| VercelRouter
-    VercelRouter --> StaticAssets
-    Client -->|HTTP / JSON API| ServerlessAPI
-    ServerlessAPI --> Backend
-    Backend --> AuthMid
-
-    AuthMid --> ItemsMod & RequestsMod & BookingsMod & MessagesMod & UsersMod & NotifyMod & AiMod & AdminMod
-
-    ItemsMod --> DB
-    RequestsMod --> DB
-    BookingsMod --> DB
-    MessagesMod --> DB
-    UsersMod --> DB
-    NotifyMod --> DB
-    AdminMod --> DB
-    UI_List -->|Direct Upload| Bucket
-```
-
----
-
-### 2. Relational Entity-Relationship Diagram (ERD)
-
-```mermaid
-erDiagram
-    POSTAL_CODES ||--o{ USERS : "resolves_area"
-    POSTAL_CODES ||--o{ ITEMS : "resolves_area"
-    POSTAL_CODES ||--o{ REQUESTS : "resolves_area"
-
-    USERS ||--o{ ITEMS : "lists_gear"
-    USERS ||--o{ REQUESTS : "posts_wishes"
-    USERS ||--o{ BOOKINGS : "borrows"
-    USERS ||--o{ BOOKINGS : "lends"
-    USERS ||--o{ REVIEWS : "authors"
-    USERS ||--o{ REVIEWS : "receives"
-    USERS ||--o{ MESSAGES : "sends"
-    USERS ||--o{ NOTIFICATIONS : "receives"
-    USERS ||--o{ PUSH_SUBSCRIPTIONS : "registers"
-    USERS ||--o{ USER_FOLLOWS : "follows"
-    USERS ||--o{ SUPPORT_TICKETS : "files"
-
-    ITEMS ||--o{ ITEM_IMAGES : "includes"
-    ITEMS ||--o{ BOOKINGS : "booked_in"
-
-    BOOKINGS ||--o{ REVIEWS : "rated_by"
-    BOOKINGS ||--o{ MESSAGES : "negotiated_in"
-
-    POSTAL_CODES {
-        varchar pincode PK
-        varchar locality
-        varchar city
-        varchar state
-    }
-
-    USERS {
-        text id PK
-        varchar firebase_uid
-        varchar username
-        varchar name
-        varchar email
-        varchar phone
-        text bio
-        text avatar_url
-        varchar locality
-        varchar pincode FK
-        double latitude
-        double longitude
-        decimal rating
-        decimal owner_rating
-        decimal renter_rating
-        decimal community_lender_rating
-        integer trust_score
-        user_role role
-    }
-
-    ITEMS {
-        uuid id PK
-        text owner_id FK
-        varchar title
-        text description
-        varchar category
-        varchar condition
-        numeric price_per_day
-        integer max_duration_days
-        boolean available_for_borrowing
-        boolean offers_delivery
-        boolean offers_pickup
-        varchar locality
-        varchar pincode FK
-        double latitude
-        double longitude
-        item_status status
-        boolean is_deleted
-    }
-
-    ITEM_IMAGES {
-        uuid id PK
-        uuid item_id FK
-        text image_url
-        integer display_order
-    }
-
-    REQUESTS {
-        uuid id PK
-        text seeker_id FK
-        varchar item_name
-        text description
-        varchar category
-        date start_date
-        time start_time
-        date end_date
-        time end_time
-        integer duration_days
-        numeric offered_amount
-        varchar locality
-        varchar pincode FK
-        request_status status
-    }
-
-    BOOKINGS {
-        uuid id PK
-        uuid item_id FK
-        text borrower_id FK
-        text lender_id FK
-        date start_date
-        date end_date
-        numeric total_price
-        boolean is_borrowing
-        varchar pickup_code
-        varchar return_code
-        booking_status status
-        varchar payment_status
-        timestamp handed_over_at
-        timestamp completed_at
-    }
-
-    MESSAGES {
-        uuid id PK
-        uuid booking_id FK
-        text sender_id FK
-        text receiver_id FK
-        text content
-        varchar message_type
-        jsonb proposal_data
-        timestamp created_at
-    }
-
-    NOTIFICATIONS {
-        uuid id PK
-        text user_id FK
-        varchar title
-        text message
-        varchar type
-        boolean is_read
-        timestamp created_at
-    }
-
-    PUSH_SUBSCRIPTIONS {
-        uuid id PK
-        text user_id FK
-        text endpoint
-        text p256dh
-        text auth
-        timestamp created_at
-    }
-
-    USER_FOLLOWS {
-        text follower_id PK, FK
-        text following_id PK, FK
-        timestamp created_at
-    }
-
-    SUPPORT_TICKETS {
-        uuid id PK
-        text user_id FK
-        varchar guest_email
-        varchar category
-        varchar subject
-        text message
-        varchar status
-        timestamp created_at
-    }
-```
-
----
-
-## 🌟 Core Features & Modules
-
-### 1. 🔍 Dual Marketplace (Supply & Demand)
-- **Gear Marketplace (`/explore`):** Filter by category, price range, distance radius, item condition (Pristine, Good, Fair), and perks (Instant Availability, Home Delivery, Free Borrowing).
-- **Wanted Board (Community Wishes):** Reverse bounty board where renters post what gear they need with their offered budget, and nearby owners claim with **"I can lend this ⚡"**.
-- **Free Community Borrowing:** Support for zero-cost peer lending (`available_for_borrowing`) alongside paid rentals.
-
-### 2. 🔐 Two-Party Handshake & QR Code Verification
-- **Dynamic 4-Digit Security Codes:** Unique pickup codes generated for the borrower and return codes generated for the lender.
-- **Offline-Ready QR Scanning:** Generates lightweight canvas QR codes (`frontend/src/lib/qr.ts`) that can be scanned or manually validated during in-person meetups without network dependency.
-- **Strict Booking State Machine:**
-  $$\text{PENDING} \longrightarrow \text{ACCEPTED} \longrightarrow \text{HANDED\_OVER} \longrightarrow \text{COMPLETED}$$
-- Time-window validation protects against tampering with handover or return schedules.
-
-### 3. 💬 In-App Chat & Live Negotiation
-- Real-time coordination with embedded interactive proposals.
-- Custom proposal actions: Renter or Lender can adjust pricing, dates, and delivery options directly inside the conversation thread.
-- Instant soft-deletion and unread badge counters.
-
-### 4. 🏆 Community Leaderboards & Social Graph
-- **Community Champions (`/community`):** 4 separate verified ranking boards:
-  - 🌟 **Top Rated:** Ranked by blended trust rating across Owner, Renter, and Free Sharer reviews.
-  - ⚡ **Top Lenders:** Ranked by gear items lent and owner satisfaction score.
-  - 🎒 **Top Borrowers:** Ranked by rentals completed and punctuality.
-  - 🎁 **Free Community Sharers:** Highlighting selfless community lending heroes.
-- **Social Graph (`/user/:id`):** View public profiles, follower/following lists via `FollowListModal`, member badges, and gear inventories.
-
-### 5. 🔔 Automated Reminders & Web Push
-- Native **Web Push API** integration with Service Worker (`sw.js`).
-- Background cron scheduler (`reminder.scheduler.ts`) automatically sends proactive pickup reminders, return deadlines, and overdue notices.
-- Interactive in-app notification center with read/unread filtering.
-
-### 6. 🤖 Google Gemini AI Gear Assistant
-- **AI Listing Enhancer:** Generates catchy titles, technical specifications, and recommended daily rates from raw gear descriptions.
-- Smart categorization and image tagging.
-
-### 7. 🛡️ Security, Privacy & Database Hardening
-- **Row Level Security (RLS):** Enabled and enforced across all 13 database tables in Supabase with zero security lint violations.
-- **GPS Privacy Shield:** Street numbers and building flats remain private; public discovery is computed via background coordinates and locality boundaries.
-- **Admin Hub (`/admin`):** Protected dashboard with live GMV metrics, support ticket triage, and sanitized CSV exports immune to formula injection.
-
----
-
-## 📁 Repository Directory Structure
+## 📁 Repository Structure
 
 ```
 Rento/
-├── SPEC.md                  # Comprehensive product specification & user journeys
-├── RULES.md                 # Engineering guidelines & coding standards
-├── SCHEMA.md                # 1NF, 2NF & 3NF database schema specifications
-├── ROADMAP.md               # Product milestones & feature roadmap
-├── DESIGN.md                # Neo-Pop pastel brutalist design tokens
-├── README.md                # Project documentation & local setup guide
-├── package.json             # Root workspace scripts & monorepo orchestration
-├── vercel.json              # Vercel multi-service routing & serverless build config
-├── database_setup.sql       # PostgreSQL DDL with RLS & PostGIS configuration
-│
+├── api/                     # Bundled Vercel serverless entrypoint
+│   └── index.js             # Standalone zero-dependency backend bundle
 ├── backend/                 # Headless Express REST API
 │   ├── src/
-│   │   ├── config/          # PostgreSQL pool connection, SSL & environment variables
-│   │   ├── db/              # Relational migration scripts & database seeds
-│   │   ├── middleware/      # JWT authentication, error handling, input sanitization
+│   │   ├── config/          # Database connection pool (Neon PG) & environment config
+│   │   ├── db/              # Database migration scripts & seed data
+│   │   ├── middleware/      # JWT auth middleware, error handlers, rate limiting
 │   │   ├── modules/
-│   │   │   ├── admin/       # Dashboard metrics, user moderation & ticket resolution
-│   │   │   ├── ai/          # Google Gemini AI gear assistant
-│   │   │   ├── analytics/   # Transaction volumes & marketplace metrics
-│   │   │   ├── auth/        # Demo accounts, user login & registration
+│   │   │   ├── admin/       # Dashboard metrics, moderation & support ticket management
+│   │   │   ├── ai/          # Google Gemini AI integration
+│   │   │   ├── analytics/   # Marketplace volume & category metrics
+│   │   │   ├── auth/        # Login, registration, profile bootstrap & demo tokens
 │   │   │   ├── bookings/    # Handshake state machine, OTP & QR verification
-│   │   │   ├── items/       # Gear listings CRUD, distance filters & categories
-│   │   │   ├── messages/    # Peer chat, in-thread proposals & deletion
-│   │   │   ├── notifications/# In-app alerts, scheduler & Web Push service
+│   │   │   ├── items/       # Item CRUD, geospatial Haversine search & filters
+│   │   │   ├── messages/    # Peer chat, in-thread proposals & negotiations
+│   │   │   ├── notifications/# Notifications & reminder scheduler
 │   │   │   ├── requests/    # Wanted bounty board & fulfillment logic
 │   │   │   ├── support/     # Support ticket creation & triage
-│   │   │   ├── upload/      # Supabase Storage proxy & image upload
-│   │   │   └── users/       # Profiles, social follows & trust scores
-│   │   ├── utils/           # Haversine distance, city parsing & user helpers
-│   │   ├── app.ts           # Express application setup & middleware registration
-│   │   ├── server.ts        # Dedicated standalone server entrypoint
-│   │   └── serverless.ts    # Resilient Vercel serverless request wrapper
-│   ├── index.js             # Standalone bundled execution artifact (esbuild)
-│   ├── bundle.js            # esbuild bundle configuration script
+│   │   │   ├── upload/      # Cloudinary / Supabase storage image upload
+│   │   │   └── users/       # Profiles, social graph & trust ratings
+│   │   ├── utils/           # Haversine math, address parsers & helpers
+│   │   ├── app.ts           # Express app setup & middleware registration
+│   │   └── server.ts        # Dedicated local server entrypoint
+│   ├── bundle.js            # esbuild serverless bundler
 │   ├── package.json
 │   └── tsconfig.json
 │
-└── frontend/                # Client Application (React 18 + Vite SPA)
-    ├── public/
-    │   ├── sw.js            # Web Push & offline service worker
-    │   └── favicon.svg
-    ├── src/
-    │   ├── components/      # Modular UI components:
-    │   │   ├── BookingStageModal.tsx # OTP / QR code verification & payment steps
-    │   │   ├── BookingsView.tsx      # Renter & lender booking tabs
-    │   │   ├── CommunityView.tsx     # 4-tier leaderboard & trust score podium
-    │   │   ├── DropGearModal.tsx     # 4-step listing wizard with AI assist
-    │   │   ├── DropWishModal.tsx     # Wanted bounty creation modal
-    │   │   ├── ExploreView.tsx       # Dual-marketplace supply & demand feeds
-    │   │   ├── FollowListModal.tsx   # Followers & following modal
-    │   │   ├── HelpSupportModal.tsx  # Support ticket submission & history
-    │   │   ├── HustleHub.tsx         # Admin dashboard with live charts & metrics
-    │   │   ├── ItemDetailModal.tsx   # Gear inspection, dates & rent/borrow flow
-    │   │   ├── MessagesView.tsx      # Split-screen messaging & proposals
-    │   │   ├── Navbar.tsx            # Navigation, notifications & demo switcher
-    │   │   └── ProfileView.tsx       # User profile, gear listings & bookings
-    │   ├── lib/             # API client, AuthContext, ThemeContext, QR generator
-    │   ├── styles/          # Tailwind design tokens & dark/light mode styles
-    │   ├── App.tsx          # Master tab router & global modal coordinator
-    │   └── main.tsx         # Root DOM mount point
-    ├── index.html           # HTML entrypoint with theme flash prevention
-    ├── tailwind.config.js   # Tailwind configuration & custom color palettes
-    ├── vite.config.ts       # Vite build & proxy settings
-    ├── package.json
-    └── tsconfig.json
+├── frontend/                # Client Application (React 18 + Vite SPA)
+│   ├── public/
+│   │   ├── sw.js            # Service worker for offline handling & push alerts
+│   │   └── favicon.svg
+│   ├── src/
+│   │   ├── components/      # UI Components:
+│   │   │   ├── BookingStageModal.tsx # 4-digit code & QR verification flow
+│   │   │   ├── BookingsView.tsx      # Renter & lender booking management
+│   │   │   ├── CommunityView.tsx     # 4-tier community leaderboard
+│   │   │   ├── DropGearModal.tsx     # Item listing wizard with AI assist
+│   │   │   ├── DropWishModal.tsx     # Wanted bounty creation modal
+│   │   │   ├── EditItemModal.tsx     # Edit active listing
+│   │   │   ├── EditProfileModal.tsx  # User profile & location settings
+│   │   │   ├── EditWishModal.tsx     # Edit active wish
+│   │   │   ├── ExploreView.tsx       # Dual-marketplace supply & demand feeds
+│   │   │   ├── FollowListModal.tsx   # Followers / following modal
+│   │   │   ├── HelpSupportModal.tsx  # Support ticket submission & history
+│   │   │   ├── ItemCard.tsx          # Product card with distance badge
+│   │   │   ├── ItemDetailModal.tsx   # Product details, calendar & booking
+│   │   │   ├── MessagesView.tsx      # Real-time chat & in-chat proposals
+│   │   │   ├── Navbar.tsx            # Navigation, notifications & demo switcher
+│   │   │   ├── ProfileView.tsx       # User profile, listings & bookings
+│   │   │   ├── RequestCard.tsx       # Wanted board bounty card
+│   │   │   ├── RequestDetailModal.tsx# Bounty detail & claim flow
+│   │   │   └── SetLocationModal.tsx  # 1-click GPS location detector
+│   │   ├── lib/             # API client, auth context, distance calculations, QR engine
+│   │   ├── styles/          # Tailwind design tokens & dark/light mode styles
+│   │   ├── App.tsx          # Master tab router & modal coordinator
+│   │   └── main.tsx         # Root DOM entrypoint
+│   ├── tailwind.config.js
+│   ├── vite.config.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── database_setup.sql       # Complete PostgreSQL 3NF schema, indexes & initial seeds
+├── package.json             # Root monorepo scripts & build orchestration
+├── vercel.json              # Vercel serverless routing configuration
+└── README.md                # Project documentation
 ```
 
 ---
 
-## 🏁 Getting Started Locally
+## 💻 Local Development Setup
 
 ### Prerequisites
-- **Node.js:** v18.0.0 or later (tested on v20 and v22 LTS)
-- **npm:** v9.0.0 or later
-- **PostgreSQL:** v14+ (or a cloud [Neon](https://neon.tech) serverless database)
+- **Node.js**: v18.0.0 or later (tested on v20 and v22 LTS)
+- **npm**: v9.0.0 or later
+- **PostgreSQL**: Cloud database from [Neon](https://neon.tech) (recommended) or a local PostgreSQL 14+ instance.
 
 ---
 
-### 1. Clone Repository & Install Dependencies
+### 1. Clone the Repository & Install Dependencies
 
 ```bash
 git clone https://github.com/Sadiqua-Parween/Rentu.git
 cd Rentu
 
-# Install root, backend, and frontend dependencies
+# Install dependencies across root, backend, and frontend
 npm install
 ```
 
@@ -417,37 +298,40 @@ Create `.env` inside `backend/`:
 PORT=5001
 NODE_ENV=development
 DATABASE_URL=postgresql://[user]:[password]@[endpoint].aws.neon.tech/neondb?sslmode=require
-JWT_SECRET=super-secret-rentu-jwt-token-key-2026
+JWT_SECRET=your-secure-jwt-secret-key-here
 
-# Cloudinary Media Storage
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+# Cloudinary Storage
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
 # Optional: Google Gemini AI
 GEMINI_API_KEY=your-gemini-api-key
 ```
 
-Create `.env` inside `frontend/` (optional for local proxy):
+Create `.env` inside `frontend/` (optional for local development proxy):
 ```env
 VITE_API_URL=http://localhost:5001
 ```
 
 ---
 
-### 3. Database Initialization
+### 3. Initialize the Database
 
-Run the complete 3NF schema and seed script via your terminal:
+Run the database setup script to apply the schema, indexes, and initial seeds:
+
 ```bash
+# Run schema and seed scripts
 npm run seed
 ```
-*Alternatively, paste the contents of [`database_setup.sql`](database_setup.sql) directly into your PostgreSQL / Neon SQL Editor and click **Run**.*
+
+*Alternatively, open [`database_setup.sql`](database_setup.sql) and paste its contents directly into your Neon SQL Editor or `psql` console.*
 
 ---
 
 ### 4. Run Development Servers
 
-In two separate terminals:
+Run backend and frontend concurrently:
 
 ```bash
 # Terminal 1: Start Backend REST API (http://localhost:5001)
@@ -457,11 +341,13 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
+Open `http://localhost:3000` in your browser.
+
 ---
 
-### 5. Production Build & Bundling
+### 5. Production Build
 
-To create an optimized production build for both backend serverless and frontend assets:
+To test the unified production build:
 
 ```bash
 npm run build
@@ -469,22 +355,44 @@ npm run build
 
 This compiles:
 1. Backend TypeScript to standalone bundled `backend/index.js` and `api/index.js` via `esbuild`.
-2. Frontend React SPA to static assets in `dist/` via Vite.
+2. Frontend React SPA to static assets in `dist/` via `vite build`.
 
 ---
 
-## 👥 Demo Accounts (Instant 1-Click Login)
+## 👥 Instant Demo Accounts
 
-Test all permissions and workflows immediately using the **Demo Switcher** inside the navigation bar:
+You can test all user roles, handshakes, and chat flows immediately using the **Demo Switcher** in the navigation bar:
 
-| Persona | Role | Location | Test Gear & Capabilities |
+| Persona | Role | Location | Test Scenarios |
 | :--- | :--- | :--- | :--- |
-| **Rohit Verma** | Gear Owner / Lender | Indiranagar, Bengaluru | Canon EOS 250D DSLR, Mirrorless cameras, verifies pickup codes |
-| **Zoya Khan** | Community Member / Renter | Koramangala, Bengaluru | Submits booking proposals, free borrowing requests & returns |
-| **Aarav Mehta** | Platform Admin | Mumbai, Maharashtra | Full access to `/admin` Hustle Hub, live analytics & ticket triage |
+| **Sadiqua Parween** | Gear Owner / Lender | BEML Layout, Bengaluru | Owns photography equipment, ring lights, power banks. Verifies pickup OTPs & QR codes. |
+| **Geetansh Goyal** | Gear Owner / Neighbor | BHEL Layout, Bengaluru | Owns kitchen appliances, air fryers, audio equipment. Tests cross-neighborhood distance (~1.2 km). |
+| **Samriddhi Raj** | Community Member / Renter | Bengaluru | Browses gear, posts wanted bounties, negotiates proposals in chat. |
+| **Admin Team** | Platform Admin | Bengaluru | Full access to moderation tools, live analytics, and support ticket triage. |
 
 ---
 
-## 📄 License & Contributing
+## 🤝 Contributing
 
-This project is licensed under the MIT License. Contributions and feedback are welcome! Feel free to open issues or submit pull requests.
+We welcome contributions to make peer-to-peer sharing more accessible, secure, and sustainable!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'feat: Add amazing feature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for a more sustainable, connected world.**  
+*Explore live at [rentu.site](https://rentu.site)*
+
+</div>
