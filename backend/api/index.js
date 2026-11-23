@@ -18094,17 +18094,17 @@ var require_router = __commonJS({
     var toString = Object.prototype.toString;
     var proto = module2.exports = function(options) {
       var opts = options || {};
-      function router13(req, res, next) {
-        router13.handle(req, res, next);
+      function router14(req, res, next) {
+        router14.handle(req, res, next);
       }
-      setPrototypeOf(router13, proto);
-      router13.params = {};
-      router13._params = [];
-      router13.caseSensitive = opts.caseSensitive;
-      router13.mergeParams = opts.mergeParams;
-      router13.strict = opts.strict;
-      router13.stack = [];
-      return router13;
+      setPrototypeOf(router14, proto);
+      router14.params = {};
+      router14._params = [];
+      router14.caseSensitive = opts.caseSensitive;
+      router14.mergeParams = opts.mergeParams;
+      router14.strict = opts.strict;
+      router14.stack = [];
+      return router14;
     };
     proto.param = function param(name, fn) {
       if (typeof name === "function") {
@@ -20713,7 +20713,7 @@ var require_application = __commonJS({
   "../node_modules/express/lib/application.js"(exports2, module2) {
     "use strict";
     var finalhandler = require_finalhandler();
-    var Router13 = require_router();
+    var Router14 = require_router();
     var methods = require_methods();
     var middleware = require_init();
     var query2 = require_query();
@@ -20778,7 +20778,7 @@ var require_application = __commonJS({
     };
     app2.lazyrouter = function lazyrouter() {
       if (!this._router) {
-        this._router = new Router13({
+        this._router = new Router14({
           caseSensitive: this.enabled("case sensitive routing"),
           strict: this.enabled("strict routing")
         });
@@ -20787,17 +20787,17 @@ var require_application = __commonJS({
       }
     };
     app2.handle = function handle(req, res, callback) {
-      var router13 = this._router;
+      var router14 = this._router;
       var done = callback || finalhandler(req, res, {
         env: this.get("env"),
         onerror: logerror.bind(this)
       });
-      if (!router13) {
+      if (!router14) {
         debug("no routes defined on app");
         done();
         return;
       }
-      router13.handle(req, res, done);
+      router14.handle(req, res, done);
     };
     app2.use = function use(fn) {
       var offset = 0;
@@ -20817,15 +20817,15 @@ var require_application = __commonJS({
         throw new TypeError("app.use() requires a middleware function");
       }
       this.lazyrouter();
-      var router13 = this._router;
+      var router14 = this._router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router13.use(path2, fn2);
+          return router14.use(path2, fn2);
         }
         debug(".use app under %s", path2);
         fn2.mountpath = path2;
         fn2.parent = this;
-        router13.use(path2, function mounted_app(req, res, next) {
+        router14.use(path2, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             setPrototypeOf(req, orig.request);
@@ -22642,7 +22642,7 @@ var require_express = __commonJS({
     var mixin = require_merge_descriptors();
     var proto = require_application();
     var Route = require_route();
-    var Router13 = require_router();
+    var Router14 = require_router();
     var req = require_request();
     var res = require_response();
     exports2 = module2.exports = createApplication;
@@ -22665,7 +22665,7 @@ var require_express = __commonJS({
     exports2.request = req;
     exports2.response = res;
     exports2.Route = Route;
-    exports2.Router = Router13;
+    exports2.Router = Router14;
     exports2.json = bodyParser.json;
     exports2.query = require_query();
     exports2.raw = bodyParser.raw;
@@ -69034,7 +69034,7 @@ __export(serverless_exports, {
 module.exports = __toCommonJS(serverless_exports);
 
 // src/app.ts
-var import_express13 = __toESM(require_express2());
+var import_express14 = __toESM(require_express2());
 var import_cors = __toESM(require_lib3());
 
 // src/modules/auth/auth.routes.ts
@@ -73120,9 +73120,9 @@ for (const envPath of possibleEnvPaths) {
 import_dotenv.default.config();
 var rawGeminiKey = (process.env.GEMINI_API_KEY || "").trim().replace(/^["']|["']$/g, "");
 var isPlaceholderKey = rawGeminiKey.includes("your_key_here") || rawGeminiKey.includes("your_gemini_api_key_here") || rawGeminiKey === "";
-var isProd = (process.env.NODE_ENV || "production") === "production";
-if (!process.env.DATABASE_URL) {
-  console.warn("SECURITY NOTICE: DATABASE_URL environment variable is missing.");
+var isProd = (process.env.NODE_ENV || "production") === "production" || Boolean(process.env.VERCEL);
+if (isProd && !process.env.DATABASE_URL) {
+  console.error("FATAL SECURITY NOTICE: DATABASE_URL environment variable is missing.");
 }
 var fallbackSecret = import_crypto.default.randomBytes(32).toString("hex");
 if (!process.env.JWT_SECRET && isProd) {
@@ -74244,8 +74244,8 @@ async function createNotification(params) {
     try {
       const res = await query(
         `INSERT INTO notifications 
-          (user_id, sender_id, type, title, body, booking_id, message_id, reference_id, reference_type)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          (user_id, sender_id, type, title, body, message, booking_id, message_id, reference_id, reference_type)
+         VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9)
          RETURNING id`,
         [
           targetUserId,
@@ -75953,6 +75953,200 @@ var requests_routes_default = router3;
 // src/modules/bookings/bookings.routes.ts
 var import_express4 = __toESM(require_express2());
 var import_crypto3 = __toESM(require("crypto"));
+
+// src/modules/notifications/reminder.scheduler.ts
+var lastPurgeDate = "";
+async function runGlobalReminderCycle() {
+  try {
+    const upcomingPickups = await query(
+      `SELECT 
+        b.id, 
+        b.borrower_id, 
+        b.lender_id, 
+        TO_CHAR(b.start_date, 'YYYY-MM-DD') AS start_date, 
+        b.start_time, 
+        i.title AS item_title,
+        borrower.name AS borrower_name,
+        lender.name AS lender_name,
+        (b.start_date = CURRENT_DATE) AS is_today
+       FROM bookings b
+       JOIN items i ON b.item_id = i.id
+       LEFT JOIN users borrower ON (b.borrower_id = borrower.id::text OR b.borrower_id = borrower.firebase_uid)
+       LEFT JOIN users lender ON (i.owner_id = lender.id::text OR i.owner_id = lender.firebase_uid OR b.lender_id = lender.id::text OR b.lender_id = lender.firebase_uid)
+       WHERE b.status = 'ACCEPTED'
+         AND b.start_date IN (CURRENT_DATE, CURRENT_DATE + INTERVAL '1 day')`
+    );
+    for (const b of upcomingPickups.rows) {
+      const dayLabel = b.is_today ? "today" : "tomorrow";
+      if (b.borrower_id) {
+        const borrowerRes = await query(
+          `INSERT INTO notifications (user_id, sender_id, type, title, body, booking_id, reference_id, reference_type)
+           SELECT $1, $2, 'REMINDER_PICKUP', $3, $4, $5, $5, 'BOOKING'
+           WHERE NOT EXISTS (
+             SELECT 1 FROM notifications 
+             WHERE (user_id = $1 OR user_id IN (SELECT firebase_uid FROM users WHERE id::text = $1))
+               AND booking_id = $5 
+               AND type = 'REMINDER_PICKUP'
+               AND created_at >= CURRENT_DATE
+           )
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
+          [
+            b.borrower_id,
+            b.lender_id,
+            `Pickup ${b.is_today ? "Today" : "Tomorrow"}`,
+            `Pickup for "${b.item_title}" with ${b.lender_name || "Lender"} is scheduled ${dayLabel}.`,
+            b.id
+          ]
+        ).catch(() => ({ rows: [] }));
+        if (borrowerRes.rows.length > 0) {
+          sendPushNotification(b.borrower_id, {
+            title: `Pickup ${b.is_today ? "Today" : "Tomorrow"}`,
+            body: `Pickup for "${b.item_title}" with ${b.lender_name || "Lender"} is scheduled ${dayLabel}.`,
+            type: "REMINDER_PICKUP",
+            bookingId: b.id
+          }).catch(() => {
+          });
+        }
+      }
+      const lenderId = b.lender_id;
+      if (lenderId) {
+        const lenderRes = await query(
+          `INSERT INTO notifications (user_id, sender_id, type, title, body, booking_id, reference_id, reference_type)
+           SELECT $1, $2, 'REMINDER_PICKUP', $3, $4, $5, $5, 'BOOKING'
+           WHERE NOT EXISTS (
+             SELECT 1 FROM notifications 
+             WHERE (user_id = $1 OR user_id IN (SELECT firebase_uid FROM users WHERE id::text = $1))
+               AND booking_id = $5 
+               AND type = 'REMINDER_PICKUP'
+               AND created_at >= CURRENT_DATE
+           )
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
+          [
+            lenderId,
+            b.borrower_id,
+            `Handover ${b.is_today ? "Today" : "Tomorrow"}`,
+            `Handover for "${b.item_title}" with ${b.borrower_name || "Borrower"} is scheduled ${dayLabel}.`,
+            b.id
+          ]
+        ).catch(() => ({ rows: [] }));
+        if (lenderRes.rows.length > 0) {
+          sendPushNotification(lenderId, {
+            title: `Handover ${b.is_today ? "Today" : "Tomorrow"}`,
+            body: `Handover for "${b.item_title}" with ${b.borrower_name || "Borrower"} is scheduled ${dayLabel}.`,
+            type: "REMINDER_PICKUP",
+            bookingId: b.id
+          }).catch(() => {
+          });
+        }
+      }
+    }
+    const upcomingReturns = await query(
+      `SELECT 
+        b.id, 
+        b.borrower_id, 
+        b.lender_id, 
+        TO_CHAR(COALESCE(b.end_date, (b.start_date + ((GREATEST(b.duration_days, 1) - 1) || ' days')::interval)::date), 'YYYY-MM-DD') AS end_date, 
+        b.end_time, 
+        i.title AS item_title,
+        borrower.name AS borrower_name,
+        lender.name AS lender_name,
+        (COALESCE(b.end_date, (b.start_date + ((GREATEST(b.duration_days, 1) - 1) || ' days')::interval)::date)::date = CURRENT_DATE) AS is_today
+       FROM bookings b
+       JOIN items i ON b.item_id = i.id
+       LEFT JOIN users borrower ON (b.borrower_id = borrower.id::text OR b.borrower_id = borrower.firebase_uid)
+       LEFT JOIN users lender ON (i.owner_id = lender.id::text OR i.owner_id = lender.firebase_uid OR b.lender_id = lender.id::text OR b.lender_id = lender.firebase_uid)
+       WHERE b.status = 'HANDED_OVER'
+         AND COALESCE(b.end_date, (b.start_date + ((GREATEST(b.duration_days, 1) - 1) || ' days')::interval)::date)::date IN (CURRENT_DATE, CURRENT_DATE + INTERVAL '1 day')`
+    );
+    for (const b of upcomingReturns.rows) {
+      const dayLabel = b.is_today ? "today" : "tomorrow";
+      if (b.borrower_id) {
+        const borrowerRes = await query(
+          `INSERT INTO notifications (user_id, sender_id, type, title, body, booking_id, reference_id, reference_type)
+           SELECT $1, $2, 'REMINDER_RETURN', $3, $4, $5, $5, 'BOOKING'
+           WHERE NOT EXISTS (
+             SELECT 1 FROM notifications 
+             WHERE (user_id = $1 OR user_id IN (SELECT firebase_uid FROM users WHERE id::text = $1))
+               AND booking_id = $5 
+               AND type = 'REMINDER_RETURN'
+               AND created_at >= CURRENT_DATE
+           )
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
+          [
+            b.borrower_id,
+            b.lender_id,
+            `Return Due ${b.is_today ? "Today" : "Tomorrow"}`,
+            `Return of "${b.item_title}" to ${b.lender_name || "Owner"} is due ${dayLabel}. Ensure verification code is ready.`,
+            b.id
+          ]
+        ).catch(() => ({ rows: [] }));
+        if (borrowerRes.rows.length > 0) {
+          sendPushNotification(b.borrower_id, {
+            title: `Return Due ${b.is_today ? "Today" : "Tomorrow"}`,
+            body: `Return of "${b.item_title}" to ${b.lender_name || "Owner"} is due ${dayLabel}.`,
+            type: "REMINDER_RETURN",
+            bookingId: b.id
+          }).catch(() => {
+          });
+        }
+      }
+      const lenderId = b.lender_id;
+      if (lenderId) {
+        const lenderRes = await query(
+          `INSERT INTO notifications (user_id, sender_id, type, title, body, booking_id, reference_id, reference_type)
+           SELECT $1, $2, 'REMINDER_RETURN', $3, $4, $5, $5, 'BOOKING'
+           WHERE NOT EXISTS (
+             SELECT 1 FROM notifications 
+             WHERE (user_id = $1 OR user_id IN (SELECT firebase_uid FROM users WHERE id::text = $1))
+               AND booking_id = $5 
+               AND type = 'REMINDER_RETURN'
+               AND created_at >= CURRENT_DATE
+           )
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
+          [
+            lenderId,
+            b.borrower_id,
+            `Return Expected ${b.is_today ? "Today" : "Tomorrow"}`,
+            `"${b.item_title}" is scheduled to be returned ${dayLabel} by ${b.borrower_name || "Borrower"}.`,
+            b.id
+          ]
+        ).catch(() => ({ rows: [] }));
+        if (lenderRes.rows.length > 0) {
+          sendPushNotification(lenderId, {
+            title: `Return Expected ${b.is_today ? "Today" : "Tomorrow"}`,
+            body: `"${b.item_title}" is scheduled to be returned ${dayLabel} by ${b.borrower_name || "Borrower"}.`,
+            type: "REMINDER_RETURN",
+            bookingId: b.id
+          }).catch(() => {
+          });
+        }
+      }
+    }
+    const todayStr = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    if (lastPurgeDate !== todayStr) {
+      lastPurgeDate = todayStr;
+      await query(`DELETE FROM notifications WHERE created_at < NOW() - INTERVAL '30 days'`).catch(() => {
+      });
+    }
+  } catch (err) {
+    console.warn("Global reminder scheduler error:", err);
+  }
+}
+var lastOpportunisticReminderRun = 0;
+async function opportunisticReminderCheck() {
+  const now = Date.now();
+  if (now - lastOpportunisticReminderRun < 15 * 60 * 1e3) return;
+  lastOpportunisticReminderRun = now;
+  runGlobalReminderCycle().catch((err) => {
+    console.warn("Opportunistic reminder check error:", err);
+  });
+}
+
+// src/modules/bookings/bookings.routes.ts
 var router4 = (0, import_express4.Router)();
 function sanitizeTzOffset(tzOffsetMinutes) {
   if (typeof tzOffsetMinutes === "number" && !isNaN(tzOffsetMinutes) && tzOffsetMinutes >= -840 && tzOffsetMinutes <= 720) {
@@ -76058,9 +76252,9 @@ function parseToUtcTimestamp(dateStr, timeStr, tzOffsetMinutes) {
   return localUtcMs + effectiveOffset * 6e4;
 }
 var lastBookingsExpirationRun = 0;
-async function checkAndAutoCancelExpiredBookings() {
+async function checkAndAutoCancelExpiredBookings(force = false) {
   const now = Date.now();
-  if (now - lastBookingsExpirationRun < 60 * 1e3) return;
+  if (!force && now - lastBookingsExpirationRun < 60 * 1e3) return;
   lastBookingsExpirationRun = now;
   try {
     const expiredRes = await query(`
@@ -76195,6 +76389,8 @@ var submitReviewSchema = external_exports.object({
 router4.post("/", authMiddleware, async (req, res, next) => {
   try {
     await checkAndAutoCancelExpiredBookings();
+    opportunisticReminderCheck().catch(() => {
+    });
     const validated = createBookingSchema.parse(req.body);
     const borrowerId = req.user.id;
     const itemRes = await query(
@@ -76464,6 +76660,8 @@ router4.get("/", authMiddleware, async (req, res, next) => {
     const userId = req.user.id;
     const { role } = req.query;
     await checkAndAutoCancelExpiredBookings();
+    opportunisticReminderCheck().catch(() => {
+    });
     const myIds = await resolveUserIds(userId, req.user?.email);
     let sql = `
       SELECT 
@@ -77581,9 +77779,12 @@ router4.post("/:id/review", authMiddleware, async (req, res, next) => {
     next(error);
   }
 });
-setInterval(() => {
-  checkAndAutoCancelExpiredBookings().catch((err) => console.warn("Background auto-cancellation error:", err));
-}, 60 * 1e3);
+if (!process.env.VERCEL) {
+  const autoCancelTimer = setInterval(() => {
+    checkAndAutoCancelExpiredBookings().catch((err) => console.warn("Background auto-cancellation error:", err));
+  }, 60 * 1e3);
+  if (autoCancelTimer.unref) autoCancelTimer.unref();
+}
 var bookings_routes_default = router4;
 
 // src/modules/analytics/analytics.routes.ts
@@ -79042,13 +79243,19 @@ router7.post("/", authMiddleware, async (req, res, next) => {
     });
     let targetBookingId = null;
     let targetReceiverId = validated.receiver_id;
-    if (validated.booking_id && isUuid(validated.booking_id)) {
+    const receiverIds = await resolveUserIds(targetReceiverId);
+    if (myIds.some((id) => receiverIds.includes(id))) {
+      return sendError(res, "BAD_REQUEST", "Cannot send a message or proposal to yourself.", 400);
+    }
+    const cleanProposalData = validated.proposal_data ? typeof validated.proposal_data === "string" ? safeParseJson(validated.proposal_data) : validated.proposal_data : null;
+    const linkedBookingId = validated.booking_id || cleanProposalData?.booking_id;
+    if (linkedBookingId && isUuid(linkedBookingId)) {
       const bookingRes = await query(
-        `SELECT b.id, b.borrower_id, i.owner_id AS lender_id 
+        `SELECT b.id, b.borrower_id, COALESCE(b.lender_id, i.owner_id) AS lender_id 
          FROM bookings b 
          JOIN items i ON b.item_id = i.id 
          WHERE b.id = $1`,
-        [validated.booking_id]
+        [linkedBookingId]
       );
       if (bookingRes.rows.length === 0) {
         return sendError(res, "NOT_FOUND", "Linked booking not found", 404);
@@ -79060,7 +79267,6 @@ router7.post("/", authMiddleware, async (req, res, next) => {
         return sendError(res, "FORBIDDEN", "Access denied: You are not a participant in this booking.", 403);
       }
       const expectedPartnerId = isBorrower ? booking.lender_id : booking.borrower_id;
-      const receiverIds = await resolveUserIds(targetReceiverId);
       if (!receiverIds.includes(String(expectedPartnerId)) && req.user.role !== "ADMIN") {
         return sendError(
           res,
@@ -79071,6 +79277,9 @@ router7.post("/", authMiddleware, async (req, res, next) => {
       }
       targetBookingId = booking.id;
       targetReceiverId = expectedPartnerId;
+      if (cleanProposalData) {
+        cleanProposalData.booking_id = booking.id;
+      }
     }
     if (!targetReceiverId) {
       return sendError(res, "BAD_REQUEST", "Recipient is required", 400);
@@ -79084,7 +79293,6 @@ router7.post("/", authMiddleware, async (req, res, next) => {
     if (blockCheck.rows.length > 0) {
       return sendError(res, "FORBIDDEN", "Cannot send message. Communication between these users is blocked.", 403);
     }
-    const cleanProposalData = validated.proposal_data ? typeof validated.proposal_data === "string" ? safeParseJson(validated.proposal_data) : validated.proposal_data : null;
     const result = await query(
       `INSERT INTO messages (booking_id, sender_id, receiver_id, content, message_type, proposal_data, is_delivered, is_read)
        VALUES ($1, $2, $3, $4, $5, $6, false, false)
@@ -79174,6 +79382,10 @@ router7.post("/proposal/:messageId/accept", authMiddleware, async (req, res, nex
       );
       if (bRes.rows.length > 0) {
         const existingBooking = bRes.rows[0];
+        const isLender = myIds.includes(String(existingBooking.lender_id)) || myIds.includes(String(existingBooking.item_owner_id));
+        if (!isLender && req.user.role !== "ADMIN") {
+          return sendError(res, "FORBIDDEN", "Only the booking lender can accept this rental request.", 403);
+        }
         if (existingBooking.status !== "PENDING") {
           return sendError(res, "BAD_REQUEST", `Cannot accept request. Current status is ${existingBooking.status}.`, 400);
         }
@@ -79200,13 +79412,13 @@ router7.post("/proposal/:messageId/accept", authMiddleware, async (req, res, nex
         const itemTitle2 = existingBooking.item_title || proposal.item_title || "Item";
         try {
           await client2.query("BEGIN");
-          await client2.query("SELECT id, proposal_data FROM messages WHERE id = $1 FOR UPDATE", [messageId]);
+          await client2.query("SELECT id FROM items WHERE id = $1 FOR UPDATE", [existingBooking.item_id]);
           const lockedBookingRes = await client2.query("SELECT id, status FROM bookings WHERE id = $1 FOR UPDATE", [existingBookingId]);
           if (lockedBookingRes.rows.length === 0 || lockedBookingRes.rows[0].status !== "PENDING") {
             await client2.query("ROLLBACK");
             return sendError(res, "CONFLICT", "This booking request is no longer pending or has already been updated.", 409);
           }
-          await client2.query("SELECT id FROM items WHERE id = $1 FOR UPDATE", [existingBooking.item_id]);
+          await client2.query("SELECT id, proposal_data FROM messages WHERE id = $1 FOR UPDATE", [messageId]);
           const conflictRes = await client2.query(
             `SELECT id, TO_CHAR(start_date, 'YYYY-MM-DD') AS start_date, 
                     TO_CHAR(COALESCE(end_date, (start_date + ((GREATEST(duration_days, 1) - 1) || ' days')::interval)::date), 'YYYY-MM-DD') AS end_date,
@@ -79391,6 +79603,10 @@ router7.post("/proposal/:messageId/accept", authMiddleware, async (req, res, nex
     const borrowerInfo = borrowerUserRes.rows[0] || {};
     const canonicalLenderId = lenderInfo.id || lenderId;
     const canonicalBorrowerId = borrowerInfo.id || borrowerId;
+    const isLenderOfProposal = myIds.includes(String(canonicalLenderId)) || myIds.includes(String(lenderId));
+    if (!isLenderOfProposal && req.user.role !== "ADMIN") {
+      return sendError(res, "FORBIDDEN", "Only the gear lender can accept this rental agreement proposal.", 403);
+    }
     const startDate = proposal.start_date || (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
     const durationDays = Math.max(1, Number(proposal.duration_days) || 1);
     const pricePerDay = Number(proposal.price_per_day) || Number(proposal.total_price) / durationDays || 0;
@@ -79605,14 +79821,6 @@ router7.post("/proposal/:messageId/decline", authMiddleware, async (req, res, ne
       return sendError(res, "BAD_REQUEST", "This message is not a proposal or booking request.", 400);
     }
     const myIds = await resolveUserIds(currentUserId, req.user?.email);
-    if (!myIds.includes(String(message2.receiver_id)) && !myIds.includes(String(message2.sender_id))) {
-      return sendError(res, "FORBIDDEN", "Access denied", 403);
-    }
-    const isReceiver = myIds.includes(String(message2.receiver_id));
-    const isSender = myIds.includes(String(message2.sender_id));
-    if (!isReceiver && !isSender) {
-      return sendError(res, "FORBIDDEN", "Access denied: You are not part of this proposal", 403);
-    }
     const proposal = safeParseJson(message2.proposal_data);
     if (proposal.status && proposal.status !== "PENDING") {
       return sendError(
@@ -79623,22 +79831,42 @@ router7.post("/proposal/:messageId/decline", authMiddleware, async (req, res, ne
       );
     }
     const existingBookingId = message2.booking_id || proposal.booking_id;
+    let isLender = false;
+    let isBorrower = false;
     if (existingBookingId && isUuid(existingBookingId)) {
-      const bRes = await query(`SELECT id, status FROM bookings WHERE id = $1`, [existingBookingId]);
-      if (bRes.rows.length > 0) {
-        const currentBookingStatus = bRes.rows[0].status;
-        if (currentBookingStatus !== "PENDING") {
-          return sendError(
-            res,
-            "BAD_REQUEST",
-            `Cannot decline: booking is currently in "${currentBookingStatus}" state and can no longer be rejected or cancelled through this proposal.`,
-            400
-          );
-        }
+      const bRes = await query(
+        `SELECT b.id, b.status, b.borrower_id, COALESCE(b.lender_id, i.owner_id) AS lender_id
+         FROM bookings b
+         JOIN items i ON b.item_id = i.id
+         WHERE b.id = $1`,
+        [existingBookingId]
+      );
+      if (bRes.rows.length === 0) {
+        return sendError(res, "NOT_FOUND", "Linked booking not found", 404);
+      }
+      const existingBooking = bRes.rows[0];
+      isLender = myIds.includes(String(existingBooking.lender_id));
+      isBorrower = myIds.includes(String(existingBooking.borrower_id));
+      if (!isLender && !isBorrower && req.user.role !== "ADMIN") {
+        return sendError(res, "FORBIDDEN", "Only the booking lender or borrower can decline/cancel this booking.", 403);
+      }
+      if (existingBooking.status !== "PENDING") {
+        return sendError(
+          res,
+          "BAD_REQUEST",
+          `Cannot decline: booking is currently in "${existingBooking.status}" state and can no longer be rejected or cancelled through this proposal.`,
+          400
+        );
+      }
+    } else {
+      isLender = myIds.includes(String(message2.receiver_id));
+      isBorrower = myIds.includes(String(message2.sender_id));
+      if (!isLender && !isBorrower && req.user.role !== "ADMIN") {
+        return sendError(res, "FORBIDDEN", "Access denied: You are not part of this proposal", 403);
       }
     }
-    const targetProposalStatus = isReceiver ? "DECLINED" : "CANCELLED";
-    const targetBookingStatus = isReceiver ? "REJECTED" : "CANCELLED";
+    const targetProposalStatus = isLender ? "DECLINED" : "CANCELLED";
+    const targetBookingStatus = isLender ? "REJECTED" : "CANCELLED";
     const updatedProposal = { ...proposal, status: targetProposalStatus };
     await query(`UPDATE messages SET proposal_data = $1 WHERE id = $2`, [JSON.stringify(updatedProposal), messageId]);
     if (existingBookingId && isUuid(existingBookingId)) {
@@ -79648,8 +79876,8 @@ router7.post("/proposal/:messageId/decline", authMiddleware, async (req, res, ne
       ).catch(() => {
       });
       const itemTitle = proposal.item_title || proposal.title || "Item";
-      const notificationRecipientId = isReceiver ? message2.sender_id : message2.receiver_id;
-      const statusActionText = isReceiver ? "was declined" : "was cancelled by the sender";
+      const notificationRecipientId = isLender ? message2.sender_id : message2.receiver_id;
+      const statusActionText = isLender ? "was declined" : "was cancelled by the sender";
       await query(
         `INSERT INTO messages (booking_id, sender_id, receiver_id, content, message_type)
          VALUES ($1, $2, $3, $4, 'SYSTEM')`,
@@ -79664,8 +79892,8 @@ router7.post("/proposal/:messageId/decline", authMiddleware, async (req, res, ne
       await createNotification({
         userId: notificationRecipientId,
         senderId: currentUserId,
-        type: isReceiver ? "BOOKING_REJECTED" : "BOOKING_CANCELLED",
-        title: isReceiver ? "Rental Request Declined" : "Rental Request Cancelled",
+        type: isLender ? "BOOKING_REJECTED" : "BOOKING_CANCELLED",
+        title: isLender ? "Rental Request Declined" : "Rental Request Cancelled",
         body: `Your request for "${itemTitle}" ${statusActionText}.`,
         referenceId: existingBookingId,
         referenceType: "BOOKING",
@@ -79957,10 +80185,6 @@ function formatItemRow(row) {
     image_urls: images,
     sticker_badge: row.sticker_badge || "Available",
     locality: row.locality || "",
-    address_text: row.address_text || "",
-    pincode: row.pincode || "",
-    latitude: row.latitude ? Number(row.latitude) : void 0,
-    longitude: row.longitude ? Number(row.longitude) : void 0,
     status: row.status || "AVAILABLE",
     created_at: row.created_at
   };
@@ -79981,7 +80205,7 @@ async function searchListings(params) {
     SELECT 
       i.id, i.title, i.description, i.category, i.price_per_day,
       i.max_duration_days, i.image_urls, i.sticker_badge, i.locality,
-      i.address_text, i.pincode, i.latitude, i.longitude, i.status, i.created_at,
+      i.status, i.created_at,
       u.id AS owner_id, u.name AS owner_name, u.avatar_url AS owner_avatar,
       u.rating AS owner_rating, u.trust_score AS owner_trust_score,
       u.locality AS owner_locality
@@ -80218,7 +80442,7 @@ async function getListingDetails(itemId) {
     SELECT 
       i.id, i.title, i.description, i.category, i.price_per_day,
       i.max_duration_days, i.image_urls, i.sticker_badge, i.locality,
-      i.address_text, i.pincode, i.latitude, i.longitude, i.status, i.created_at,
+      i.status, i.created_at,
       u.id AS owner_id, u.name AS owner_name, u.avatar_url AS owner_avatar,
       u.rating AS owner_rating, u.trust_score AS owner_trust_score,
       u.locality AS owner_locality, u.bio AS owner_bio
@@ -82086,6 +82310,40 @@ router12.post("/reset-system", async (req, res, next) => {
 });
 var admin_routes_default = router12;
 
+// src/modules/cron/cron.routes.ts
+var import_express13 = __toESM(require_express2());
+var router13 = (0, import_express13.Router)();
+router13.all("/tasks", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const vercelCronHeader = req.headers["x-vercel-cron"];
+  const cronSecret = process.env.CRON_SECRET;
+  const isVercelCron = vercelCronHeader === "1";
+  const isAuthorizedSecret = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
+  const isDev = ENV.NODE_ENV !== "production";
+  if (!isVercelCron && !isAuthorizedSecret && !isDev) {
+    return sendError(res, "UNAUTHORIZED", "Unauthorized cron trigger", 401);
+  }
+  const startTime = Date.now();
+  try {
+    await checkAndAutoCancelExpiredBookings(true);
+    await runGlobalReminderCycle();
+    return sendSuccess(
+      res,
+      {
+        status: "success",
+        tasks: ["checkAndAutoCancelExpiredBookings", "runGlobalReminderCycle"],
+        duration_ms: Date.now() - startTime,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      "Cron maintenance tasks executed successfully"
+    );
+  } catch (err) {
+    console.error("Cron execution error:", err);
+    return sendError(res, "CRON_EXECUTION_FAILED", err.message || "Execution failed", 500);
+  }
+});
+var cron_routes_default = router13;
+
 // src/middleware/error.ts
 var errorHandler = (err, req, res, next) => {
   if (err instanceof ZodError) {
@@ -82242,6 +82500,8 @@ var runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_items_coords ON items(latitude, longitude);
       CREATE INDEX IF NOT EXISTS idx_items_borrowing ON items(available_for_borrowing);
       CREATE INDEX IF NOT EXISTS idx_items_approval ON items(approval_status);
+      CREATE INDEX IF NOT EXISTS idx_items_search_composite ON items(status, category, price_per_day) WHERE is_deleted = false;
+      CREATE INDEX IF NOT EXISTS idx_items_feed_composite ON items(status, created_at DESC) WHERE is_deleted = false;
     `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS requests (
@@ -82329,6 +82589,7 @@ var runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_bookings_borrower ON bookings(borrower_id);
       CREATE INDEX IF NOT EXISTS idx_bookings_lender ON bookings(lender_id);
       CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+      CREATE INDEX IF NOT EXISTS idx_bookings_conflict_check ON bookings(item_id, status, start_date, end_date);
     `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -82481,6 +82742,8 @@ var runMigrations = async () => {
 
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+      ALTER TABLE notifications ALTER COLUMN message DROP NOT NULL;
+      ALTER TABLE notifications ALTER COLUMN body DROP NOT NULL;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id TEXT;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id UUID;
@@ -82796,7 +83059,7 @@ var ensureMigrations = async () => {
   return migrationsPromise;
 };
 var createApp = () => {
-  const app2 = (0, import_express13.default)();
+  const app2 = (0, import_express14.default)();
   app2.set("trust proxy", 1);
   app2.use(securityHeaders);
   app2.use(
@@ -82813,8 +83076,8 @@ var createApp = () => {
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
     })
   );
-  app2.use(import_express13.default.json({ limit: "10mb" }));
-  app2.use(import_express13.default.urlencoded({ extended: true, limit: "10mb" }));
+  app2.use(import_express14.default.json({ limit: "10mb" }));
+  app2.use(import_express14.default.urlencoded({ extended: true, limit: "10mb" }));
   app2.use(inputSanitizer);
   app2.use(generalApiRateLimiter);
   if (!process.env.VERCEL && !migrationsPromise) {
@@ -82858,6 +83121,7 @@ var createApp = () => {
   app2.use(["/api/notifications", "/notifications"], notifications_routes_default);
   app2.use(["/api/support", "/support"], support_routes_default);
   app2.use(["/api/admin", "/admin"], admin_routes_default);
+  app2.use(["/api/cron", "/cron"], cron_routes_default);
   app2.use(["/api/ai", "/ai"], ai_routes_default);
   app2.use((req, res) => {
     return sendError(res, "ROUTE_NOT_FOUND", `Cannot ${req.method} ${req.originalUrl}`, 404);

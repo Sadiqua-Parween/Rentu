@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sanitizeTzOffset = sanitizeTzOffset;
+exports.checkAndAutoCancelExpiredBookings = checkAndAutoCancelExpiredBookings;
 const express_1 = require("express");
 const crypto_1 = __importDefault(require("crypto"));
 const zod_1 = require("zod");
@@ -11,6 +12,7 @@ const db_1 = require("../../config/db");
 const response_1 = require("../../middleware/response");
 const auth_1 = require("../../middleware/auth");
 const notifications_service_1 = require("../notifications/notifications.service");
+const reminder_scheduler_1 = require("../notifications/reminder.scheduler");
 const user_1 = require("../../utils/user");
 const router = (0, express_1.Router)();
 // Sanitize timezone offset to valid bounds (-14h to +12h: -840 to 720 minutes)
@@ -123,9 +125,9 @@ let lastBookingsExpirationRun = 0;
  * window has expired without pickup verification code entry.
  * Throttled to run at most once per 60 seconds to avoid N+1 query load during browsing.
  */
-async function checkAndAutoCancelExpiredBookings() {
+async function checkAndAutoCancelExpiredBookings(force = false) {
     const now = Date.now();
-    if (now - lastBookingsExpirationRun < 60 * 1000)
+    if (!force && now - lastBookingsExpirationRun < 60 * 1000)
         return;
     lastBookingsExpirationRun = now;
     try {
@@ -245,6 +247,7 @@ const submitReviewSchema = zod_1.z.object({
 router.post('/', auth_1.authMiddleware, async (req, res, next) => {
     try {
         await checkAndAutoCancelExpiredBookings();
+        (0, reminder_scheduler_1.opportunisticReminderCheck)().catch(() => { });
         const validated = createBookingSchema.parse(req.body);
         const borrowerId = req.user.id;
         // Fetch Item & Owner
@@ -498,6 +501,7 @@ router.get('/', auth_1.authMiddleware, async (req, res, next) => {
         const { role } = req.query; // 'borrower' | 'lender' | all
         // Check and auto-cancel any bookings where 1 hour has elapsed after start time without pickup verification
         await checkAndAutoCancelExpiredBookings();
+        (0, reminder_scheduler_1.opportunisticReminderCheck)().catch(() => { });
         const myIds = await (0, user_1.resolveUserIds)(userId, req.user?.email);
         let sql = `
       SELECT 
@@ -1557,8 +1561,12 @@ router.post('/:id/review', auth_1.authMiddleware, async (req, res, next) => {
         next(error);
     }
 });
-// Run background auto-cancellation for expired bookings periodically every 60 seconds
-setInterval(() => {
-    checkAndAutoCancelExpiredBookings().catch((err) => console.warn('Background auto-cancellation error:', err));
-}, 60 * 1000);
+// Run background auto-cancellation for expired bookings periodically every 60 seconds (local server only)
+if (!process.env.VERCEL) {
+    const autoCancelTimer = setInterval(() => {
+        checkAndAutoCancelExpiredBookings().catch((err) => console.warn('Background auto-cancellation error:', err));
+    }, 60 * 1000);
+    if (autoCancelTimer.unref)
+        autoCancelTimer.unref();
+}
 exports.default = router;

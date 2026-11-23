@@ -131,6 +131,8 @@ const runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_items_coords ON items(latitude, longitude);
       CREATE INDEX IF NOT EXISTS idx_items_borrowing ON items(available_for_borrowing);
       CREATE INDEX IF NOT EXISTS idx_items_approval ON items(approval_status);
+      CREATE INDEX IF NOT EXISTS idx_items_search_composite ON items(status, category, price_per_day) WHERE is_deleted = false;
+      CREATE INDEX IF NOT EXISTS idx_items_feed_composite ON items(status, created_at DESC) WHERE is_deleted = false;
     `);
         await client.query(`
       CREATE TABLE IF NOT EXISTS requests (
@@ -218,6 +220,7 @@ const runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_bookings_borrower ON bookings(borrower_id);
       CREATE INDEX IF NOT EXISTS idx_bookings_lender ON bookings(lender_id);
       CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+      CREATE INDEX IF NOT EXISTS idx_bookings_conflict_check ON bookings(item_id, status, start_date, end_date);
     `);
         await client.query(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -374,6 +377,8 @@ const runMigrations = async () => {
 
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+      ALTER TABLE notifications ALTER COLUMN message DROP NOT NULL;
+      ALTER TABLE notifications ALTER COLUMN body DROP NOT NULL;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id TEXT;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id UUID;

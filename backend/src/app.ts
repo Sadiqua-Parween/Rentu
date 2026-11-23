@@ -12,6 +12,7 @@ import aiRoutes from './modules/ai/ai.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import supportRoutes from './modules/support/support.routes';
 import adminRoutes from './modules/admin/admin.routes';
+import cronRoutes from './modules/cron/cron.routes';
 import { errorHandler } from './middleware/error';
 import { sendError, sendSuccess } from './middleware/response';
 import { authMiddleware, AuthenticatedRequest } from './middleware/auth';
@@ -121,6 +122,7 @@ export const createApp = () => {
   app.use(['/api/notifications', '/notifications'], notificationsRoutes);
   app.use(['/api/support', '/support'], supportRoutes);
   app.use(['/api/admin', '/admin'], adminRoutes);
+  app.use(['/api/cron', '/cron'], cronRoutes);
   app.use(['/api/ai', '/ai'], aiRoutes);
 
   // 404 handler

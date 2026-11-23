@@ -229,3 +229,17 @@ export function stopReminderScheduler(): void {
   }
 }
 
+let lastOpportunisticReminderRun = 0;
+/**
+ * Opportunistic reminder execution during active serverless invocations.
+ * Throttled to run at most once every 15 minutes across cold/warm instances.
+ */
+export async function opportunisticReminderCheck(): Promise<void> {
+  const now = Date.now();
+  if (now - lastOpportunisticReminderRun < 15 * 60 * 1000) return;
+  lastOpportunisticReminderRun = now;
+  runGlobalReminderCycle().catch((err) => {
+    console.warn('Opportunistic reminder check error:', err);
+  });
+}
+

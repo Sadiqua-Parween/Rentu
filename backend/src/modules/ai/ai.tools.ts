@@ -64,10 +64,6 @@ export function formatItemRow(row: any) {
     image_urls: images,
     sticker_badge: row.sticker_badge || 'Available',
     locality: row.locality || '',
-    address_text: row.address_text || '',
-    pincode: row.pincode || '',
-    latitude: row.latitude ? Number(row.latitude) : undefined,
-    longitude: row.longitude ? Number(row.longitude) : undefined,
     status: row.status || 'AVAILABLE',
     created_at: row.created_at,
   };
@@ -93,7 +89,7 @@ export async function searchListings(params: SearchListingsParams) {
     SELECT 
       i.id, i.title, i.description, i.category, i.price_per_day,
       i.max_duration_days, i.image_urls, i.sticker_badge, i.locality,
-      i.address_text, i.pincode, i.latitude, i.longitude, i.status, i.created_at,
+      i.status, i.created_at,
       u.id AS owner_id, u.name AS owner_name, u.avatar_url AS owner_avatar,
       u.rating AS owner_rating, u.trust_score AS owner_trust_score,
       u.locality AS owner_locality
@@ -378,7 +374,7 @@ export async function getListingDetails(itemId: string) {
     SELECT 
       i.id, i.title, i.description, i.category, i.price_per_day,
       i.max_duration_days, i.image_urls, i.sticker_badge, i.locality,
-      i.address_text, i.pincode, i.latitude, i.longitude, i.status, i.created_at,
+      i.status, i.created_at,
       u.id AS owner_id, u.name AS owner_name, u.avatar_url AS owner_avatar,
       u.rating AS owner_rating, u.trust_score AS owner_trust_score,
       u.locality AS owner_locality, u.bio AS owner_bio

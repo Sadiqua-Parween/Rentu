@@ -27,8 +27,8 @@ export async function createNotification(params: CreateNotificationParams): Prom
     try {
       const res = await query(
         `INSERT INTO notifications 
-          (user_id, sender_id, type, title, body, booking_id, message_id, reference_id, reference_type)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          (user_id, sender_id, type, title, body, message, booking_id, message_id, reference_id, reference_type)
+         VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9)
          RETURNING id`,
         [
           targetUserId,

@@ -13,6 +13,8 @@
     "build:frontend": "npm --prefix frontend run build",
     "build": "npm run build:backend && cp backend/index.js api/index.js && npm run build:frontend",
     "seed": "npm --prefix backend run seed",
+    "benchmark": "npm --prefix backend run benchmark",
+    "test": "npm --prefix backend run test",
     "start": "npm --prefix backend start"
   },
   "dependencies": {

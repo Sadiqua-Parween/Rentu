@@ -93,6 +93,9 @@ CREATE INDEX IF NOT EXISTS idx_items_status ON items(status);
 CREATE INDEX IF NOT EXISTS idx_items_approval ON items(approval_status);
 CREATE INDEX IF NOT EXISTS idx_items_coords ON items(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_items_pincode ON items(pincode);
+CREATE INDEX IF NOT EXISTS idx_items_search_composite ON items(status, category, price_per_day) WHERE is_deleted = false;
+CREATE INDEX IF NOT EXISTS idx_items_feed_composite ON items(status, created_at DESC) WHERE is_deleted = false;
+CREATE INDEX IF NOT EXISTS idx_bookings_conflict_check ON bookings(item_id, status, start_date, end_date);
 
 -- 6. ITEM IMAGES TABLE (1NF: Pure atomic photo rows, eliminating multi-valued JSON array)
 CREATE TABLE IF NOT EXISTS item_images (

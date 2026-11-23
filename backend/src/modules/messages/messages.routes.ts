@@ -527,13 +527,25 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     let targetBookingId: string | null = null;
     let targetReceiverId = validated.receiver_id;
 
-    if (validated.booking_id && isUuid(validated.booking_id)) {
+    // SECURITY: Reject messages or proposals a user addresses to themselves
+    const receiverIds = await resolveUserIds(targetReceiverId);
+    if (myIds.some(id => receiverIds.includes(id))) {
+      return sendError(res, 'BAD_REQUEST', 'Cannot send a message or proposal to yourself.', 400);
+    }
+
+    const cleanProposalData = validated.proposal_data
+      ? (typeof validated.proposal_data === 'string' ? safeParseJson(validated.proposal_data) : validated.proposal_data)
+      : null;
+
+    const linkedBookingId = validated.booking_id || cleanProposalData?.booking_id;
+
+    if (linkedBookingId && isUuid(linkedBookingId)) {
       const bookingRes = await query(
-        `SELECT b.id, b.borrower_id, i.owner_id AS lender_id 
+        `SELECT b.id, b.borrower_id, COALESCE(b.lender_id, i.owner_id) AS lender_id 
          FROM bookings b 
          JOIN items i ON b.item_id = i.id 
          WHERE b.id = $1`,
-        [validated.booking_id]
+        [linkedBookingId]
       );
       if (bookingRes.rows.length === 0) {
         return sendError(res, 'NOT_FOUND', 'Linked booking not found', 404);
@@ -547,7 +559,6 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
       // Verify that receiver is strictly the other participant in this booking
       const expectedPartnerId = isBorrower ? booking.lender_id : booking.borrower_id;
-      const receiverIds = await resolveUserIds(targetReceiverId);
       if (!receiverIds.includes(String(expectedPartnerId)) && req.user!.role !== 'ADMIN') {
         return sendError(
           res,
@@ -559,6 +570,9 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
       targetBookingId = booking.id;
       targetReceiverId = expectedPartnerId;
+      if (cleanProposalData) {
+        cleanProposalData.booking_id = booking.id;
+      }
     }
 
     if (!targetReceiverId) {
@@ -575,10 +589,6 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     if (blockCheck.rows.length > 0) {
       return sendError(res, 'FORBIDDEN', 'Cannot send message. Communication between these users is blocked.', 403);
     }
-
-    const cleanProposalData = validated.proposal_data
-      ? (typeof validated.proposal_data === 'string' ? safeParseJson(validated.proposal_data) : validated.proposal_data)
-      : null;
 
     const result = await query(
       `INSERT INTO messages (booking_id, sender_id, receiver_id, content, message_type, proposal_data, is_delivered, is_read)
@@ -698,6 +708,13 @@ router.post('/proposal/:messageId/accept', authMiddleware, async (req: Authentic
       if (bRes.rows.length > 0) {
         const existingBooking = bRes.rows[0];
 
+        // CRITICAL SECURITY CHECK: Only the booking's lender can accept!
+        const isLender = myIds.includes(String(existingBooking.lender_id)) ||
+                         myIds.includes(String(existingBooking.item_owner_id));
+        if (!isLender && req.user!.role !== 'ADMIN') {
+          return sendError(res, 'FORBIDDEN', 'Only the booking lender can accept this rental request.', 403);
+        }
+
         // State machine check: can only accept PENDING bookings
         if (existingBooking.status !== 'PENDING') {
           return sendError(res, 'BAD_REQUEST', `Cannot accept request. Current status is ${existingBooking.status}.`, 400);
@@ -734,14 +751,14 @@ router.post('/proposal/:messageId/accept', authMiddleware, async (req: Authentic
         try {
           await client.query('BEGIN');
 
-          // ATOMIC LOCK: Lock the message, booking, and item to prevent concurrent acceptances
-          await client.query('SELECT id, proposal_data FROM messages WHERE id = $1 FOR UPDATE', [messageId]);
+          // ATOMIC LOCK: Lock the item, booking, and message in consistent global order (item -> booking -> message) to prevent deadlocks
+          await client.query('SELECT id FROM items WHERE id = $1 FOR UPDATE', [existingBooking.item_id]);
           const lockedBookingRes = await client.query('SELECT id, status FROM bookings WHERE id = $1 FOR UPDATE', [existingBookingId]);
           if (lockedBookingRes.rows.length === 0 || lockedBookingRes.rows[0].status !== 'PENDING') {
             await client.query('ROLLBACK');
             return sendError(res, 'CONFLICT', 'This booking request is no longer pending or has already been updated.', 409);
           }
-          await client.query('SELECT id FROM items WHERE id = $1 FOR UPDATE', [existingBooking.item_id]);
+          await client.query('SELECT id, proposal_data FROM messages WHERE id = $1 FOR UPDATE', [messageId]);
 
           // CALENDAR OVERLAP CHECK (under atomic item lock):
           const conflictRes = await client.query(
@@ -958,6 +975,12 @@ router.post('/proposal/:messageId/accept', authMiddleware, async (req: Authentic
     const borrowerInfo = borrowerUserRes.rows[0] || {};
     const canonicalLenderId = lenderInfo.id || lenderId;
     const canonicalBorrowerId = borrowerInfo.id || borrowerId;
+
+    // CRITICAL SECURITY CHECK: Only the designated lender of the proposal can accept
+    const isLenderOfProposal = myIds.includes(String(canonicalLenderId)) || myIds.includes(String(lenderId));
+    if (!isLenderOfProposal && req.user!.role !== 'ADMIN') {
+      return sendError(res, 'FORBIDDEN', 'Only the gear lender can accept this rental agreement proposal.', 403);
+    }
 
     const startDate = proposal.start_date || new Date().toISOString().split('T')[0];
     const durationDays = Math.max(1, Number(proposal.duration_days) || 1);
@@ -1225,17 +1248,6 @@ router.post('/proposal/:messageId/decline', authMiddleware, async (req: Authenti
     }
 
     const myIds = await resolveUserIds(currentUserId, req.user?.email);
-    if (!myIds.includes(String(message.receiver_id)) && !myIds.includes(String(message.sender_id))) {
-      return sendError(res, 'FORBIDDEN', 'Access denied', 403);
-    }
-
-    const isReceiver = myIds.includes(String(message.receiver_id));
-    const isSender = myIds.includes(String(message.sender_id));
-
-    if (!isReceiver && !isSender) {
-      return sendError(res, 'FORBIDDEN', 'Access denied: You are not part of this proposal', 403);
-    }
-
     const proposal = safeParseJson(message.proposal_data);
     if (proposal.status && proposal.status !== 'PENDING') {
       return sendError(
@@ -1247,23 +1259,46 @@ router.post('/proposal/:messageId/decline', authMiddleware, async (req: Authenti
     }
 
     const existingBookingId = message.booking_id || proposal.booking_id;
+    let isLender = false;
+    let isBorrower = false;
+
     if (existingBookingId && isUuid(existingBookingId)) {
-      const bRes = await query(`SELECT id, status FROM bookings WHERE id = $1`, [existingBookingId]);
-      if (bRes.rows.length > 0) {
-        const currentBookingStatus = bRes.rows[0].status;
-        if (currentBookingStatus !== 'PENDING') {
-          return sendError(
-            res,
-            'BAD_REQUEST',
-            `Cannot decline: booking is currently in "${currentBookingStatus}" state and can no longer be rejected or cancelled through this proposal.`,
-            400
-          );
-        }
+      const bRes = await query(
+        `SELECT b.id, b.status, b.borrower_id, COALESCE(b.lender_id, i.owner_id) AS lender_id
+         FROM bookings b
+         JOIN items i ON b.item_id = i.id
+         WHERE b.id = $1`,
+        [existingBookingId]
+      );
+      if (bRes.rows.length === 0) {
+        return sendError(res, 'NOT_FOUND', 'Linked booking not found', 404);
+      }
+      const existingBooking = bRes.rows[0];
+      isLender = myIds.includes(String(existingBooking.lender_id));
+      isBorrower = myIds.includes(String(existingBooking.borrower_id));
+
+      if (!isLender && !isBorrower && req.user!.role !== 'ADMIN') {
+        return sendError(res, 'FORBIDDEN', 'Only the booking lender or borrower can decline/cancel this booking.', 403);
+      }
+
+      if (existingBooking.status !== 'PENDING') {
+        return sendError(
+          res,
+          'BAD_REQUEST',
+          `Cannot decline: booking is currently in "${existingBooking.status}" state and can no longer be rejected or cancelled through this proposal.`,
+          400
+        );
+      }
+    } else {
+      isLender = myIds.includes(String(message.receiver_id));
+      isBorrower = myIds.includes(String(message.sender_id));
+      if (!isLender && !isBorrower && req.user!.role !== 'ADMIN') {
+        return sendError(res, 'FORBIDDEN', 'Access denied: You are not part of this proposal', 403);
       }
     }
 
-    const targetProposalStatus = isReceiver ? 'DECLINED' : 'CANCELLED';
-    const targetBookingStatus = isReceiver ? 'REJECTED' : 'CANCELLED';
+    const targetProposalStatus = isLender ? 'DECLINED' : 'CANCELLED';
+    const targetBookingStatus = isLender ? 'REJECTED' : 'CANCELLED';
 
     const updatedProposal = { ...proposal, status: targetProposalStatus };
     await query(`UPDATE messages SET proposal_data = $1 WHERE id = $2`, [JSON.stringify(updatedProposal), messageId]);
@@ -1275,8 +1310,8 @@ router.post('/proposal/:messageId/decline', authMiddleware, async (req: Authenti
       ).catch(() => {});
 
       const itemTitle = proposal.item_title || proposal.title || 'Item';
-      const notificationRecipientId = isReceiver ? message.sender_id : message.receiver_id;
-      const statusActionText = isReceiver ? 'was declined' : 'was cancelled by the sender';
+      const notificationRecipientId = isLender ? message.sender_id : message.receiver_id;
+      const statusActionText = isLender ? 'was declined' : 'was cancelled by the sender';
 
       await query(
         `INSERT INTO messages (booking_id, sender_id, receiver_id, content, message_type)
@@ -1292,8 +1327,8 @@ router.post('/proposal/:messageId/decline', authMiddleware, async (req: Authenti
       await createNotification({
         userId: notificationRecipientId,
         senderId: currentUserId,
-        type: isReceiver ? 'BOOKING_REJECTED' : 'BOOKING_CANCELLED',
-        title: isReceiver ? 'Rental Request Declined' : 'Rental Request Cancelled',
+        type: isLender ? 'BOOKING_REJECTED' : 'BOOKING_CANCELLED',
+        title: isLender ? 'Rental Request Declined' : 'Rental Request Cancelled',
         body: `Your request for "${itemTitle}" ${statusActionText}.`,
         referenceId: existingBookingId,
         referenceType: 'BOOKING',

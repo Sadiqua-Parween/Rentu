@@ -359,6 +359,20 @@ This compiles:
 
 ---
 
+### 6. Automated Concurrency Tests & Query Benchmarks
+
+Run the automated integration test suite verifying transactional concurrency, race condition prevention, and authorization boundaries:
+
+```bash
+# Run transactional race-condition & authorization suite
+npm test
+
+# Run multi-attribute search index benchmark (p50, p95, p99 latency)
+npm run benchmark
+```
+
+---
+
 ## 👥 Instant Demo Accounts
 
 You can test all user roles, handshakes, and chat flows immediately using the **Demo Switcher** in the navigation bar:

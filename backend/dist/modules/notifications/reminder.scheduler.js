@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.runGlobalReminderCycle = runGlobalReminderCycle;
 exports.startReminderScheduler = startReminderScheduler;
 exports.stopReminderScheduler = stopReminderScheduler;
+exports.opportunisticReminderCheck = opportunisticReminderCheck;
 const db_1 = require("../../config/db");
 const webpush_1 = require("./webpush");
 let schedulerInterval = null;
@@ -199,4 +200,18 @@ function stopReminderScheduler() {
         clearInterval(schedulerInterval);
         schedulerInterval = null;
     }
+}
+let lastOpportunisticReminderRun = 0;
+/**
+ * Opportunistic reminder execution during active serverless invocations.
+ * Throttled to run at most once every 15 minutes across cold/warm instances.
+ */
+async function opportunisticReminderCheck() {
+    const now = Date.now();
+    if (now - lastOpportunisticReminderRun < 15 * 60 * 1000)
+        return;
+    lastOpportunisticReminderRun = now;
+    runGlobalReminderCycle().catch((err) => {
+        console.warn('Opportunistic reminder check error:', err);
+    });
 }

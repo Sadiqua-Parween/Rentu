@@ -9,6 +9,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "migrate": "ts-node-dev --transpile-only src/db/migrate.ts",
     "seed": "ts-node-dev --transpile-only src/db/seed.ts",
+    "test": "ts-node -T scripts/test-booking-concurrency.ts",
+    "benchmark": "ts-node -T scripts/benchmark-search.ts",
     "test:ai": "ts-node -T src/modules/ai/ai.test.ts"
   },
   "dependencies": {

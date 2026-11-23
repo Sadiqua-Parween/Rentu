@@ -26,11 +26,12 @@ const rawGeminiKey = (process.env.GEMINI_API_KEY || '').trim().replace(/^["']|["
 const isPlaceholderKey = rawGeminiKey.includes('your_key_here') ||
     rawGeminiKey.includes('your_gemini_api_key_here') ||
     rawGeminiKey === '';
-const isProd = (process.env.NODE_ENV || 'production') === 'production';
-if (!process.env.DATABASE_URL) {
-    console.warn('SECURITY NOTICE: DATABASE_URL environment variable is missing.');
+const isProd = (process.env.NODE_ENV || 'production') === 'production' || Boolean(process.env.VERCEL);
+// In production, ensure sensitive environment variables are strictly defined in environment variables (e.g. Vercel dashboard)
+if (isProd && !process.env.DATABASE_URL) {
+    console.error('FATAL SECURITY NOTICE: DATABASE_URL environment variable is missing.');
 }
-// Generate ephemeral random fallback secret per runtime process if not provided, preventing token forgery
+// Generate ephemeral random fallback secret per runtime process in development if not provided, preventing token forgery
 const fallbackSecret = crypto_1.default.randomBytes(32).toString('hex');
 if (!process.env.JWT_SECRET && isProd) {
     console.warn('SECURITY WARNING: JWT_SECRET is not set in production environment variables. Using dynamic ephemeral key.');

@@ -5,6 +5,7 @@ import { pool, query } from '../../config/db';
 import { sendError, sendSuccess } from '../../middleware/response';
 import { authMiddleware, AuthenticatedRequest } from '../../middleware/auth';
 import { createNotification } from '../notifications/notifications.service';
+import { opportunisticReminderCheck } from '../notifications/reminder.scheduler';
 import { resolveUserIds } from '../../utils/user';
 
 const router = Router();
@@ -130,9 +131,9 @@ let lastBookingsExpirationRun = 0;
  * window has expired without pickup verification code entry.
  * Throttled to run at most once per 60 seconds to avoid N+1 query load during browsing.
  */
-async function checkAndAutoCancelExpiredBookings(): Promise<void> {
+export async function checkAndAutoCancelExpiredBookings(force = false): Promise<void> {
   const now = Date.now();
-  if (now - lastBookingsExpirationRun < 60 * 1000) return;
+  if (!force && now - lastBookingsExpirationRun < 60 * 1000) return;
   lastBookingsExpirationRun = now;
 
   try {
@@ -284,6 +285,7 @@ const submitReviewSchema = z.object({
 router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response, next) => {
   try {
     await checkAndAutoCancelExpiredBookings();
+    opportunisticReminderCheck().catch(() => {});
     const validated = createBookingSchema.parse(req.body);
     const borrowerId = req.user!.id;
 
@@ -618,6 +620,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response,
 
     // Check and auto-cancel any bookings where 1 hour has elapsed after start time without pickup verification
     await checkAndAutoCancelExpiredBookings();
+    opportunisticReminderCheck().catch(() => {});
 
     const myIds = await resolveUserIds(userId, req.user?.email);
 
@@ -1954,9 +1957,12 @@ router.post('/:id/review', authMiddleware, async (req: AuthenticatedRequest, res
   }
 });
 
-// Run background auto-cancellation for expired bookings periodically every 60 seconds
-setInterval(() => {
-  checkAndAutoCancelExpiredBookings().catch((err) => console.warn('Background auto-cancellation error:', err));
-}, 60 * 1000);
+// Run background auto-cancellation for expired bookings periodically every 60 seconds (local server only)
+if (!process.env.VERCEL) {
+  const autoCancelTimer = setInterval(() => {
+    checkAndAutoCancelExpiredBookings().catch((err) => console.warn('Background auto-cancellation error:', err));
+  }, 60 * 1000);
+  if (autoCancelTimer.unref) autoCancelTimer.unref();
+}
 
 export default router;
