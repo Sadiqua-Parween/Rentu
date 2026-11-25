@@ -17,8 +17,8 @@ import {
 const getProductionAuthDomain = (): string => {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
-    // On production rentu.site (or www.rentu.site), use same-domain proxy to eliminate mobile storage partitioning blocks
-    if (host === 'rentu.site' || host === 'www.rentu.site') {
+    // On www.rentu.site, same-domain proxy is available without redirect
+    if (host === 'www.rentu.site') {
       return host;
     }
   }
@@ -26,7 +26,7 @@ const getProductionAuthDomain = (): string => {
 };
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyB6ah1Pz0RdCilzVhUvra-6Yl0TIeDmFtY",
   authDomain: getProductionAuthDomain(),
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "rentu-732b7",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "rentu-732b7.firebasestorage.app",
@@ -52,7 +52,22 @@ try {
   console.warn('Firebase getAuth error:', err);
 }
 
-export const auth = authInstance;
+export const getFirebaseAuth = () => {
+  if (authInstance) return authInstance;
+  try {
+    if (!app) {
+      app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    }
+    if (app) {
+      authInstance = getAuth(app);
+    }
+  } catch (err) {
+    console.warn('Firebase getFirebaseAuth error:', err);
+  }
+  return authInstance;
+};
+
+export const auth = authInstance || getFirebaseAuth();
 export const googleProvider = new GoogleAuthProvider();
 try {
   googleProvider.setCustomParameters({ prompt: 'select_account' });

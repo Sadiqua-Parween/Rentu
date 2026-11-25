@@ -3,6 +3,7 @@ import { User } from './types';
 import { api } from './api';
 import { 
   auth, 
+  getFirebaseAuth,
   googleProvider, 
   signInWithPopup, 
   signInWithRedirect,
@@ -148,7 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetchProfile();
     }
 
-    if (!auth) {
+    const firebaseAuth = auth || getFirebaseAuth();
+    if (!firebaseAuth) {
       if (!localToken) {
         setUser(null);
         setIsLoading(false);
@@ -157,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Process redirect result if coming back from Google redirect flow
-    getRedirectResult(auth)
+    getRedirectResult(firebaseAuth)
       .then(async (result) => {
         if (result && result.user) {
           await syncFirebaseUser(result.user);
@@ -190,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
     try {
-      const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
         setFirebaseUser(fbUser);
         if (fbUser) {
           await syncFirebaseUser(fbUser);
@@ -218,7 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Google Sign-In (Direct Redirect for Android / iOS / PWA; Pop-up with redirect fallback for Desktop)
   const loginWithGoogle = async () => {
-    if (!auth) {
+    const firebaseAuth = auth || getFirebaseAuth();
+    if (!firebaseAuth) {
       throw new Error('Authentication is currently not initialized. Please refresh the page.');
     }
 
@@ -226,13 +229,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Calling signInWithRedirect directly provides instant, seamless authentication.
     if (isMobileOrPWA()) {
       setIsLoading(true);
-      await signInWithRedirect(auth, googleProvider);
+      await signInWithRedirect(firebaseAuth, googleProvider);
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
       if (result && result.user) {
         await syncFirebaseUser(result.user);
       }
@@ -246,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         err.code === 'auth/operation-not-supported-in-this-environment'
       ) {
         console.log('Popup blocked or closed, falling back to redirect flow...');
-        await signInWithRedirect(auth, googleProvider);
+        await signInWithRedirect(firebaseAuth, googleProvider);
         return;
       }
       setIsLoading(false);
@@ -269,8 +272,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(res.user);
         setIsLoading(false);
         // In background, also attempt Firebase login if available
-        if (auth) {
-          signInWithEmailAndPassword(auth, cleanEmail, password).catch(() => {});
+        const fbAuth = auth || getFirebaseAuth();
+        if (fbAuth) {
+          signInWithEmailAndPassword(fbAuth, cleanEmail, password).catch(() => {});
         }
         return;
       }
@@ -282,13 +286,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // If user was not found in Postgres DB, check Firebase with strict 4s timeout
-      if (err?.code === 'USER_NOT_FOUND' && auth) {
+      const fbAuth = auth || getFirebaseAuth();
+      if (err?.code === 'USER_NOT_FOUND' && fbAuth) {
         try {
           const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Firebase authentication timed out')), 4000)
           );
           const fbResult: any = await Promise.race([
-            signInWithEmailAndPassword(auth, cleanEmail, password),
+            signInWithEmailAndPassword(fbAuth, cleanEmail, password),
             timeoutPromise
           ]);
           if (fbResult && fbResult.user) {
@@ -331,8 +336,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(res.token);
         setUser(res.user);
         setIsLoading(false);
-        if (auth) {
-          createUserWithEmailAndPassword(auth, cleanEmail, password).catch(() => {});
+        const fbAuth = auth || getFirebaseAuth();
+        if (fbAuth) {
+          createUserWithEmailAndPassword(fbAuth, cleanEmail, password).catch(() => {});
         }
         return;
       }
@@ -368,8 +374,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setFirebaseUser(null);
     try {
-      if (auth) {
-        await fbSignOut(auth);
+      const fbAuth = auth || getFirebaseAuth();
+      if (fbAuth) {
+        await fbSignOut(fbAuth);
       }
     } catch (err) {
       console.error('Firebase signOut error:', err);
