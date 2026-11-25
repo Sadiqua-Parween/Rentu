@@ -5,6 +5,7 @@ dotenv.config();
 
 import { pool, query } from '../src/config/db';
 import { createApp } from '../src/app';
+import { runMigrations } from '../src/db/migrate';
 import jwt from 'jsonwebtoken';
 import { ENV } from '../src/config/env';
 
@@ -42,6 +43,9 @@ async function runConcurrencyTests() {
   }
 
   try {
+    // Wait for migrations to finish completely before creating test records
+    await runMigrations().catch(() => {});
+
     // 1. Create Test Users
     const lenderRes = await query(
       `INSERT INTO users (email, name, role) 
